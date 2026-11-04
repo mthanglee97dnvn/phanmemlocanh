@@ -53,17 +53,25 @@ jobs:
 
       - name: Kiểm tra gói đóng sẵn (selftest + chạy thử máy chủ)
         run: |
+          set +e
           ./dist/PhotoSiftCore/PhotoSiftCore.exe --selftest
-          export PHOTOSIFT_HOME="$RUNNER_TEMP/psh" PHOTOSIFT_APPDIR="$PWD/app" PHOTOSIFT_ONLINE=1
+          export PHOTOSIFT_HOME="$(cygpath -w "$RUNNER_TEMP")\\psh"
+          export PHOTOSIFT_APPDIR="$(cygpath -w "$PWD")\\app"
+          export PHOTOSIFT_ONLINE=1 PYTHONUTF8=1
+          echo "HOME=$PHOTOSIFT_HOME  APPDIR=$PHOTOSIFT_APPDIR"
+          ls "$PHOTOSIFT_APPDIR/models"
           ./dist/PhotoSiftCore/PhotoSiftCore.exe --no-browser --port 8799 > smoke.log 2>&1 &
+          OK=0
           for i in $(seq 1 40); do
-            [ -f "$PHOTOSIFT_HOME/running.json" ] && break
+            if [ -f "$RUNNER_TEMP/psh/running.json" ]; then OK=1; break; fi
             sleep 1
           done
-          cat "$PHOTOSIFT_HOME/running.json"
-          cat smoke.log | tail -20
-          test -f "$PHOTOSIFT_HOME/running.json"
-          taskkill //F //IM PhotoSiftCore.exe || true
+          echo "---- smoke.log ----"
+          cat smoke.log
+          echo "---- hết log ----"
+          taskkill //F //IM PhotoSiftCore.exe
+          if [ "$OK" != "1" ]; then echo "May chu khong khoi dong duoc"; exit 1; fi
+          echo "May chu khoi dong OK"
 
       - name: Biên dịch launcher và bộ gỡ cài đặt
         working-directory: build
