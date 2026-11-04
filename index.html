@@ -1,0 +1,703 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<script>try{document.documentElement.dataset.theme=localStorage.getItem('ps_theme')||'glass'}catch(e){document.documentElement.dataset.theme='glass'}</script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="google" content="notranslate">
+<meta http-equiv="Content-Language" content="vi">
+<title>MTHANGLEE PhotoSift</title>
+<link rel="icon" type="image/png" href="/favicon.png">
+<style>
+:root{--tx:#f4f8ff;--mut:#a9c0da;--acc:#ffa31a;--acc2:#35c6ff;--red:#ef5350;--yel:#fbc02d;--grn:#43a047;--blu:#1e88e5;--pur:#ab47bc;--sz:170px;
+  --panel:rgba(8,30,60,.46);--panel2:rgba(255,255,255,.13);--line:rgba(255,255,255,.24);--sel:rgba(53,198,255,.30);--inset:rgba(4,14,30,.58);--field:rgba(4,14,30,.45);
+  --blur:blur(18px) saturate(150%);--r:22px;--shadow:0 10px 34px rgba(2,12,30,.35),inset 0 1px 0 rgba(255,255,255,.28);--modal:rgba(8,30,60,.82);
+  --pri:linear-gradient(180deg,#ffc24a,#ff8a1f);--pri-tx:#2b1500;--pri-sh:0 4px 14px rgba(255,138,31,.45)}
+html[data-theme=neutral]{--tx:#e7e8ea;--mut:#8b9098;--acc:#4da3ff;--panel:#1e2024;--panel2:#25282d;--line:#33363c;--sel:#1d3550;--inset:#0c0d0f;--field:#101114;
+  --blur:none;--r:12px;--shadow:none;--modal:#1e2024;--pri:#4da3ff;--pri-tx:#04121f;--pri-sh:none}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;color:var(--tx);font:13px/1.45 Poppins,"Segoe UI Variable Display","Segoe UI",system-ui,-apple-system,Roboto,sans-serif;overflow:hidden}
+body{background:
+  radial-gradient(900px 620px at -6% -12%,rgba(255,140,52,.78),transparent 62%),
+  radial-gradient(820px 620px at 106% 108%,rgba(255,176,24,.72),transparent 62%),
+  radial-gradient(900px 700px at 82% -6%,rgba(40,200,255,.55),transparent 62%),
+  linear-gradient(135deg,#071a30 0%,#0b3b66 46%,#1286c4 100%) fixed}
+html[data-theme=neutral] body{background:#16171a}
+#deco{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none}
+html[data-theme=neutral] #deco{display:none}
+#deco .cb{position:absolute;filter:drop-shadow(0 14px 18px rgba(2,12,30,.35))}
+button,select,input{font:inherit;color:inherit}
+button{background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:6px 14px;cursor:pointer;transition:transform .12s,border-color .12s,background .12s}
+button:hover{border-color:rgba(255,255,255,.6);transform:translateY(-1px)}
+button.pri{background:var(--pri);border-color:transparent;color:var(--pri-tx);font-weight:700;box-shadow:var(--pri-sh)}
+button:disabled{opacity:.4;cursor:default;transform:none}
+input[type=text],input[type=number],select{background:var(--field);border:1px solid var(--line);border-radius:12px;padding:6px 10px}
+select option{background:#0b2a4a;color:#fff}
+input[type=range]{accent-color:var(--acc)}input[type=checkbox]{accent-color:var(--acc)}
+::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:rgba(255,255,255,.25);border-radius:9px;border:2px solid transparent;background-clip:padding-box}
+#app{position:relative;z-index:1;display:grid;grid-template-rows:auto auto 1fr auto;height:100%;padding:12px 14px;gap:10px}
+.glass,.bar,#side,#gridwrap,#status,#info{background:var(--panel);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
+.bar{display:flex;gap:8px;align-items:center;padding:8px 16px;flex-wrap:wrap;border-radius:999px}
+.bar .sp{flex:1}
+.bar{gap:6px}#fFilter{max-width:180px}#fSort{max-width:150px}#fSize{width:100px}
+.logo{height:30px;width:auto;display:block;margin-right:6px}
+#prog{height:3px;margin:-6px 20px -4px;border-radius:3px;background:transparent;overflow:hidden}#prog i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--acc2),var(--acc));transition:width .3s}
+#main{display:grid;grid-template-columns:230px 1fr 300px;min-height:0;gap:10px}
+#main.noinfo{grid-template-columns:230px 1fr}
+#main.noinfo #info{display:none}
+#side{overflow:auto;padding:12px 10px}
+#side h4{margin:4px 6px 10px;color:var(--mut);font-weight:600;text-transform:uppercase;font-size:11px;letter-spacing:.9px;display:flex;justify-content:space-between;align-items:center}
+.person{display:flex;gap:10px;align-items:center;padding:6px;border-radius:16px;cursor:pointer;border:1px solid transparent}
+.person:hover{background:var(--panel2)}.person.on{background:var(--sel);border-color:var(--acc2)}
+.person img{width:40px;height:40px;border-radius:50%;object-fit:cover;background:#000;border:2px solid rgba(255,255,255,.55)}
+.person .n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}.person .c{color:var(--mut);font-size:11px;font-weight:400}
+#gridwrap{overflow:auto;padding:12px;min-width:0}
+#grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--sz),1fr));gap:10px}
+.cell{position:relative;border-radius:18px;border:1px solid rgba(255,255,255,.16);padding:5px;background:rgba(255,255,255,.09);cursor:default;user-select:none;transition:background .12s,border-color .12s}
+.cell:hover{background:rgba(255,255,255,.16)}
+.cell.sel{background:var(--sel);border-color:var(--acc2)}.cell.cur{border-color:var(--acc);box-shadow:0 0 0 2px var(--acc),0 6px 20px rgba(255,163,26,.35)}
+.im{position:relative;aspect-ratio:1/1;background:var(--inset);border-radius:13px;overflow:hidden}
+.im img{width:100%;height:100%;object-fit:contain;display:block}
+.cell.rej .im img{opacity:.28;filter:grayscale(1)}
+.cell .nm{font-size:11px;color:var(--mut);padding:5px 6px 1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lab{position:absolute;left:0;top:0;bottom:0;width:6px}
+.l-red{background:var(--red)}.l-yellow{background:var(--yel)}.l-green{background:var(--grn)}.l-blue{background:var(--blu)}.l-purple{background:var(--pur)}
+.stars{position:absolute;left:10px;bottom:5px;color:#ffca28;text-shadow:0 1px 3px #000;font-size:13px;letter-spacing:1px}
+.flags{position:absolute;right:5px;top:5px;display:flex;flex-direction:column;gap:3px;align-items:flex-end}
+.chip{font-size:10px;font-weight:600;padding:2px 7px;border-radius:999px;background:rgba(4,14,30,.72);color:#fff}
+.chip.blur{background:#d9661a}.chip.dark{background:#4b647a}.chip.bright{background:#b8a01f}.chip.eyes{background:#8a47b0}.chip.dup{background:#0c9585}
+.xmark{position:absolute;inset:0;display:none;align-items:center;justify-content:center;font-size:52px;color:var(--red);font-weight:700;pointer-events:none}
+.cell.rej .xmark{display:flex}
+.nface{position:absolute;right:6px;bottom:5px;font-size:10px;background:rgba(4,14,30,.7);padding:2px 7px;border-radius:999px}
+#status{display:flex;gap:16px;padding:7px 18px;color:var(--mut);font-size:12px;border-radius:999px}
+#empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;height:100%;color:var(--mut);text-align:center}
+#empty h2{color:var(--tx);margin:0;font-size:22px}
+.back{position:fixed;inset:0;background:rgba(2,10,24,.55);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:50}
+.modal{background:var(--modal);-webkit-backdrop-filter:blur(26px) saturate(150%);backdrop-filter:blur(26px) saturate(150%);border:1px solid var(--line);border-radius:26px;padding:22px;width:min(580px,94vw);max-height:90vh;overflow:auto;box-shadow:0 24px 70px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.25)}
+.modal h3{margin:0 0 14px;font-size:17px}.row{display:flex;gap:10px;align-items:center;margin:9px 0}.row label{flex:0 0 150px;color:var(--mut)}.row input[type=range]{flex:1}.row .v{width:46px;text-align:right;font-variant-numeric:tabular-nums}
+.modal .btns{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
+.hint{color:var(--mut);font-size:12px}.ok{color:#8be3a0}.warn{color:#ffc15e}
+.dirs{border:1px solid var(--line);border-radius:16px;height:260px;overflow:auto;background:var(--field)}
+.dirs div{padding:7px 12px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.07)}.dirs div:hover{background:var(--panel2)}
+#viewer{--strip:116px;position:fixed;inset:0;background:linear-gradient(135deg,#040b16,#07213a 60%,#0a2f52);z-index:40;display:none;grid-template-columns:1fr 290px;grid-template-rows:minmax(0,1fr) auto}
+#viewer.nostrip{--strip:0px}
+html[data-theme=neutral] #viewer{background:#0b0c0e}
+#viewer.on{display:grid}
+#vstage{position:relative;overflow:auto;display:flex;grid-row:1;grid-column:1;min-height:0}
+#vinfo{grid-row:1;grid-column:2;min-height:0}
+#vwrap{position:relative;margin:auto;line-height:0}
+#vwrap img{display:block;max-width:calc(100vw - 290px);max-height:calc(100vh - var(--strip));cursor:zoom-in}
+#vstage.zoom #vwrap img{max-width:none;max-height:none;cursor:zoom-out}
+#strip{grid-row:2;grid-column:1/3;height:116px;background:rgba(0,0,0,.42);border-top:1px solid var(--line);overflow-x:auto;overflow-y:hidden;position:relative}
+#viewer.nostrip #strip{display:none}
+#stripin{position:relative;height:100%}
+.sc{position:absolute;top:6px;width:92px;height:102px;cursor:pointer;border-radius:8px;overflow:hidden;border:2px solid transparent;background:rgba(255,255,255,.05)}
+.sc:hover{border-color:rgba(255,255,255,.35)}.sc.cur{border-color:#ffca28;background:rgba(255,202,40,.14)}
+.sc img{width:100%;height:78px;object-fit:contain;display:block;background:rgba(0,0,0,.35)}
+.sc .nm{font-size:10px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--mut);padding:2px 2px 0}
+.sc .rt{position:absolute;top:2px;left:4px;font-size:10px;color:#ffca28;text-shadow:0 0 3px #000;letter-spacing:-1px}
+.sc .lb{position:absolute;top:4px;right:4px;width:9px;height:9px;border-radius:50%;box-shadow:0 0 0 1px rgba(0,0,0,.5)}
+.sc.rej img{opacity:.3}.sc.rej:after{content:'✕';position:absolute;left:0;right:0;top:22px;text-align:center;color:#ff6b6b;font-size:26px;line-height:1}
+.fbox{position:absolute;border:2px solid var(--acc2);border-radius:6px;pointer-events:none}
+.fbox span{position:absolute;top:100%;left:0;font-size:11px;background:var(--acc2);color:#04121f;padding:0 6px;line-height:1.6;white-space:nowrap;border-radius:0 0 6px 6px}
+.fbox.shut{border-color:#ba68c8}.fbox.shut span{background:#ba68c8}
+#vinfo{background:var(--panel);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border-left:1px solid var(--line);padding:16px;overflow:auto;line-height:1.6}
+#vinfo h4{margin:0 0 4px;word-break:break-all}.kv{display:flex;justify-content:space-between;color:var(--mut)}.kv b{color:var(--tx);font-weight:500}
+#vinfo .st{font-size:24px;color:#ffca28;cursor:pointer;letter-spacing:2px;margin:10px 0}
+.lbtn{display:inline-block;width:22px;height:22px;border-radius:50%;margin-right:6px;cursor:pointer;border:2px solid transparent}.lbtn.on{border-color:#fff}
+.kbd{font-family:ui-monospace,monospace;background:var(--field);border:1px solid var(--line);border-radius:6px;padding:0 6px;font-size:11px}
+#toast{position:fixed;bottom:52px;left:50%;transform:translateX(-50%);background:rgba(4,14,30,.88);border:1px solid var(--line);padding:9px 18px;border-radius:999px;z-index:99;display:none}
+.sec{margin-bottom:8px;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:rgba(255,255,255,.06)}
+.sec .sh{display:flex;align-items:center;gap:8px;padding:7px 12px;cursor:pointer;font-weight:600;font-size:12px;letter-spacing:.4px;background:rgba(255,255,255,.10);user-select:none}
+.sec .sh:before{content:'▾';opacity:.8}.sec.col .sh:before{content:'▸'}.sec.col .sb{display:none}
+.sec .sb{padding:10px 12px}
+.ex{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:12px;margin:0}.ex dt{color:var(--mut)}.ex dd{margin:0;text-align:right;word-break:break-word;min-height:1em}
+canvas.hist{width:100%;height:120px;display:block;border-radius:10px;background:rgba(4,14,30,.62)}
+.hstat{display:flex;justify-content:space-between;font-size:11px;color:var(--mut);margin-top:6px}
+.hs label{display:block;padding:3px 0;cursor:pointer}
+#info{overflow:auto;padding:10px}
+#vwrap #vmask{position:absolute;left:0;top:0;width:100%;height:100%;max-width:none;max-height:none;pointer-events:none;display:none;cursor:default}
+</style>
+</head>
+<body>
+<div id="deco" aria-hidden="true">
+<svg width="0" height="0" style="position:absolute"><defs>
+ <linearGradient id="cT" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c9f4ff"/><stop offset="1" stop-color="#52c9ff"/></linearGradient>
+ <linearGradient id="cL" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#31aef0"/><stop offset="1" stop-color="#1a7fcb"/></linearGradient>
+ <linearGradient id="cR" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1c90dc"/><stop offset="1" stop-color="#0f62ac"/></linearGradient>
+ <linearGradient id="oT" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffdc8a"/><stop offset="1" stop-color="#ffb02e"/></linearGradient>
+ <linearGradient id="oL" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffa52e"/><stop offset="1" stop-color="#f27b14"/></linearGradient>
+ <linearGradient id="oR" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f78c20"/><stop offset="1" stop-color="#d9660a"/></linearGradient>
+ <symbol id="cube" viewBox="0 0 100 115"><polygon points="50,0 100,28 50,57 0,28" fill="url(#cT)"/><polygon points="0,28 50,57 50,115 0,86" fill="url(#cL)"/><polygon points="100,28 50,57 50,115 100,86" fill="url(#cR)"/></symbol>
+ <symbol id="ocube" viewBox="0 0 100 115"><polygon points="50,0 100,28 50,57 0,28" fill="url(#oT)"/><polygon points="0,28 50,57 50,115 0,86" fill="url(#oL)"/><polygon points="100,28 50,57 50,115 100,86" fill="url(#oR)"/></symbol>
+</defs></svg>
+ <svg class="cb" viewBox="0 0 100 115" style="left:-40px;top:70px;width:230px;transform:rotate(-10deg)"><use href="#cube"/></svg>
+ <svg class="cb" viewBox="0 0 100 115" style="left:9%;top:-50px;width:120px;opacity:.9"><use href="#ocube"/></svg>
+ <svg class="cb" viewBox="0 0 100 115" style="right:-30px;top:-20px;width:210px;transform:rotate(12deg)"><use href="#cube"/></svg>
+ <svg class="cb" viewBox="0 0 100 115" style="right:7%;top:42%;width:90px;filter:blur(1.5px)"><use href="#ocube"/></svg>
+ <svg class="cb" viewBox="0 0 100 115" style="left:3%;bottom:-40px;width:200px;transform:rotate(8deg)"><use href="#ocube"/></svg>
+ <svg class="cb" viewBox="0 0 100 115" style="left:36%;bottom:-70px;width:150px"><use href="#cube"/></svg>
+ <svg class="cb" viewBox="0 0 100 115" style="right:-24px;bottom:-30px;width:240px;transform:rotate(-8deg)"><use href="#cube"/></svg>
+</div>
+<div id="app">
+  <div class="bar">
+    <img class="logo" src="/logo.png" alt="MTHANGLEE STUDIO">
+    <button id="bOpen" class="pri">📁 Mở thư mục</button>
+    <label class="hint"><input type="checkbox" id="cRec" checked> gồm thư mục con</label>
+    <span class="sp"></span>
+    <select id="fFilter" title="Lọc"></select>
+    <select id="fSort" title="Sắp xếp">
+      <option value="name">Tên file</option><option value="time">Thời gian chụp</option>
+      <option value="score">Điểm chất lượng ↓</option><option value="sharp">Độ nét ↓</option>
+    </select>
+    <input type="range" id="fSize" min="100" max="320" value="170" title="Cỡ ảnh">
+    <button id="bCull">✨ Tự động lọc</button>
+    <button id="bUndo" disabled>↶ Hoàn tác</button>
+    <button id="bExport">📤 Xuất ảnh</button>
+    <button id="bInfo" title="Bật/tắt khung thông số ảnh">ℹ️</button>
+    <button id="bTheme" title="Đổi giao diện: Kính / Tối trung tính (xem màu ảnh chuẩn)">🎨</button>
+    <button id="bHelp">?</button>
+  </div>
+  <div id="prog"><i></i></div>
+  <div id="main">
+    <div id="side">
+      <h4>Người <button id="bFaceCfg" title="Độ nhạy nhận diện" style="padding:0 6px">⚙</button></h4>
+      <div id="people"></div>
+      <div class="hint" id="noPeople" style="padding:6px;display:none">Chưa nhận diện được khuôn mặt nào.</div>
+    </div>
+    <div id="gridwrap"><div id="grid"></div></div>
+    <aside id="info"><div id="infobody"></div></aside>
+  </div>
+  <div id="status"><span id="sCount"></span><span id="sSel"></span><span id="sCur" style="flex:1;text-align:right"></span><span id="sNet" title="Nhấp để kiểm tra lại kết nối mạng" style="cursor:pointer;margin-left:14px"></span></div>
+</div>
+
+<div id="viewer">
+  <div id="vstage"><div id="vwrap"><img id="vimg" alt=""><img id="vmask" alt=""><div id="vfaces"></div></div></div>
+  <div id="vinfo"></div>
+  <div id="strip"><div id="stripin"></div></div>
+</div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const FLAG = {blur:'Mờ', dark:'Tối', bright:'Sáng quá', eyes:'Nhắm mắt?', dup:'Trùng'};
+const LABELS = ['red','yellow','green','blue','purple'];
+const LABEL_NAME = {red:'Đỏ',yellow:'Vàng',green:'Xanh lá',blue:'Xanh dương',purple:'Tím'};
+const FILTERS = [['all','Tất cả'],['unrated','Chưa chấm'],['r1','★ 1+'],['r2','★★ 2+'],['r3','★★★ 3+'],['r4','★★★★ 4+'],['r5','★★★★★ 5'],
+  ['rej','✕ Đã loại'],['norej','Không bị loại'],['issues','⚠ Có vấn đề (mọi loại)'],['blur','Mờ'],['dark','Tối'],['bright','Sáng quá'],['eyes','Nhắm mắt?'],['dup','Trùng lặp (bản kém hơn)'],
+  ['best','Tốt nhất trong nhóm trùng'],['face','Có khuôn mặt'],['noface','Không có khuôn mặt'],['raw','Chỉ file RAW (ARW, CR2, NEF…)'],['jpg','Chỉ JPG / ảnh thường']];
+const RAWRE=/\.(arw|srf|sr2|cr2|cr3|nef|nrw|dng|orf|raf|rw2|pef|srw|3fr|erf|kdc|mrw|x3f)$/i;
+const S = {photos:[], by:new Map(), view:[], people:[], sel:new Set(), cur:null, anchor:null, filter:'all', sort:'name', person:null,
+           status:{}, undo:[], viewer:false, boxes:true, zoom:false, lastDone:-1, settings:{}};
+
+async function api(path, body){
+  const r = await fetch(path, body===undefined ? {} : {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+  const j = await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+function toast(msg, ms=2200){ const t=$('#toast'); t.textContent=msg; t.style.display='block'; clearTimeout(toast.t); toast.t=setTimeout(()=>t.style.display='none', ms); }
+function pname(id){ const p = S.people.find(p=>p.id===id); return p && p.name ? p.name : 'Người '+id; }
+
+/* ---------- modal ---------- */
+function modal(html){
+  const b = document.createElement('div'); b.className='back';
+  b.innerHTML = `<div class="modal">${html}</div>`;
+  b.addEventListener('mousedown', e=>{ if(e.target===b) b.remove(); });
+  document.body.appendChild(b);
+  b.close = ()=>b.remove();
+  return b;
+}
+document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ const m=document.querySelector('.back'); if(m){ m.remove(); e.stopPropagation(); } } }, true);
+
+/* ---------- dữ liệu ---------- */
+async function loadPhotos(){
+  S.photos = await api('/api/photos');
+  S.by = new Map(S.photos.map(p=>[p.id,p]));
+  for(const id of [...S.sel]) if(!S.by.has(id)) S.sel.delete(id);
+  applyView();
+}
+async function loadPeople(){ S.people = await api('/api/people'); renderPeople(); }
+function matchFilter(p){
+  const f=S.filter;
+  switch(f){
+    case 'all': return true; case 'unrated': return p.rating===0;
+    case 'rej': return p.rating===-1; case 'norej': return p.rating>=0;
+    case 'issues': return p.flags.length>0;
+    case 'raw': return RAWRE.test(p.name); case 'jpg': return !RAWRE.test(p.name);
+    case 'best': return p.grp>0 && p.best; case 'face': return p.nf>0; case 'noface': return p.nf===0;
+    case 'blur': case 'dark': case 'bright': case 'eyes': case 'dup': return p.flags.includes(f);
+    default: if(f[0]==='r') return p.rating>=+f.slice(1); return true;
+  }
+}
+function applyView(){
+  let v = S.photos.filter(p=>matchFilter(p) && (S.person===null || p.people.includes(S.person)));
+  const cmp = {name:(a,b)=>a.dir.localeCompare(b.dir)||a.name.localeCompare(b.name,undefined,{numeric:true}),
+               time:(a,b)=>(a.taken||0)-(b.taken||0)||a.name.localeCompare(b.name),
+               score:(a,b)=>b.score-a.score, sharp:(a,b)=>(b.nf?b.fsharp:b.sharp)-(a.nf?a.fsharp:a.sharp)}[S.sort];
+  v.sort(cmp); S.view=v;
+  if(S.cur===null || !v.some(p=>p.id===S.cur)) S.cur = v.length ? v[0].id : null;
+  renderGrid(); scheduleInfo();
+}
+
+/* ---------- lưới ---------- */
+const cells = new Map();
+function cellHTML(p){
+  const flags = p.an===false ? '<span class="chip" style="opacity:.7">…</span>' : p.flags.map(f=>`<span class="chip ${f}">${FLAG[f]}</span>`).join('');
+  const grp = p.grp ? `<span class="chip" style="background:rgba(0,121,107,.85)">⧉${p.grp}${p.best?' ★':''}</span>` : '';
+  return `<div class="im"><img loading="lazy" src="/thumb/${p.id}.jpg?v=${p.tv}" alt=""><div class="lab ${p.label?'l-'+p.label:''}"></div>
+    <div class="flags">${flags}${grp}</div><div class="xmark">✕</div>
+    <div class="stars">${p.rating>0?'★'.repeat(p.rating):''}</div>${p.nf?`<span class="nface">👤${p.nf}</span>`:''}</div>
+    <div class="nm" title="${esc(p.name)}">${esc(p.name)}</div>`;
+}
+const sigs = new Map();
+const sigOf = p => [p.tv,p.rating,p.label,p.flags.join(),p.grp,p.best,p.nf,p.an,p.people.join()].join('|');
+function renderGrid(){
+  const wrap=$('#gridwrap');
+  if(!S.photos.length){
+    cells.clear(); sigs.clear();
+    wrap.innerHTML = `<div id="empty"><h2>${S.status.state==='scanning'?'Đang đọc ảnh…':(S.status.state==='error'?'Không mở được thư mục':'Chưa có ảnh nào')}</h2>${S.status.state==='error'?`<div style="color:#ffb3b3;max-width:520px;margin:0 auto 10px;word-break:break-word">${esc(S.status.message||'')}</div>`:''}${S.status.state==='done'&&S.status.root&&!S.photos.length?`<div style="color:#ffd9a0;margin-bottom:8px">Thư mục «${esc(S.status.root)}» không có ảnh nào (JPG/PNG/RAW/HEIC).</div>`:''}<div>Mở một thư mục ảnh để bắt đầu.<br>PhotoSift sẽ tự phát hiện ảnh mờ, tối, nhắm mắt, trùng lặp<br>và nhóm ảnh theo từng người.</div><button class="pri" onclick="pickFolder()">📁 Mở thư mục</button></div>`;
+    renderStatus(); return;
+  }
+  if(!$('#grid')){ cells.clear(); sigs.clear(); wrap.innerHTML='<div id="grid"></div>'; }
+  const grid=$('#grid'); const want=new Set(S.view.map(p=>p.id));
+  for(const [id,d] of [...cells]) if(!want.has(id)){ d.remove(); cells.delete(id); sigs.delete(id); }
+  let ref=grid.firstChild;
+  for(const p of S.view){
+    let d=cells.get(p.id); const sg=sigOf(p);
+    if(!d){ d=document.createElement('div'); d.className='cell'; d.dataset.id=p.id; d.innerHTML=cellHTML(p); cells.set(p.id,d); sigs.set(p.id,sg); }
+    else if(sigs.get(p.id)!==sg){ d.innerHTML=cellHTML(p); sigs.set(p.id,sg); }
+    if(d===ref) ref=ref.nextSibling; else grid.insertBefore(d,ref);
+    decorate(p.id);
+  }
+  renderStatus();
+}
+function decorate(id){
+  const d=cells.get(id), p=S.by.get(id); if(!d||!p) return;
+  d.classList.toggle('sel', S.sel.has(id)); d.classList.toggle('cur', S.cur===id); d.classList.toggle('rej', p.rating===-1);
+}
+function refreshCell(id){ const d=cells.get(id), p=S.by.get(id); if(d&&p){ d.innerHTML=cellHTML(p); sigs.set(id,sigOf(p)); decorate(id);} }
+function setCur(id, {extend=false, toggle=false, scroll=true}={}){
+  const old=S.cur; S.cur=id;
+  if(extend && S.anchor!==null){
+    const a=S.view.findIndex(p=>p.id===S.anchor), b=S.view.findIndex(p=>p.id===id);
+    const [lo,hi]=a<b?[a,b]:[b,a]; const prev=[...S.sel]; S.sel=new Set(S.view.slice(lo,hi+1).map(p=>p.id)); prev.forEach(decorate);
+    S.sel.forEach(decorate);
+  } else if(toggle){ S.sel.has(id)?S.sel.delete(id):S.sel.add(id); S.anchor=id; }
+  else { const prev=[...S.sel]; S.sel=new Set([id]); S.anchor=id; prev.forEach(decorate); }
+  decorate(old); decorate(id);
+  if(scroll){ const d=cells.get(id); if(d) d.scrollIntoView({block:'nearest'}); }
+  renderStatus(); if(S.viewer) showViewer(); scheduleInfo();
+}
+$('#gridwrap').addEventListener('click', e=>{
+  const c=e.target.closest('.cell'); if(!c) return;
+  setCur(+c.dataset.id, {extend:e.shiftKey, toggle:e.ctrlKey||e.metaKey, scroll:false});
+});
+$('#gridwrap').addEventListener('dblclick', e=>{ const c=e.target.closest('.cell'); if(c){ setCur(+c.dataset.id,{scroll:false}); openViewer(); } });
+
+function renderStatus(){
+  const st=S.status||{};
+  $('#sCount').textContent = `${S.view.length}/${S.photos.length} ảnh` + (st.state==='done'&&st.timing&&st.timing.all_s?` • ⏱ thumbnail ${st.timing.thumb_s}s · đọc ảnh ${st.timing.read_s}s · tổng ${st.timing.all_s}s`:'')+
+    (st.state==='scanning'?` • thumbnail ${Math.max(st.thumbs,st.quick||0)}/${st.total} • phân tích ${st.done}/${st.total} (chạy nền — bạn có thể chấm ảnh ngay)`:'');
+  $('#sSel').textContent = S.sel.size>1 ? `${S.sel.size} đã chọn` : '';
+  const net=$('#sNet'); net.innerHTML = st.online ? '<span class="ok">● Trực tuyến</span>' : '<span class="warn">● Ngoại tuyến — đang khoá lọc tối/sáng/nhắm mắt</span>';
+  const p=S.by.get(S.cur);
+  $('#sCur').textContent = p ? `${p.name} • ${p.w}×${p.h} • điểm ${p.score} • độ nét ${p.nf?p.fsharp+' (mặt)':p.sharp}` : '';
+}
+
+/* ---------- người ---------- */
+function renderPeople(){
+  const box=$('#people'); box.innerHTML='';
+  $('#noPeople').style.display = S.people.length?'none':'block';
+  for(const p of S.people){
+    const d=document.createElement('div'); d.className='person'+(S.person===p.id?' on':'');
+    d.innerHTML=`<img src="/face/${p.face}.jpg" alt=""><div class="n">${esc(p.name||'Người '+p.id)}<div class="c">${p.n} ảnh</div></div>`;
+    d.onclick=()=>{ S.person = S.person===p.id?null:p.id; renderPeople(); applyView(); };
+    d.ondblclick=()=>personModal(p);
+    d.title='Nhấp: lọc • Nhấp đúp: đổi tên / gộp';
+    box.appendChild(d);
+  }
+}
+function personModal(p){
+  const others=S.people.filter(o=>o.id!==p.id);
+  const m=modal(`<h3>Người ${p.id}</h3><div class="row"><label>Tên</label><input type="text" id="pn" style="flex:1" value="${esc(p.name||'')}" placeholder="Nhập tên…"></div>
+   <div class="row"><label>Gộp vào người khác</label><select id="pm" style="flex:1"><option value="">— chọn —</option>${others.map(o=>`<option value="${o.id}">${esc(o.name||'Người '+o.id)} (${o.n})</option>`).join('')}</select><button id="pgo">Gộp</button></div>
+   <div class="hint">Tên được lưu cho các thư mục khác và ghi vào từ khoá XMP khi xuất ảnh.</div>
+   <div class="btns"><button onclick="this.closest('.back').remove()">Đóng</button><button class="pri" id="psave">Lưu tên</button></div>`);
+  m.querySelector('#pn').focus();
+  const save=async()=>{ await api('/api/person/rename',{id:p.id,name:m.querySelector('#pn').value}); m.close(); await loadPeople(); await loadPhotos(); };
+  m.querySelector('#psave').onclick=save; m.querySelector('#pn').onkeydown=e=>{ if(e.key==='Enter') save(); };
+  m.querySelector('#pgo').onclick=async()=>{ const d=+m.querySelector('#pm').value; if(!d) return;
+    await api('/api/person/merge',{src:p.id,dst:d}); if(S.person===p.id) S.person=d; m.close(); await loadPeople(); await loadPhotos(); toast('Đã gộp'); };
+}
+$('#bFaceCfg').onclick=()=>{
+  const m=modal(`<h3>Độ nhạy nhận diện người</h3><div class="row"><label>Ngưỡng giống nhau</label><input type="range" id="th" min="0.25" max="0.6" step="0.01" value="${S.settings.face_threshold}"><span class="v" id="thv"></span></div>
+   <div class="hint">Cao hơn → tách thành nhiều người hơn (ít gộp nhầm). Thấp hơn → gộp mạnh tay hơn.<br>Chỉ gom lại các khuôn mặt thuộc người <b>chưa đặt tên</b>; người đã đặt tên được giữ nguyên.</div>
+   <div class="btns"><button onclick="this.closest('.back').remove()">Đóng</button><button class="pri" id="go">Gom lại</button></div>`);
+  const th=m.querySelector('#th'), v=m.querySelector('#thv'); v.textContent=(+th.value).toFixed(2); th.oninput=()=>v.textContent=(+th.value).toFixed(2);
+  m.querySelector('#go').onclick=async()=>{ await api('/api/recluster',{threshold:+th.value}); S.settings.face_threshold=+th.value; m.close(); S.person=null; await loadPeople(); await loadPhotos(); toast('Đã gom lại'); };
+};
+
+/* ---------- chấm điểm / nhãn + hoàn tác ---------- */
+function targets(){ if(S.viewer) return S.cur!==null?[S.cur]:[]; if(S.sel.size && S.sel.has(S.cur)) return [...S.sel]; return S.cur!==null?[S.cur]:[]; }
+async function rate(ids, r, {noUndo=false}={}){
+  if(!ids.length) return;
+  const old=ids.map(i=>[i,S.by.get(i).rating]);
+  ids.forEach(i=>S.by.get(i).rating=r);
+  await api('/api/rate',{ids,rating:r});
+  if(!noUndo){ S.undo.push({t:'rate',old}); $('#bUndo').disabled=false; }
+  afterChange(ids);
+}
+async function label(ids, l){
+  if(!ids.length) return;
+  const old=ids.map(i=>[i,S.by.get(i).label]);
+  ids.forEach(i=>S.by.get(i).label=l);
+  await api('/api/label',{ids,label:l});
+  S.undo.push({t:'label',old}); $('#bUndo').disabled=false; afterChange(ids);
+}
+function afterChange(ids){
+  if(S.filter==='all'){ ids.forEach(refreshCell); renderStatus(); } else applyView();
+  if(S.viewer) showViewer();
+}
+async function undo(){
+  const u=S.undo.pop(); if(!u) return;
+  $('#bUndo').disabled=!S.undo.length;
+  if(u.t==='rate'){ u.old.forEach(([i,r])=>{ if(S.by.has(i)) S.by.get(i).rating=r; }); await api('/api/rate',{pairs:u.old.map(([i,r])=>[i,r])}); }
+  else { const g={}; u.old.forEach(([i,l])=>{ if(S.by.has(i)) S.by.get(i).label=l; (g[l]=g[l]||[]).push(i); });
+         for(const l in g) await api('/api/label',{ids:g[l],label:l}); }
+  applyView(); if(S.viewer) showViewer(); toast('Đã hoàn tác');
+}
+$('#bUndo').onclick=undo;
+
+/* ---------- dải thumbnail dưới trình xem ---------- */
+const SC_W=96; let stripOn=true; try{ stripOn=localStorage.getItem('ps_strip')!=='0'; }catch(e){}
+let stripLast=-1;
+function renderStrip(center){
+  const v=$('#viewer'); v.classList.toggle('nostrip',!stripOn); if(!stripOn||!S.viewer) return;
+  const st=$('#strip'), inn=$('#stripin'); const n=S.view.length;
+  inn.style.width=(n*SC_W+8)+'px';
+  const ix=S.view.findIndex(p=>p.id===S.cur);
+  if(center && ix>=0){ st.scrollLeft=Math.max(0, ix*SC_W - st.clientWidth/2 + SC_W/2); }
+  const lo=Math.max(0,Math.floor(st.scrollLeft/SC_W)-4), hi=Math.min(n-1,Math.ceil((st.scrollLeft+st.clientWidth)/SC_W)+4);
+  let html='';
+  for(let i=lo;i<=hi;i++){ const p=S.view[i];
+    html+=`<div class="sc${p.id===S.cur?' cur':''}${p.rating<0?' rej':''}" data-id="${p.id}" style="left:${4+i*SC_W}px" title="${esc(p.name)}"><img loading="lazy" src="/thumb/${p.id}.jpg?v=${p.tv}" alt="">`+
+      (p.rating>0?`<span class="rt">${'★'.repeat(p.rating)}</span>`:'')+(p.label?`<span class="lb l-${p.label}"></span>`:'')+`<div class="nm">${esc(p.name)}</div></div>`; }
+  inn.innerHTML=html;
+}
+{ const st=$('#strip'); let raf=0;
+  st.addEventListener('scroll',()=>{ if(raf) return; raf=requestAnimationFrame(()=>{ raf=0; renderStrip(false); }); });
+  st.addEventListener('wheel',e=>{ if(Math.abs(e.deltaY)>Math.abs(e.deltaX)){ st.scrollLeft+=e.deltaY; e.preventDefault(); } },{passive:false});
+  $('#stripin').addEventListener('click',e=>{ const c=e.target.closest('.sc'); if(c) setCur(+c.dataset.id,{scroll:false}); });
+  window.addEventListener('resize',()=>renderStrip(false)); }
+
+/* ---------- trình xem ---------- */
+function openViewer(){ if(S.cur===null) return; S.viewer=true; S.zoom=false; $('#viewer').classList.add('on'); showViewer(); }
+function toggleStrip(){ stripOn=!stripOn; try{ localStorage.setItem('ps_strip',stripOn?'1':'0'); }catch(e){} renderStrip(true); if(S.viewer) showViewer(); toast(stripOn?'Bật dải thumbnail':'Tắt dải thumbnail (phím T để bật lại)'); }
+function closeViewer(){ S.viewer=false; updateMask(); $('#viewer').classList.remove('on'); if(S.cur!==null){ const d=cells.get(S.cur); d&&d.scrollIntoView({block:'nearest'}); } }
+let vTok=0;
+async function showViewer(){
+  const p=S.by.get(S.cur); if(!p){ closeViewer(); return; }
+  const tok=++vTok; const img=$('#vimg'); $('#vstage').classList.toggle('zoom',S.zoom);
+  const src = S.zoom ? `/api/preview?id=${p.id}&s=0` : `/api/preview?id=${p.id}&s=2000`;
+  if(img.dataset.src!==src){ img.dataset.src=src; img.src=`/thumb/${p.id}.jpg?v=${p.tv}`; const big=new Image(); big.onload=()=>{ if(tok===vTok && img.dataset.src===src) img.src=src; }; big.src=src; }
+  const ix=S.view.findIndex(x=>x.id===p.id);
+  for(const o of [S.view[ix+1],S.view[ix-1]]) if(o){ const pre=new Image(); pre.src=`/api/preview?id=${o.id}&s=2000`; }
+  renderInfo(p, ix); loadBoxes(p, tok); updateMask(); renderStrip(true);
+}
+$('#vimg').addEventListener('click', e=>{
+  const img=e.target; const r=img.getBoundingClientRect(); const fx=(e.clientX-r.left)/r.width, fy=(e.clientY-r.top)/r.height;
+  S.zoom=!S.zoom; showViewer();
+  if(S.zoom){ const st=$('#vstage'); const wait=()=>{ if(img.naturalWidth>1000||img.complete){ st.scrollLeft=img.offsetWidth*fx-st.clientWidth/2; st.scrollTop=img.offsetHeight*fy-st.clientHeight/2; } };
+              img.addEventListener('load',()=>setTimeout(wait,30),{once:true}); }
+});
+async function loadBoxes(p, tok){
+  const box=$('#vfaces'); box.innerHTML=''; if(!S.boxes||!p.nf) return;
+  const fs=await api('/api/faces?id='+p.id); if(tok!==vTok) return;
+  box.innerHTML = fs.map(f=>{ const shut = f.ear>=0 && f.ear<S.settings.ear;
+    return `<div class="fbox ${shut?'shut':''}" style="left:${f.x*100}%;top:${f.y*100}%;width:${f.w*100}%;height:${f.h*100}%"><span>${f.person?esc(pname(f.person)):'?'}${f.ear>=0?` • mắt ${f.ear}`:''}</span></div>`; }).join('');
+}
+function renderInfo(p, ix){
+  const d = p.taken ? new Date(p.taken*1000).toLocaleString('vi-VN') : '—';
+  $('#vinfo').innerHTML = `<h4>${esc(p.name)}</h4><div class="hint" style="margin-bottom:8px">${ix+1} / ${S.view.length}</div>
+   <div class="st" id="vstars">${[1,2,3,4,5].map(i=>`<span data-r="${i}">${i<=p.rating?'★':'☆'}</span>`).join('')} <span data-r="-1" style="font-size:18px;color:${p.rating===-1?'#ef5350':'#777'}">✕</span></div>
+   <div style="margin-bottom:10px">${LABELS.map(l=>`<span class="lbtn l-${l} ${p.label===l?'on':''}" data-l="${l}" title="${LABEL_NAME[l]}"></span>`).join('')}<span class="hint" style="cursor:pointer" data-l="">bỏ nhãn</span></div>
+   <div id="vsec"></div>
+   <div class="kv">Điểm chất lượng<b>${p.score}</b></div><div class="kv">Kích thước<b>${p.w}×${p.h}</b></div><div class="kv">Chụp lúc<b>${d}</b></div>
+   <div class="kv">Độ nét (toàn ảnh)<b>${p.sharp}</b></div><div class="kv">Độ nét (mặt)<b>${p.nf?p.fsharp:'—'}</b></div>
+   <div class="kv">Độ sáng TB<b>${(p.lum*100).toFixed(0)}%</b></div><div class="kv">Độ mở mắt (EAR)<b>${p.ear>=0?p.ear:'—'}</b></div>
+   <div style="margin:10px 0">${p.an===false?'<span class="hint">Đang phân tích…</span>':''}${p.flags.map(f=>`<span class="chip ${f}" style="margin-right:4px">${FLAG[f]}</span>`).join('')||'<span class="ok">Không có cảnh báo</span>'}</div>
+   ${p.grp?`<div class="hint">Nhóm trùng #${p.grp} ${p.best?'— <b class="ok">bản tốt nhất</b>':''}</div>`:''}
+   <div style="margin:8px 0">${p.people.map(i=>`<span class="chip" style="background:var(--sel);margin-right:4px">${esc(pname(i))}</span>`).join('')}</div>
+   <hr style="border-color:var(--line)"><button id="vdiag" style="margin-bottom:8px">🔧 Chẩn đoán file</button><div class="hint">
+   <span class="kbd">←</span><span class="kbd">→</span> chuyển ảnh &nbsp; <span class="kbd">0-5</span> sao &nbsp; <span class="kbd">X</span> loại<br>
+   <span class="kbd">6-9</span> nhãn màu &nbsp; <span class="kbd">F</span> khung mặt &nbsp; <span class="kbd">Z</span> phóng 100%<br><span class="kbd">H</span> vùng cháy/tối &nbsp; <span class="kbd">T</span> bật/tắt dải thumbnail &nbsp; <span class="kbd">Esc</span> đóng</div>`;
+  $('#vstars').onclick=e=>{ const r=e.target.dataset.r; if(r!==undefined) rate([p.id], +r===p.rating?0:+r); };
+  fillSections('#vsec', p.id, 'v');
+  $('#vdiag').onclick=async()=>{ const r=await api('/api/diag?id='+p.id); const m=modal(`<h3>Chẩn đoán file</h3><pre id="dt" style="white-space:pre-wrap;word-break:break-all;font-size:11px;max-height:55vh;overflow:auto;background:#101114;padding:10px;border-radius:8px"></pre><div class="btns"><button id="dc">Sao chép</button><button class="pri" onclick="this.closest('.back').remove()">Đóng</button></div>`); m.querySelector('#dt').textContent=r.text; m.querySelector('#dc').onclick=()=>{ navigator.clipboard.writeText(r.text); toast('Đã sao chép'); }; };
+  $('#vinfo').querySelectorAll('[data-l]').forEach(el=>el.onclick=()=>label([p.id], el.dataset.l));
+}
+
+/* ---------- khung thông số + histogram ---------- */
+const INFO=new Map();
+async function getInfo(id){
+  if(INFO.has(id)) return INFO.get(id);
+  const r=await api('/api/info?id='+id);
+  if(r.hist){ INFO.set(id,r); if(INFO.size>300) INFO.delete(INFO.keys().next().value); }
+  return r;
+}
+let secState={}; try{ secState=JSON.parse(localStorage.getItem('ps_sec')||'{}'); }catch(e){}
+const secHTML=(k,title,body)=>`<div class="sec ${secState[k]?'col':''}" data-k="${k}"><div class="sh">${title}</div><div class="sb">${body}</div></div>`;
+document.addEventListener('click',e=>{
+  const h=e.target.closest('.sec .sh'); if(!h) return; const sec=h.parentElement; sec.classList.toggle('col');
+  secState[sec.dataset.k]=sec.classList.contains('col'); try{ localStorage.setItem('ps_sec',JSON.stringify(secState)); }catch(x){}
+});
+function exifHTML(x){
+  x=x||{};
+  const rows=[['Ngày',x.date],['Giờ',x.time],['Vĩ độ',x.lat],['Kinh độ',x.lon],['Máy ảnh',x.model],['Số seri',x.serial],['Firmware',x.firmware],['Số khung',x.frame],
+    ['Ống kính',x.lens],['Tiêu cự (mm)',x.focal],['ISO',x.iso],['Khẩu độ',x.aperture?'f/'+x.aperture:''],['Tốc độ',x.shutter],['Bù sáng (EV)',x.expcomp],['Đèn chớp',x.flash],['Dung lượng',x.size_mb?x.size_mb+' MB':'']];
+  return '<dl class="ex">'+rows.map(([k,v])=>`<dt>${k}</dt><dd>${esc(v||'')}</dd>`).join('')+'</dl>';
+}
+function drawHist(cv,h){
+  const dpr=window.devicePixelRatio||1, W=cv.clientWidth||260, H=cv.clientHeight||120;
+  cv.width=W*dpr; cv.height=H*dpr; const c=cv.getContext('2d'); c.scale(dpr,dpr); c.clearRect(0,0,W,H);
+  if(!h){ c.fillStyle='#a9c0da'; c.font='12px sans-serif'; c.fillText('Đang tải…',10,20); return; }
+  c.strokeStyle='rgba(255,255,255,.14)'; c.lineWidth=1; for(let i=1;i<4;i++){ const x=Math.round(W*i/4)+.5; c.beginPath(); c.moveTo(x,0); c.lineTo(x,H); c.stroke(); }
+  const vals=[].concat(h.r.slice(1,255),h.g.slice(1,255),h.b.slice(1,255)).sort((a,b)=>a-b);
+  const peak=Math.max(1,vals[Math.floor(vals.length*0.995)]*1.1);   // bỏ qua cột đỉnh ở 0/255 để biểu đồ không bị "cụt"
+  c.globalCompositeOperation='lighter';
+  [['#ff0000',h.r],['#00ff00',h.g],['#0000ff',h.b]].forEach(([col,a])=>{
+    c.fillStyle=col; c.beginPath(); c.moveTo(0,H);
+    for(let i=0;i<256;i++) c.lineTo(i/255*W, H-Math.min(1,a[i]/peak)*(H-4));
+    c.lineTo(W,H); c.closePath(); c.fill();
+  });
+  c.globalCompositeOperation='source-over';
+}
+function histHTML(h){ return `<canvas class="hist"></canvas><div class="hstat"><span>Cháy sáng: <b>${h?h.hi+'%':'…'}</b></span><span>Mất chi tiết tối: <b>${h?h.lo+'%':'…'}</b></span></div>`; }
+function hsHTML(){ return ['off:Tắt','hi:Hiện vùng cháy sáng (đỏ)','lo:Hiện vùng mất chi tiết tối (cam)'].map(o=>{ const [v,t]=o.split(':'); return `<label><input type="radio" name="hs" value="${v}" ${S.hs===v?'checked':''}> ${t}</label>`; }).join(''); }
+async function fillSections(sel,id,kind){
+  const el=document.querySelector(sel); if(!el) return; el.dataset.id=id;
+  const cached=INFO.get(id);
+  const render=r=>{
+    const q=S.by.get(id);
+    const E=secHTML('exif','Thông số ảnh',exifHTML(r&&r.exif)), Hh=secHTML('hist','Histogram',histHTML(r&&r.hist));
+    el.innerHTML = kind==='v'
+      ? Hh + secHTML('hs','Vùng cháy sáng / mất chi tiết',`<div class="hs">${hsHTML()}</div><div class="hint" style="margin-top:6px">Phím <span class="kbd">H</span> để đổi nhanh</div>`) + E
+      : E + Hh + ((q&&q.an)?secHTML('q','Chất lượng tự động',`<dl class="ex"><dt>Điểm</dt><dd>${q.score}</dd><dt>Độ nét</dt><dd>${q.nf?q.fsharp+' (mặt)':q.sharp}</dd><dt>Độ sáng TB</dt><dd>${Math.round(q.lum*100)}%</dd><dt>Khuôn mặt</dt><dd>${q.nf}</dd><dt>Cảnh báo</dt><dd>${q.flags.map(f=>FLAG[f]).join(', ')||'—'}</dd></dl>`):'');
+    const cv=el.querySelector('canvas.hist'); if(cv) drawHist(cv,r&&r.hist);
+    el.querySelectorAll('input[name=hs]').forEach(i=>i.onchange=()=>setHS(i.value));
+  };
+  render(cached);
+  if(cached) return;
+  try{ const r=await getInfo(id); if(el.dataset.id==id) render(r); }catch(e){}
+}
+let infoT=null;
+function scheduleInfo(){
+  clearTimeout(infoT);
+  infoT=setTimeout(()=>{ if($('#main').classList.contains('noinfo')) return;
+    if(S.cur===null){ $('#infobody').innerHTML='<div class="hint" style="padding:10px">Chọn một ảnh để xem thông số.</div>'; return; }
+    fillSections('#infobody',S.cur,'m'); },120);
+}
+S.hs='off';
+function setHS(v){ S.hs=v; document.querySelectorAll('input[name=hs]').forEach(i=>i.checked=(i.value===v)); updateMask(); }
+function cycleHS(){ setHS({off:'hi',hi:'lo',lo:'off'}[S.hs]); toast({off:'Tắt tô vùng',hi:'Đỏ = vùng cháy sáng',lo:'Cam = vùng mất chi tiết tối'}[S.hs]); }
+function updateMask(){
+  const m=$('#vmask'); if(!m) return;
+  if(S.hs==='off'||!S.viewer||S.cur===null){ m.style.display='none'; return; }
+  m.src=`/api/mask?id=${S.cur}&m=${S.hs}`; m.style.display='block';
+}
+$('#bInfo').onclick=()=>{ const m=$('#main'); m.classList.toggle('noinfo'); try{ localStorage.setItem('ps_info',m.classList.contains('noinfo')?'0':'1'); }catch(e){} scheduleInfo(); };
+try{ if(localStorage.getItem('ps_info')==='0') $('#main').classList.add('noinfo'); }catch(e){}
+
+/* ---------- phím tắt ---------- */
+function cols(){ const g=$('#grid'); return g ? getComputedStyle(g).gridTemplateColumns.split(' ').length : 1; }
+function move(delta, shift){
+  if(!S.view.length) return; let ix=S.view.findIndex(p=>p.id===S.cur); ix=Math.max(0,Math.min(S.view.length-1,(ix<0?0:ix)+delta));
+  setCur(S.view[ix].id,{extend:shift});
+}
+document.addEventListener('keydown', e=>{
+  if(['INPUT','SELECT','TEXTAREA'].includes(document.activeElement.tagName) || document.querySelector('.back')) return;
+  const k=e.key, mod=e.ctrlKey||e.metaKey;
+  if(mod && k.toLowerCase()==='a'){ e.preventDefault(); S.sel=new Set(S.view.map(p=>p.id)); S.view.forEach(p=>decorate(p.id)); renderStatus(); return; }
+  if(mod && k.toLowerCase()==='z'){ e.preventDefault(); undo(); return; }
+  if(mod) return;
+  if(k==='ArrowRight'){ e.preventDefault(); move(1,e.shiftKey); }
+  else if(k==='ArrowLeft'){ e.preventDefault(); move(-1,e.shiftKey); }
+  else if(k==='ArrowDown'){ e.preventDefault(); S.viewer?move(1):move(cols(),e.shiftKey); }
+  else if(k==='ArrowUp'){ e.preventDefault(); S.viewer?move(-1):move(-cols(),e.shiftKey); }
+  else if(k==='Enter'||k===' '){ e.preventDefault(); S.viewer?closeViewer():openViewer(); }
+  else if(k==='Escape'){ if(S.viewer) closeViewer(); }
+  else if(/^[0-5]$/.test(k)) rate(targets(), +k);
+  else if(k==='x'||k==='X'){ const t=targets(); if(t.length) rate(t, S.by.get(t[0]).rating===-1?0:-1); }
+  else if(k>='6'&&k<='9') label(targets(), LABELS[+k-6]);
+  else if(k==='-') label(targets(), '');
+  else if(k==='h'||k==='H'){ if(S.viewer) cycleHS(); }
+  else if(k==='f'||k==='F'){ S.boxes=!S.boxes; if(S.viewer) showViewer(); }
+  else if(k==='z'||k==='Z'){ if(S.viewer){ S.zoom=!S.zoom; showViewer(); } }
+  else if(k==='t'||k==='T'){ if(S.viewer) toggleStrip(); }
+  else if(k==='?') showHelp();
+});
+
+/* ---------- chọn thư mục ---------- */
+function pickFolder(start, onPick, title='Chọn thư mục'){
+  onPick = onPick || (async p=>{ await api('/api/open',{path:p, recursive:$('#cRec').checked}); S.person=null; S.photos=[]; S.by=new Map(); S.view=[]; S.undo=[]; $('#bUndo').disabled=true; poll(true); });
+  const m=modal(`<h3>${title}</h3><div class="row"><input type="text" id="dp" style="flex:1"><button id="dgo">Đi</button></div>
+    <div class="row" id="dq" style="flex-wrap:wrap;margin:4px 0"></div>
+    <div class="row" style="margin:4px 0"><button id="dlan" title="Chọn thư mục chia sẻ trên máy khác trong cùng mạng LAN">🖧 Mạng LAN</button><button id="dnew">➕ Tạo thư mục mới</button><input type="text" id="dnn" placeholder="Tên thư mục mới (ví dụ: Anh 5 sao)" style="flex:1;display:none"><button id="dmk" class="pri" style="display:none">Tạo</button></div>
+    <div class="dirs" id="dl"></div>
+    <div class="hint" id="di" style="margin-top:6px"></div>
+    <div class="btns"><button onclick="this.closest('.back').remove()">Huỷ</button><button class="pri" id="dok">Chọn thư mục này</button></div>`);
+  let curPath='', seq=0;
+  const go=async path=>{
+    const my=++seq;
+    const r=await api('/api/ls?path='+encodeURIComponent(path||'')); if(my!==seq) return;  // bỏ kết quả cũ đến muộn
+    m.querySelector('#dp').value=r.path; curPath=r.path;
+    m.querySelector('#di').textContent = r.error ? r.error : `${r.images} ảnh trong thư mục này • ${r.dirs.length} thư mục con`;
+    m.querySelector('#dq').innerHTML = [...(r.quick||[]),...(r.drives||[]).map(d=>({name:d,path:d}))].map(q=>`<button data-p="${esc(q.path)}" style="padding:2px 8px">${esc(q.name)}</button>`).join('');
+    m.querySelectorAll('#dq button').forEach(b=>b.onclick=()=>go(b.dataset.p));
+    const sep = r.path.includes('\\')?'\\':'/';
+    const list=m.querySelector('#dl'); const isUnc=r.path.startsWith('\\\\');
+    list.innerHTML = (r.parent?`<div data-p="${esc(r.parent)}">⬆ ..</div>`:(isUnc?`<div data-lan="1">⬆ Quay lại Mạng LAN</div>`:'')) + r.dirs.map(d=>`<div data-p="${esc(r.path.replace(/[\\/]$/,'')+sep+d)}">📁 ${esc(d)}</div>`).join('');
+    list.querySelectorAll('div').forEach(x=>x.onclick=()=>x.dataset.lan?lanHome():go(x.dataset.p));
+  };
+  /* ----- Mạng LAN: quét máy, liệt kê thư mục chia sẻ, đăng nhập nếu cần ----- */
+  const uncHost=p=>{ const t=(p||'').trim().replace(/\//g,'\\'); const mm=/^\\\\([^\\]+)\\?$/.exec(t); return mm?mm[1]:null; };
+  const lanBox=()=>m.querySelector('#dl');
+  const lanLogin=(host,msg)=>{ const box=lanBox(); const f=document.createElement('div'); f.className='lanlogin'; f.style.cssText='padding:10px;cursor:default';
+    f.innerHTML=`<div class="warn" style="margin-bottom:6px">${esc(msg||'Máy này yêu cầu tài khoản để xem thư mục chia sẻ.')}</div>
+      <div class="row"><label style="flex:0 0 90px">Máy</label><input type="text" id="lh" style="flex:1" value="${esc(host||'')}" placeholder="TEN-MAY hoặc 192.168.1.20"></div>
+      <div class="row"><label style="flex:0 0 90px">Tài khoản</label><input type="text" id="lu" style="flex:1" placeholder="vd: PC-ANH\\ten hoặc ten"></div>
+      <div class="row"><label style="flex:0 0 90px">Mật khẩu</label><input type="password" id="lp" style="flex:1"></div>
+      <div class="row"><button class="pri" id="lgo">Kết nối</button><span class="hint" id="lmsg"></span></div>`;
+    box.appendChild(f);
+    f.querySelector('#lgo').onclick=async()=>{ const h=f.querySelector('#lh').value.trim(); f.querySelector('#lmsg').textContent='Đang kết nối…';
+      try{ const r=await api('/api/lan/connect',{host:h,user:f.querySelector('#lu').value.trim(),password:f.querySelector('#lp').value});
+        if(r.error){ f.querySelector('#lmsg').textContent=r.error; return; } lanShares(h); }catch(e){ f.querySelector('#lmsg').textContent=e.message; } }; };
+  const lanShares=async host=>{ const box=lanBox(); box.innerHTML=`<div data-lan="1">⬆ Quay lại Mạng LAN</div><div style="padding:8px;cursor:default" class="hint">Đang lấy danh sách thư mục chia sẻ của ${esc(host)}…</div>`;
+    box.querySelector('[data-lan]').onclick=lanHome; const r=await api('/api/lan/shares?host='+encodeURIComponent(host));
+    m.querySelector('#di').textContent='Máy: '+host;
+    box.innerHTML=`<div data-lan="1">⬆ Quay lại Mạng LAN</div>`+(r.shares||[]).map(n=>`<div data-p="\\\\${esc(host)}\\${esc(n)}">📁 ${esc(n)}</div>`).join('');
+    box.querySelectorAll('div[data-lan]').forEach(x=>x.onclick=lanHome); box.querySelectorAll('div[data-p]').forEach(x=>x.onclick=()=>go(x.dataset.p));
+    if(!(r.shares||[]).length) lanLogin(host, r.need_login?undefined:(r.error||'Không thấy thư mục chia sẻ nào.')+' Có thể nhập tài khoản để thử lại.'); };
+  const lanHome=()=>{ const box=lanBox(); m.querySelector('#dp').value=''; m.querySelector('#di').textContent='Mạng LAN: quét để tìm máy, hoặc gõ \\\\TÊN-MÁY\\thư-mục vào ô trên rồi bấm Đi';
+    box.innerHTML=`<div style="padding:8px;cursor:default"><button id="lscan">🔍 Quét máy trong mạng</button> <button id="lcred">🔑 Nhập tài khoản…</button></div><div id="lres" style="cursor:default"></div>`;
+    const res=box.querySelector('#lres');
+    box.querySelector('#lcred').onclick=()=>{ if(!box.querySelector('.lanlogin')) lanLogin('', 'Nhập máy + tài khoản của máy đó (nếu thư mục có đặt mật khẩu).'); };
+    box.querySelector('#lscan').onclick=async()=>{ res.innerHTML='<div class="hint" style="padding:8px">Đang quét mạng, vài giây…</div>';
+      try{ const r=await api('/api/lan'); const hs=r.hosts||[];
+        res.innerHTML = hs.length ? hs.map(h=>`<div data-h="${esc(h.host)}" style="cursor:pointer">🖥 ${esc(h.name||h.ip)} <span class="hint">${esc(h.name&&h.ip?h.ip:'')}</span></div>`).join('')
+          : '<div class="hint" style="padding:8px">Không thấy máy nào bật chia sẻ file. Hãy gõ thẳng đường dẫn dạng \\\\192.168.1.20\\Anh vào ô trên.</div>';
+        res.querySelectorAll('[data-h]').forEach(x=>x.onclick=()=>lanShares(x.dataset.h)); }catch(e){ res.textContent=e.message; } };
+    box.querySelector('#lscan').click(); };
+  m.querySelector('#dlan').onclick=lanHome;
+  const goInput=()=>{ const v=m.querySelector('#dp').value; const h=uncHost(v); if(h) lanShares(h); else go(v); };
+  m.querySelector('#dgo').onclick=goInput;
+  const nn=m.querySelector('#dnn'), mk=m.querySelector('#dmk');
+  m.querySelector('#dnew').onclick=()=>{ nn.style.display=mk.style.display=''; nn.focus(); };
+  const make=async()=>{ if(!curPath){ toast('Đang tải danh sách thư mục, thử lại sau giây lát'); return; } try{ const r=await api('/api/mkdir',{parent:curPath,name:nn.value}); nn.value=''; nn.style.display=mk.style.display='none'; await go(r.path); toast('Đã tạo thư mục — bấm “Chọn thư mục này”'); }catch(e){ toast(e.message,4000); } };
+  mk.onclick=make; nn.onkeydown=e=>{ if(e.key==='Enter') make(); };
+  m.querySelector('#dp').onkeydown=e=>{ if(e.key==='Enter') goInput(); };
+  m.querySelector('#dok').onclick=async()=>{ const p=m.querySelector('#dp').value.trim(); if(!p){ toast('Hãy chọn một thư mục chia sẻ (bấm vào máy, rồi bấm vào thư mục) trước'); return; } m.close(); await onPick(p); };
+  go(start||'');
+}
+$('#bOpen').onclick=()=>pickFolder();
+$('#sNet').onclick=async()=>{ toast('Đang kiểm tra kết nối mạng…'); try{ const r=await api('/api/online',{}); toast(r.online?'Đã có mạng — mở khoá lọc tối/sáng/nhắm mắt':'Vẫn chưa có mạng'); }catch(e){} poll(true); };
+
+/* ---------- tự động lọc ---------- */
+$('#bCull').onclick=()=>{
+  const s=S.settings; const net=!!S.status.online; const eyesOK=S.status.eyes&&net; const lock=net?'':'disabled';
+  const lockMsg=net?'':'<div class="warn" style="margin:4px 0 8px">🔒 Đang ngoại tuyến: lọc <b>tối / cháy sáng / nhắm mắt</b> cần kết nối mạng. Hãy bật mạng (tự mở khoá trong ~15 giây, hoặc nhấp “Ngoại tuyến” ở thanh dưới). Vẫn dùng được: ảnh mờ, ảnh trùng lặp.</div>';
+  const sl=(id,lab,min,max,step,val)=>`<div class="row"><label>${lab}</label><input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}"><span class="v" id="${id}v"></span></div>`;
+  const m=modal(`<h3>✨ Tự động lọc ảnh</h3>
+   <div class="hint" style="margin-bottom:6px">Đánh dấu <b>✕ loại</b> những ảnh chưa chấm sao mà dính cảnh báo. File gốc không bị xoá hay di chuyển, và có thể hoàn tác.</div>
+   ${lockMsg}
+   <div class="row"><label><input type="checkbox" id="k_blur" checked> Ảnh mờ</label></div>${sl('blur_ratio','&nbsp;&nbsp;Ngưỡng mờ (×trung vị)',0.1,1,0.05,s.blur_ratio)}
+   <div class="row"><label><input type="checkbox" id="k_dark" ${net?'checked':'disabled'}> Ảnh tối</label></div>${sl('dark','&nbsp;&nbsp;Độ sáng dưới',0.03,0.4,0.01,s.dark)}
+   <div class="row"><label><input type="checkbox" id="k_bright" ${net?'checked':'disabled'}> Cháy sáng</label></div>${sl('bright','&nbsp;&nbsp;Độ sáng trên',0.6,0.98,0.01,s.bright)}
+   <div class="row"><label><input type="checkbox" id="k_eyes" ${eyesOK?'checked':'disabled'}> Nhắm mắt</label>${eyesOK||!net?'':'<span class="hint warn">cần model lbfmodel.yaml (python -m photosift.models)</span>'}</div>${sl('ear','&nbsp;&nbsp;Ngưỡng EAR dưới',0.08,0.3,0.01,s.ear)}
+   <div class="row"><label><input type="checkbox" id="k_dup" checked> Ảnh trùng lặp</label><span class="hint">giữ bản điểm cao nhất mỗi nhóm</span></div>
+   ${sl('dup_hamming','&nbsp;&nbsp;Độ giống (dHash ≤)',0,24,1,s.dup_hamming)}${sl('dup_seconds','&nbsp;&nbsp;Cách nhau tối đa (giây)',1,120,1,s.dup_seconds)}
+   <div id="cres" style="margin-top:10px;font-weight:600"></div>
+   <div class="btns"><button onclick="this.closest('.back').remove()">Đóng</button><button class="pri" id="capply">Đánh dấu loại</button></div>`);
+  const ids=['blur_ratio','dark','bright','ear','dup_hamming','dup_seconds'];
+  let tmr=null;
+  const cand=()=>{ const on=k=>m.querySelector('#k_'+k) && m.querySelector('#k_'+k).checked && !m.querySelector('#k_'+k).disabled;
+    const sel=['blur','dark','bright','eyes','dup'].filter(on); return S.photos.filter(p=>p.rating===0 && p.flags.some(f=>sel.includes(f))); };
+  const show=()=>{ const c=cand(); m.querySelector('#cres').innerHTML = `Sẽ loại <span class="warn">${c.length}</span> / ${S.photos.filter(p=>p.rating===0).length} ảnh chưa chấm`; };
+  const upd=()=>{ ids.forEach(i=>{ const e=m.querySelector('#'+i); m.querySelector('#'+i+'v').textContent = (+e.value%1?(+e.value).toFixed(2):e.value); });
+    clearTimeout(tmr); tmr=setTimeout(async()=>{ const b={}; ids.forEach(i=>b[i]=+m.querySelector('#'+i).value);
+      const r=await api('/api/settings',b); S.settings=r.settings; await loadPhotos(); show(); },250); };
+  ids.forEach(i=>m.querySelector('#'+i).oninput=upd); m.querySelectorAll('input[type=checkbox]').forEach(c=>c.onchange=show);
+  ids.forEach(i=>{ const e=m.querySelector('#'+i); m.querySelector('#'+i+'v').textContent=(+e.value%1?(+e.value).toFixed(2):e.value); }); show();
+  m.querySelector('#capply').onclick=async()=>{ const c=cand().map(p=>p.id); m.close(); await rate(c,-1); S.filter='rej'; $('#fFilter').value='rej'; applyView(); toast(`Đã đánh dấu loại ${c.length} ảnh — kiểm tra lại trong bộ lọc “Đã loại”`,4000); };
+};
+
+/* ---------- xuất ---------- */
+$('#bExport').onclick=()=>{
+  const m=modal(`<h3>📤 Xuất ảnh (sao chép)</h3>
+   <div class="row"><label>Ảnh cần xuất</label><select id="xs" style="flex:1"><option value="sel">Đang chọn (${S.sel.size||(S.cur!==null?1:0)})</option><option value="view">Tất cả ảnh đang hiển thị (${S.view.length})</option><option value="keep">Tất cả trừ ảnh bị loại (${S.photos.filter(p=>p.rating>=0).length})</option><option value="r5">★★★★★ 5 sao (${S.photos.filter(p=>p.rating===5).length})</option><option value="r3">★ 3 sao trở lên (${S.photos.filter(p=>p.rating>=3).length})</option></select></div>
+   <div class="row"><label>Thư mục đích</label><input type="text" id="xd" style="flex:1" placeholder="Chọn thư mục…"><button id="xb">…</button></div>
+   <div class="row"><label>Mẫu tên file</label><input type="text" id="xt" style="flex:1" value="{name}"></div>
+   <div class="hint" style="margin:-4px 0 6px 160px">{name} {date} {time} {seq} {person}</div>
+   <div class="row"><label></label><label style="flex:1;color:var(--tx)"><input type="checkbox" id="xp"> Tách thư mục theo từng người (ảnh nhiều người được chép vào nhiều thư mục)</label></div>
+   <div class="row"><label></label><label style="flex:1;color:var(--tx)"><input type="checkbox" id="xx" checked> Ghi sao/nhãn/tên người vào file .xmp (Lightroom, Bridge, Capture One đọc được với RAW)</label></div>
+   <div id="xr" class="hint"></div>
+   <div class="btns"><button onclick="this.closest('.back').remove()">Đóng</button><button class="pri" id="xgo">Sao chép</button></div>`);
+  if(S.filter!=='all') m.querySelector('#xs').value='view';
+  m.querySelector('#xb').onclick=()=>pickFolder(m.querySelector('#xd').value||'', p=>{ m.querySelector('#xd').value=p; }, 'Chọn thư mục đích');
+  m.querySelector('#xgo').onclick=async()=>{
+    const sc=m.querySelector('#xs').value; let list;
+    if(sc==='sel') list=targetsForExport(); else if(sc==='view') list=S.view.map(p=>p.id); else if(sc==='keep') list=S.photos.filter(p=>p.rating>=0).map(p=>p.id); else if(sc==='r5') list=S.photos.filter(p=>p.rating===5).map(p=>p.id); else list=S.photos.filter(p=>p.rating>=3).map(p=>p.id);
+    const dest=m.querySelector('#xd').value.trim(); if(!dest){ toast('Chưa chọn thư mục đích'); return; } if(!list.length){ toast('Không có ảnh để xuất'); return; }
+    m.querySelector('#xgo').disabled=true; m.querySelector('#xr').textContent='Đang sao chép…';
+    try{ const r=await api('/api/export',{ids:list,dest,by_person:m.querySelector('#xp').checked,template:m.querySelector('#xt').value,xmp:m.querySelector('#xx').checked});
+      m.querySelector('#xr').innerHTML=`<span class="ok">Đã chép ${r.copied} file.</span>`+(r.n_errors?` <span class="warn">${r.n_errors} lỗi: ${esc(r.errors.join('; '))}</span>`:''); }
+    catch(err){ m.querySelector('#xr').innerHTML=`<span class="warn">${esc(err.message)}</span>`; }
+    m.querySelector('#xgo').disabled=false;
+  };
+};
+function targetsForExport(){ return S.sel.size?[...S.sel]:(S.cur!==null?[S.cur]:[]); }
+
+function showHelp(){
+  modal(`<h3>Phím tắt</h3><div style="line-height:2">
+   <span class="kbd">← → ↑ ↓</span> di chuyển (giữ <span class="kbd">Shift</span> để chọn dải) &nbsp; <span class="kbd">Ctrl+A</span> chọn tất cả<br>
+   <span class="kbd">Enter</span>/<span class="kbd">Space</span> xem ảnh lớn &nbsp; <span class="kbd">Z</span> phóng 100% (kiểm tra độ nét) &nbsp; <span class="kbd">F</span> khung khuôn mặt<br>
+   <span class="kbd">0–5</span> số sao &nbsp; <span class="kbd">X</span> loại / bỏ loại &nbsp; <span class="kbd">6</span> đỏ <span class="kbd">7</span> vàng <span class="kbd">8</span> xanh lá <span class="kbd">9</span> xanh dương <span class="kbd">-</span> bỏ nhãn<br>
+   <span class="kbd">Ctrl+Z</span> hoàn tác</div>
+   <div class="hint" style="margin-top:10px">PhotoSift không bao giờ xoá hay di chuyển file gốc. “Loại” chỉ là một dấu trong cơ sở dữ liệu; hãy xuất ảnh để lấy bộ ảnh đã chọn.</div>
+   <div class="btns"><button class="pri" onclick="this.closest('.back').remove()">Đóng</button></div>`);
+}
+$('#bHelp').onclick=showHelp;
+function setTheme(t){ document.documentElement.dataset.theme=t; try{ localStorage.setItem('ps_theme',t); }catch(e){} }
+$('#bTheme').onclick=()=>{ const n=document.documentElement.dataset.theme==='neutral'?'glass':'neutral'; setTheme(n); toast(n==='glass'?'Giao diện Kính':'Giao diện tối trung tính — phù hợp để xem màu ảnh'); };
+
+/* ---------- điều khiển thanh trên ---------- */
+$('#fFilter').innerHTML = FILTERS.map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
+$('#fFilter').onchange=e=>{ S.filter=e.target.value; applyView(); e.target.blur(); };
+$('#fSort').onchange=e=>{ S.sort=e.target.value; applyView(); e.target.blur(); };
+$('#fSize').oninput=e=>document.documentElement.style.setProperty('--sz', e.target.value+'px');
+
+/* ---------- vòng lặp trạng thái ---------- */
+let busy=false;
+async function poll(force){
+  if(busy) return; busy=true;
+  try{
+    const st=await api('/api/status'); const was=S.status.state; S.status=st; S.settings=st.settings;
+    $('#prog i').style.width = st.state==='scanning' && st.total ? (100*(st.done+st.thumbs)/(2*st.total))+'%' : (st.state==='done'?'100%':'0');
+    if(st.state==='done') setTimeout(()=>{ if(S.status.state==='done') $('#prog i').style.width='0'; },1200);
+    const key=st.done+':'+st.thumbs+':'+(st.quick||0)+':'+st.state+':'+st.online, now=Date.now();
+    const fin = was==='scanning' && st.state!=='scanning';
+    if(force || fin || (key!==S.lastKey && (st.state!=='scanning' || now-(S.lastLoad||0)>1500))){
+      S.lastKey=key; S.lastLoad=now; if(st.state!=='idle'){ await loadPhotos(); if(st.state!=='scanning'||!S.people.length||fin) await loadPeople(); }
+    }
+    renderStatus();
+  }catch(e){ /* server tắt */ }
+  busy=false;
+}
+setInterval(()=>poll(false), 900);
+poll(true).then(()=>{ if(!S.photos.length) renderGrid(); });
+</script>
+</body>
+</html>
