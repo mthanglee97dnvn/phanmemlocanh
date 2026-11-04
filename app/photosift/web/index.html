@@ -258,7 +258,7 @@ function renderGrid(){
   const wrap=$('#gridwrap');
   if(!S.photos.length){
     cells.clear(); sigs.clear();
-    wrap.innerHTML = `<div id="empty"><h2>${S.status.state==='scanning'?'Đang đọc ảnh…':'Chưa có ảnh nào'}</h2><div>Mở một thư mục ảnh để bắt đầu.<br>PhotoSift sẽ tự phát hiện ảnh mờ, tối, nhắm mắt, trùng lặp<br>và nhóm ảnh theo từng người.</div><button class="pri" onclick="pickFolder()">📁 Mở thư mục</button></div>`;
+    wrap.innerHTML = `<div id="empty"><h2>${S.status.state==='scanning'?'Đang đọc ảnh…':(S.status.state==='error'?'Không mở được thư mục':'Chưa có ảnh nào')}</h2>${S.status.state==='error'?`<div style="color:#ffb3b3;max-width:520px;margin:0 auto 10px;word-break:break-word">${esc(S.status.message||'')}</div>`:''}${S.status.state==='done'&&S.status.root&&!S.photos.length?`<div style="color:#ffd9a0;margin-bottom:8px">Thư mục «${esc(S.status.root)}» không có ảnh nào (JPG/PNG/RAW/HEIC).</div>`:''}<div>Mở một thư mục ảnh để bắt đầu.<br>PhotoSift sẽ tự phát hiện ảnh mờ, tối, nhắm mắt, trùng lặp<br>và nhóm ảnh theo từng người.</div><button class="pri" onclick="pickFolder()">📁 Mở thư mục</button></div>`;
     renderStatus(); return;
   }
   if(!$('#grid')){ cells.clear(); sigs.clear(); wrap.innerHTML='<div id="grid"></div>'; }
