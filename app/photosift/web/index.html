@@ -398,13 +398,33 @@ function openViewer(){ if(S.cur===null) return; S.viewer=true; S.zoom=false; $('
 function toggleStrip(){ stripOn=!stripOn; try{ localStorage.setItem('ps_strip',stripOn?'1':'0'); }catch(e){} renderStrip(true); if(S.viewer) showViewer(); toast(stripOn?'Bật dải thumbnail':'Tắt dải thumbnail (phím T để bật lại)'); }
 function closeViewer(){ S.viewer=false; updateMask(); $('#viewer').classList.remove('on'); if(S.cur!==null){ const d=cells.get(S.cur); d&&d.scrollIntoView({block:'nearest'}); } }
 let vTok=0;
+const VPRE=new Map();
 async function showViewer(){
   const p=S.by.get(S.cur); if(!p){ closeViewer(); return; }
   const tok=++vTok; const img=$('#vimg'); $('#vstage').classList.toggle('zoom',S.zoom);
   const src = S.zoom ? `/api/preview?id=${p.id}&s=0` : `/api/preview?id=${p.id}&s=2000`;
-  if(img.dataset.src!==src){ img.dataset.src=src; img.src=`/thumb/${p.id}.jpg?v=${p.tv}`; const big=new Image(); big.onload=()=>{ if(tok===vTok && img.dataset.src===src) img.src=src; }; big.src=src; }
+  if(img.dataset.src!==src){
+    img.dataset.src=src;
+    const thumb=`/thumb/${p.id}.jpg?v=${p.tv}`;
+    const fit=(w,h)=>{ // giữ khung ảnh đúng cỡ cuối cùng ngay cả khi mới hiện thumbnail nhỏ → không bị "nhảy"/bóng ma
+      if(S.zoom||!w||!h){ img.style.width=img.style.height=''; return; }
+      const mw=window.innerWidth-290, mh=window.innerHeight-(stripOn?116:0), k=Math.min(mw/w,mh/h);
+      img.style.width=Math.round(w*k)+'px'; img.style.height=Math.round(h*k)+'px'; };
+    const apply=(im,u,clear)=>{ // chỉ đổi ảnh khi ảnh mới đã giải mã xong và khung đã đúng cỡ → không còn khung hình lẫn ảnh cũ
+      const go=()=>{ if(tok!==vTok||img.dataset.src!==src) return; fit(im.naturalWidth,im.naturalHeight); img.src=u;
+        if(clear) setTimeout(()=>{ if(img.dataset.src===src) img.style.width=img.style.height=''; },80); };
+      (im.decode?im.decode().then(go,go):go()); };
+    const done=VPRE.get(src);
+    if(done&&done.complete&&done.naturalWidth){ apply(done,src,true); }   // đã nạp trước: hiện ngay, không qua thumbnail
+    else{
+      const t=new Image(); t.onload=()=>{ if(!big.complete||!big.naturalWidth) apply(t,thumb,false); }; t.src=thumb;
+      const big=new Image(); VPRE.set(src,big);
+      big.onload=()=>apply(big,src,true);
+      big.src=src;
+    }
+  }
   const ix=S.view.findIndex(x=>x.id===p.id);
-  for(const o of [S.view[ix+1],S.view[ix-1]]) if(o){ const pre=new Image(); pre.src=`/api/preview?id=${o.id}&s=2000`; }
+  for(const o of [S.view[ix+1],S.view[ix-1],S.view[ix+2]]) if(o){ const u=`/api/preview?id=${o.id}&s=2000`; if(!VPRE.has(u)){ const pre=new Image(); VPRE.set(u,pre); pre.src=u; if(VPRE.size>12){ VPRE.delete(VPRE.keys().next().value); } } }
   renderInfo(p, ix); loadBoxes(p, tok); updateMask(); renderStrip(true);
 }
 $('#vimg').addEventListener('click', e=>{
