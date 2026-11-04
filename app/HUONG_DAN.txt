@@ -1,0 +1,26 @@
+HUONG DAN SU DUNG PHOTOSIFT (WINDOWS)
+
+1. Giai nen toan bo file zip ra mot thu muc (vi du D:\PhotoSift). Dung chay truc tiep trong file zip.
+2. Bam dup file  PhotoSift.bat
+   - Lan dau: tu dong tai va cai dat, cho 3-5 phut (can Internet).
+     Neu Windows hien bang "Windows protected your PC": bam "More info" -> "Run anyway".
+   - Cac lan sau: mo ngay.
+3. Trinh duyet (Chrome/Edge) tu mo ra giao dien PhotoSift. Bam "Mo thu muc" de chon thu muc anh.
+   Cua so den phai de mo trong luc dung; dong no de thoat phan mem.
+
+Meo: keo tha mot thu muc anh len file PhotoSift.bat de mo thang thu muc do.
+Bam dau ? trong phan mem de xem phim tat. Phan mem khong bao gio xoa hoac di chuyen anh goc.
+
+----------------------------------------------------------------
+CAI DAT BANG FILE EXE (khuyen dung)
+1. Chay MTHANGLEE_PhotoSift_Setup.exe. Neu Windows hien "Windows protected your PC":
+   bam "More info" -> "Run anyway" (file chua co chu ky so cua nha phat hanh).
+2. Cho 3-5 phut (can Internet khi cai). Xong se co loi tat "MTHANGLEE PhotoSift" tren Desktop va Start Menu.
+3. Mo bang loi tat. Khong co cua so den; dong tab trinh duyet thi phan mem tu thoat sau khoang 4 phut.
+4. Luc cai dat co the chon thu muc cai (phan mem luon nam trong thu muc con rieng MTHANGLEE PhotoSift).
+5. Go cai dat: Settings > Apps > MTHANGLEE PhotoSift. Go sach: ung dung, loi tat, muc go cai dat, va (neu dong y) ca du lieu cham sao/cache.
+
+KHOA THEO MANG
+- Co Internet: dung duoc toan bo, gom loc anh toi / chay sang / nham mat.
+- Khong Internet: van duyet anh, cham sao, gan mau, loc mo/trung, nhan dien nguoi va xuat anh;
+  rieng loc toi / chay sang / nham mat bi khoa. Co mang lai thi tu mo khoa sau ~15 giay.

@@ -1,0 +1,9 @@
+dist/
+*.spec
+__pycache__/
+build/launcher.exe
+build/uninstall.exe
+build/installer/payload/app.zip
+build/installer/payload/launcher.exe
+build/installer/payload/uninstall.exe
+smoke.log

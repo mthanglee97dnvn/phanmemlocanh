@@ -1,0 +1,6 @@
+numpy
+pillow
+opencv-contrib-python>=4.8   # cần bản "contrib" để phát hiện nhắm mắt (cv2.face); bản thường vẫn chạy nhưng không có tính năng này
+# Tuỳ chọn:
+# rawpy          # đọc ảnh RAW (CR2/CR3/NEF/ARW/DNG/RAF...)
+# pillow-heif    # đọc ảnh HEIC của iPhone
