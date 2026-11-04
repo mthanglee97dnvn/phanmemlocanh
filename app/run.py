@@ -3,6 +3,13 @@
 import argparse
 import sys
 
+# Bản đóng gói sẵn (PyInstaller) không đọc PYTHONUTF8: ép in tiếng Việt bằng UTF-8, không bao giờ lỗi mã hoá
+for _s in (sys.stdout, sys.stderr):
+    try:
+        _s.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:  # noqa: BLE001
+        pass
+
 if "--selftest" in sys.argv:   # kiểm tra nhanh gói đóng sẵn có đủ thư viện (dùng khi build)
     import cv2, numpy, PIL
     import photosift.server  # noqa: F401
