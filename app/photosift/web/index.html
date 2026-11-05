@@ -575,7 +575,7 @@ function pickFolder(start, onPick, title='Chọn thư mục'){
     const r=await api('/api/ls?path='+encodeURIComponent(path||'')); if(my!==seq) return;  // bỏ kết quả cũ đến muộn
     m.querySelector('#dp').value=r.path; curPath=r.path;
     m.querySelector('#di').textContent = r.error ? r.error : `${r.images} ảnh trong thư mục này • ${r.dirs.length} thư mục con`;
-    m.querySelector('#dq').innerHTML = [...(r.quick||[]),...(r.drives||[]).map(d=>({name:d,path:d}))].map(q=>`<button data-p="${esc(q.path)}" style="padding:2px 8px">${esc(q.name)}</button>`).join('');
+    m.querySelector('#dq').innerHTML = [...(r.quick||[]),...(r.drives||[]).map(d=>({name:d.replace(/^.*\//,'')||d,path:d}))].map(q=>`<button data-p="${esc(q.path)}" style="padding:2px 8px">${esc(q.name)}</button>`).join('');
     m.querySelectorAll('#dq button').forEach(b=>b.onclick=()=>go(b.dataset.p));
     const sep = r.path.includes('\\')?'\\':'/';
     const list=m.querySelector('#dl'); const isUnc=r.path.startsWith('\\\\');
@@ -611,7 +611,11 @@ function pickFolder(start, onPick, title='Chọn thư mục'){
           : '<div class="hint" style="padding:8px">Không thấy máy nào bật chia sẻ file. Hãy gõ thẳng đường dẫn dạng \\\\192.168.1.20\\Anh vào ô trên.</div>';
         res.querySelectorAll('[data-h]').forEach(x=>x.onclick=()=>lanShares(x.dataset.h)); }catch(e){ res.textContent=e.message; } };
     box.querySelector('#lscan').click(); };
-  m.querySelector('#dlan').onclick=lanHome;
+  if(S.status.plat==='darwin'){ const b=m.querySelector('#dlan'); b.textContent='🖧 Kết nối máy khác (SMB)'; b.title='Kết nối thư mục chia sẻ trên máy khác trong mạng LAN';
+    b.onclick=()=>{ const box=lanBox(); m.querySelector('#dp').value=''; m.querySelector('#di').textContent='Mạng LAN trên Mac: nhập địa chỉ rồi bấm Kết nối; thư mục sẽ xuất hiện trong mục «Volumes».';
+      box.innerHTML=`<div style="padding:10px;cursor:default"><div class="hint" style="margin-bottom:6px">Nhập địa chỉ máy chia sẻ, ví dụ <b>smb://192.168.1.10/TenThuMuc</b> (hoặc smb://TEN-MAY). Mac sẽ hỏi tài khoản nếu cần.</div><div class="row"><input type="text" id="smbu" placeholder="smb://192.168.1.10/TenThuMuc" style="flex:1"><button class="pri" id="smbg">Kết nối</button></div><div id="smbm" class="hint" style="margin-top:6px"></div></div>`;
+      box.querySelector('#smbg').onclick=async()=>{ const msg=box.querySelector('#smbm'); msg.textContent='Đang kết nối…'; try{ const r=await api('/api/lan/mount',{url:box.querySelector('#smbu').value}); if(r.error){ msg.textContent=r.error; return; } msg.textContent='Đã gửi yêu cầu. Nhập tài khoản trong hộp thoại của Mac nếu có; xong bấm «Volumes» ở trên để chọn thư mục.'; }catch(e){ msg.textContent=e.message; } }; };
+  } else m.querySelector('#dlan').onclick=lanHome;
   const goInput=()=>{ const v=m.querySelector('#dp').value; const h=uncHost(v); if(h) lanShares(h); else go(v); };
   m.querySelector('#dgo').onclick=goInput;
   const nn=m.querySelector('#dnn'), mk=m.querySelector('#dmk');
@@ -671,10 +675,25 @@ $('#bExport').onclick=()=>{
     const sc=m.querySelector('#xs').value; let list;
     if(sc==='sel') list=targetsForExport(); else if(sc==='view') list=S.view.map(p=>p.id); else if(sc==='keep') list=S.photos.filter(p=>p.rating>=0).map(p=>p.id); else if(sc==='r5') list=S.photos.filter(p=>p.rating===5).map(p=>p.id); else list=S.photos.filter(p=>p.rating>=3).map(p=>p.id);
     const dest=m.querySelector('#xd').value.trim(); if(!dest){ toast('Chưa chọn thư mục đích'); return; } if(!list.length){ toast('Không có ảnh để xuất'); return; }
-    m.querySelector('#xgo').disabled=true; m.querySelector('#xr').textContent='Đang sao chép…';
-    try{ const r=await api('/api/export',{ids:list,dest,by_person:m.querySelector('#xp').checked,template:m.querySelector('#xt').value,xmp:m.querySelector('#xx').checked});
-      m.querySelector('#xr').innerHTML=`<span class="ok">Đã chép ${r.copied} file.</span>`+(r.n_errors?` <span class="warn">${r.n_errors} lỗi: ${esc(r.errors.join('; '))}</span>`:''); }
-    catch(err){ m.querySelector('#xr').innerHTML=`<span class="warn">${esc(err.message)}</span>`; }
+    m.querySelector('#xgo').disabled=true;
+    const xr=m.querySelector('#xr'); const fmt=n=>n.toLocaleString('vi-VN');
+    xr.innerHTML=`<div class="xprog" style="height:14px;border-radius:8px;background:rgba(255,255,255,.12);overflow:hidden;margin:6px 0 4px"><i id="xbar" style="display:block;height:100%;width:0;background:linear-gradient(90deg,#f5a623,#ffd27a);transition:width .25s"></i></div><div id="xtx" style="color:var(--tx)">Đang chuẩn bị…</div>`;
+    const bar=xr.querySelector('#xbar'), tx=xr.querySelector('#xtx');
+    try{
+      await api('/api/export',{ids:list,dest,by_person:m.querySelector('#xp').checked,template:m.querySelector('#xt').value,xmp:m.querySelector('#xx').checked});
+      let st;
+      for(;;){
+        st=await api('/api/export/status'); const tot=st.total||list.length, pct=tot?Math.min(100,Math.round(100*st.done/tot)):0;
+        bar.style.width=pct+'%';
+        tx.innerHTML=`<b>${pct}%</b> &nbsp;•&nbsp; đã xuất <b>${fmt(st.done)}</b> / ${fmt(tot)} ảnh`+(st.state==='running'&&st.cur?` &nbsp;•&nbsp; <span class="hint">${esc(st.cur)}</span>`:'');
+        if(st.state!=='running') break;
+        if(!document.body.contains(m)) return;
+        await new Promise(r=>setTimeout(r,300));
+      }
+      if(st.state==='error') throw new Error(st.message||'Lỗi khi xuất');
+      bar.style.width='100%';
+      tx.innerHTML=`<span class="ok"><b>Hoàn tất 100%</b> — đã xuất ${fmt(st.done)}/${fmt(st.total)} ảnh (${fmt(st.copied)} file).</span>`+(st.n_errors?` <span class="warn">${st.n_errors} lỗi: ${esc((st.errors||[]).join('; '))}</span>`:'');
+    }catch(err){ xr.innerHTML=`<span class="warn">${esc(err.message)}</span>`; }
     m.querySelector('#xgo').disabled=false;
   };
 };

@@ -5,6 +5,7 @@ import json
 import os
 import re
 import shutil
+import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -53,6 +54,8 @@ def _is_network(path: str) -> bool:
             return ctypes.windll.kernel32.GetDriveTypeW(drv) == 4   # DRIVE_REMOTE
         except Exception:  # noqa: BLE001
             return False
+    if sys.platform == "darwin":   # thư mục mạng / ổ ngoài đã gắn trong /Volumes
+        return os.path.realpath(path).startswith("/Volumes/")
     return False
 
 
@@ -591,7 +594,27 @@ class Library:
             n += 1
         return n
 
-    def export(self, ids, dest: str, by_person=False, template="{name}", xmp=False):
+    def start_export(self, ids, dest, by_person=False, template="{name}", xmp=False):
+        """Chạy xuất ảnh ở nền; tiến độ lấy qua export_status()."""
+        j = getattr(self, "export_job", None)
+        if j and j.get("state") == "running":
+            return dict(error="Đang có một tác vụ xuất chạy — hãy đợi nó xong")
+        ids = [int(i) for i in ids]
+        self.export_job = dict(state="running", total=len(ids), done=0, copied=0, n_errors=0, errors=[], cur="", dest=str(dest))
+
+        def work():
+            try:
+                r = self.export(ids, dest, by_person, template, xmp, progress=self.export_job)
+                self.export_job.update(state="done", copied=r["copied"], errors=r["errors"], n_errors=r["n_errors"])
+            except Exception as e:  # noqa: BLE001
+                self.export_job.update(state="error", message=str(e))
+        threading.Thread(target=work, daemon=True).start()
+        return dict(ok=True, total=len(ids))
+
+    def export_status(self):
+        return dict(getattr(self, "export_job", None) or dict(state="idle"))
+
+    def export(self, ids, dest: str, by_person=False, template="{name}", xmp=False, progress=None):
         """Sao chép (không bao giờ di chuyển/xoá file gốc)."""
         dest_p = Path(dest)
         dest_p.mkdir(parents=True, exist_ok=True)
@@ -599,9 +622,13 @@ class Library:
         seq, copied, errors = 0, 0, []
         rows = [self.db.one("SELECT * FROM photos WHERE id=?", (int(i),)) for i in ids]
         rows = sorted([r for r in rows if r], key=lambda r: (r["taken"] or 0, r["path"]))
+        if progress is not None:
+            progress["total"] = len(rows)
         for r in rows:
             seq += 1
             src = Path(r["path"])
+            if progress is not None:
+                progress["cur"] = src.name
             people = [x["person_id"] for x in self.db.q(
                 "SELECT DISTINCT person_id FROM faces WHERE photo_id=? AND person_id IS NOT NULL", (r["id"],))]
             labels = [self.person_label(p, names) for p in people]
@@ -626,4 +653,6 @@ class Library:
                     copied += 1
                 except Exception as e:  # noqa: BLE001
                     errors.append(f"{src.name}: {e}")
+            if progress is not None:
+                progress.update(done=seq, copied=copied, n_errors=len(errors), errors=errors[:20])
         return dict(copied=copied, errors=errors[:20], n_errors=len(errors))

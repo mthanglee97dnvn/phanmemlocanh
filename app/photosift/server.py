@@ -289,6 +289,8 @@ def make_handler(lib: Library, token: str, port: int):
                     LAST_SEEN[0] = time.time()
                     return self._json(dict(lib.status, eyes=lib.an.has_eyes, settings=lib.settings,
                                            online=lib.online.ok, idle=round(idle, 1), os=os.name, plat=sys.platform))
+                if u.path == "/api/export/status":
+                    return self._json(lib.export_status())
                 if u.path == "/api/photos":
                     return self._json(lib.photos())
                 if u.path == "/api/people":
@@ -408,8 +410,9 @@ def make_handler(lib: Library, token: str, port: int):
                     os.makedirs(path, exist_ok=True)
                     return self._json(dict(ok=True, path=path))
                 if u.path == "/api/export":
-                    return self._json(lib.export(b["ids"], b["dest"], bool(b.get("by_person")),
-                                                 b.get("template") or "{name}", bool(b.get("xmp"))))
+                    r = lib.start_export(b["ids"], b["dest"], bool(b.get("by_person")),
+                                         b.get("template") or "{name}", bool(b.get("xmp")))
+                    return self._json(r, 409 if r.get("error") else 200)
                 if u.path == "/api/xmp":
                     return self._json(dict(written=lib.write_xmp(b["ids"])))
                 return self._send(404, b"not found", "text/plain")
