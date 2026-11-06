@@ -1,6 +1,6 @@
 package main
 
-const guiHTML = `<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>Cài đặt MTHANGLEE PhotoSift</title>
+const guiHTML = `<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>Cài đặt MThanglee Cull&amp;Collage</title>
 <link rel="icon" href="/favicon.ico"><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
 *{box-sizing:border-box}html,body{margin:0;height:100%}
@@ -32,7 +32,7 @@ pre{margin:14px 0 0;height:96px;overflow:auto;background:rgba(0,0,0,.4);border-r
 </style></head><body><div class="card">
 <img class="logo" src="/logo.png" alt="MTHANGLEE STUDIO">
 <div id="p1">
- <h1>Cài đặt PhotoSift</h1><div class="sub">Phần mềm lọc ảnh &amp; nhận diện khuôn mặt</div>
+ <h1>Cài đặt MThanglee Cull&amp;Collage</h1><div class="sub">Lọc ảnh và dàn trang album</div>
  <label>Thư mục cài đặt</label>
  <div class="row"><input type="text" id="dir" spellcheck="false"><button id="pick">Chọn thư mục…</button></div>
  <div class="final">Sẽ cài vào: <b id="final"></b></div>
@@ -50,9 +50,9 @@ pre{margin:14px 0 0;height:96px;overflow:auto;background:rgba(0,0,0,.4);border-r
 </div>
 <div id="p3" class="hide">
  <div class="big">✓</div><h1>Cài đặt hoàn tất</h1>
- <div class="sub"><span id="doneMsg">Lối tắt «MTHANGLEE PhotoSift» đã có trên Desktop và Start Menu.</span></div>
+ <div class="sub"><span id="doneMsg">Lối tắt «MThanglee Cull&amp;Collage» đã có trên Desktop và Start Menu.</span></div>
  <div class="note">Có Internet: dùng đầy đủ, gồm lọc ảnh tối / cháy sáng / nhắm mắt.<br>Không có Internet: vẫn chấm sao, gán màu, lọc mờ/trùng, nhận diện người, xuất ảnh.</div>
- <div class="btns"><button id="close">Đóng</button><button class="pri" id="open">Mở PhotoSift</button></div>
+ <div class="btns"><button id="close">Đóng</button><button class="pri" id="open">Mở ứng dụng</button></div>
 </div>
 <div id="p4" class="hide">
  <h1 class="err">Cài đặt chưa thành công</h1>
@@ -68,7 +68,7 @@ function api(p,b){return fetch(p,{method:b?"POST":"GET",headers:{"X-T":T,"Conten
 var NAMES=["Chép ứng dụng &amp; tải thành phần","Cài Python &amp; thư viện xử lý ảnh","Hoàn tất model nhận diện","Tạo lối tắt Desktop &amp; gỡ cài đặt"];
 var W=[40,40,10,10],tot=100;
 $("steps").innerHTML=NAMES.map(function(n,i){return '<div class="st" id="s'+(i+1)+'"><i>'+(i+1)+'</i>'+n+'</div>'}).join("");
-function fin(d){d=d.trim().replace(/[\\\/]+$/,"");var m=d.split(/[\\\/]/).pop();return m.toLowerCase()==="mthanglee photosift"?d:d+"\\MTHANGLEE PhotoSift"}
+function fin(d){d=d.trim().replace(/[\\\/]+$/,"");var m=d.split(/[\\\/]/).pop();return m.toLowerCase()==="mthanglee cullcollage"?d:d+"\\MThanglee CullCollage"}
 function upd(){$("final").textContent=fin($("dir").value||"")}
 $("dir").oninput=upd;
 var init=false,t4=null,lastStep=0;

@@ -1,6 +1,6 @@
 package main
 
-const guiHTML = `<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>Gỡ cài đặt MTHANGLEE PhotoSift</title>
+const guiHTML = `<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>Gỡ cài đặt MThanglee Cull&amp;Collage</title>
 <link rel="icon" href="/favicon.ico">
 <style>
 *{box-sizing:border-box}html,body{margin:0;height:100%}
@@ -32,16 +32,16 @@ pre{margin:14px 0 0;height:96px;overflow:auto;background:rgba(0,0,0,.4);border-r
 </style></head><body><div class="card">
 <img class="logo" src="/logo.png" alt="MTHANGLEE STUDIO">
 <div id="p1">
- <h1>Gỡ cài đặt PhotoSift</h1><div class="sub">Sẽ xoá phần mềm khỏi máy này</div>
+ <h1>Gỡ cài đặt MThanglee Cull&amp;Collage</h1><div class="sub">Sẽ xoá phần mềm khỏi máy này</div>
  <label>Thư mục sẽ bị xoá</label><div class="final" style="margin:0 0 14px"><b>__DIR__</b></div>
- <ul><li>Tắt PhotoSift nếu đang chạy, xoá lối tắt Desktop / Start Menu và mục trong Settings › Apps.</li>
+ <ul><li>Tắt ứng dụng nếu đang chạy, xoá lối tắt Desktop / Start Menu và mục trong Settings › Apps.</li>
  <li>Ảnh gốc của bạn <b>không</b> bị đụng tới.</li></ul>
  <label style="display:flex;gap:10px;align-items:flex-start;text-transform:none;font-size:13px;letter-spacing:0;color:#efe7d6"><input type="checkbox" id="dd" checked style="margin-top:4px">
  <span>Xoá luôn dữ liệu người dùng: điểm sao, nhãn màu, tên người, ảnh cache<br><span style="color:#b9ac90;font-size:12px">__HOME__ — bỏ chọn nếu muốn giữ lại cho lần cài sau</span></span></label>
  <div class="btns"><button id="cancel">Huỷ</button><button class="pri" id="go">Gỡ cài đặt</button></div>
 </div>
 <div id="p2" class="hide"><h1>Đang gỡ cài đặt…</h1><div class="sub" id="cnt">Vui lòng đợi…</div><div class="bar"><b style="width:60%;animation:p 1.4s infinite alternate"></b></div><pre id="log"></pre></div>
-<div id="p3" class="hide"><div class="big">✓</div><h1>Đã gỡ cài đặt sạch</h1><div class="sub">Cảm ơn bạn đã dùng MTHANGLEE PhotoSift.</div><div class="btns"><button class="pri" id="close">Đóng</button></div></div>
+<div id="p3" class="hide"><div class="big">✓</div><h1>Đã gỡ cài đặt sạch</h1><div class="sub">Cảm ơn bạn đã dùng MThanglee Cull&amp;Collage.</div><div class="btns"><button class="pri" id="close">Đóng</button></div></div>
 <div id="p4" class="hide"><h1 class="err">Chưa gỡ xong</h1><div class="sub" id="emsg"></div><pre id="log2" style="height:100px"></pre><div class="btns"><button class="pri" id="close2">Đóng</button></div></div>
 </div>
 <style>@keyframes p{from{width:25%}to{width:95%}}</style>
@@ -52,7 +52,7 @@ function show(n){["p1","p2","p3","p4"].forEach(function(p,i){$(p).className=(i+1
 $("go").onclick=function(){api("/api/start",{DelData:$("dd").checked})};
 $("cancel").onclick=$("close").onclick=$("close2").onclick=function(){api("/api/exit",{});setTimeout(function(){window.close()},200)};
 function tick(){api("/api/state").then(function(s){
- if(s.phase==="ask")show(1);else if(s.phase==="running"){show(2);$("cnt").textContent=s.n>0?("Đã xoá "+s.n+" mục…"):"Đang tắt PhotoSift và chuẩn bị…";$("log").textContent=s.log.join("\n")}
+ if(s.phase==="ask")show(1);else if(s.phase==="running"){show(2);$("cnt").textContent=s.n>0?("Đã xoá "+s.n+" mục…"):"Đang tắt ứng dụng và chuẩn bị…";$("log").textContent=s.log.join("\n")}
  else if(s.phase==="done")show(3);else{show(4);$("emsg").textContent=s.err;$("log2").textContent=s.log.join("\n")}
 }).catch(function(){})}
 setInterval(tick,600);tick();

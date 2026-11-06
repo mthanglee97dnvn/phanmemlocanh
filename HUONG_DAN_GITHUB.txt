@@ -1,6 +1,6 @@
 HƯỚNG DẪN TẠO FILE CÀI ĐẶT (Setup.exe) ĐÓNG GÓI SẴN BẰNG GITHUB
 ================================================================
-Làm 1 lần, mất khoảng 10 phút. GitHub sẽ tự "biên dịch" ra file MTHANGLEE_PhotoSift_Setup.exe
+Làm 1 lần, mất khoảng 10 phút. GitHub sẽ tự "biên dịch" ra file MThanglee_CullCollage_Setup.exe
 chứa sẵn mọi thứ (không cần Python, không cần tải gì khi cài). Hoàn toàn miễn phí.
 
 BƯỚC 1 - Tạo tài khoản GitHub
@@ -21,13 +21,13 @@ BƯỚC 3 - Tải mã nguồn lên
 
 BƯỚC 4 - Cho GitHub build
   - Bấm tab "Actions". Nếu có nút "I understand my workflows, go ahead and enable them" thì bấm.
-  - Chọn "Build MTHANGLEE PhotoSift Setup" ở cột trái > bấm "Run workflow" > "Run workflow".
+  - Chọn "Build MThanglee CullCollage Setup" ở cột trái > bấm "Run workflow" > "Run workflow".
   - (Mỗi lần tải mã mới lên, nó cũng tự build.)
   - Chờ khoảng 8-15 phút cho tới khi có dấu tick xanh.
 
 BƯỚC 5 - Tải Setup.exe
-  - Bấm vào lần chạy vừa xong, kéo xuống mục "Artifacts", bấm "MTHANGLEE_PhotoSift_Setup" để tải file .zip.
-  - Giải nén ra được MTHANGLEE_PhotoSift_Setup.exe (khoảng 150-300 MB). Chạy file này để cài.
+  - Bấm vào lần chạy vừa xong, kéo xuống mục "Artifacts", bấm "MThanglee_CullCollage_Setup" để tải file .zip.
+  - Giải nén ra được MThanglee_CullCollage_Setup.exe (khoảng 150-300 MB). Chạy file này để cài.
   - File này cài được trên mọi máy Windows 10/11 64-bit, KHÔNG cần mạng, KHÔNG cần Python.
 
 NẾU BỊ LỖI (dấu X đỏ)

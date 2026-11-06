@@ -1,4 +1,4 @@
-// MTHANGLEE PhotoSift - bộ gỡ cài đặt.
+// MThanglee Cull&Collage - bộ gỡ cài đặt.
 package main
 
 import (
@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-const regKey = `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\MTHANGLEEPhotoSift`
+const regKey = `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\MThangleeCullCollage`
 
 var logf = func(s string) {}
 
@@ -99,7 +99,7 @@ func uninstallSteps(dir string, delData bool) error {
 		removeShortcutsByName()
 		removeReg()
 	}()
-	say("Tắt PhotoSift nếu đang chạy…")
+	say("Tắt ứng dụng nếu đang chạy…")
 	stopRunning()
 	killLeftovers(dir, dataHome())
 	wg.Wait()

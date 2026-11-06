@@ -1,4 +1,4 @@
-<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="google" content="notranslate"></head><body><title>Vuốt Studio</title>
+<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="google" content="notranslate"></head><body><title>Cull&amp;Collage Dàn trang</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
 /* Layout: a contact-sheet desk. One long strip of frames in the middle, tools left, properties right, frame rail below. */
@@ -267,9 +267,9 @@ dialog h2{font:600 18px var(--display);margin:0 0 12px}
 
 <div id="home">
   <header class="hbar">
-    <div class="brand" aria-label="Vuốt Studio">
+    <div class="brand" aria-label="MThanglee Cull&amp;Collage">
       <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M11 5v22M21 5v22" stroke-dasharray="3 3"/><rect x="3" y="10" width="26" height="12" fill="currentColor" stroke="none"/></svg>
-      <span>Vuốt</span>
+      <span>Cull&amp;Collage</span>
     </div>
     <span class="spring"></span>
     <input id="homeSearch" type="search" placeholder="Tìm dự án" aria-label="Tìm dự án">
@@ -1705,7 +1705,7 @@ async function leaveEditor(){await Promise.race([ensureUsed(),new Promise(r=>set
 async function importProjectFile(f,thenOpen){currentId=null;doc=null;
   try{await openProject(f);currentId=pid();curRec={};doc.sample=false;await Promise.race([ensureUsed(),new Promise(r=>setTimeout(r,8000))]);await saveNow(true);const id=currentId;
     if(thenOpen){showEditor();fit();setSaved('Đã lưu')}else{doc=null;currentId=null;clearImages()}return id}
-  catch(err){console.warn(err);doc=null;currentId=null;clearImages();toast(`${f.name} không phải dự án Vuốt. Hãy chọn file .vuot.zip.`)}}
+  catch(err){console.warn(err);doc=null;currentId=null;clearImages();toast(`${f.name} không phải file dự án. Hãy chọn file .vuot.zip.`)}}
 async function importFilesToHome(files){const list=[...files];
   if(list.length===1){if(await importProjectFile(list[0],true))toast('Đã mở dự án');return}
   let n=0;for(const f of list)if(await importProjectFile(f,false))n++;toast(`Đã thêm ${n} dự án`);renderHome()}

@@ -27,7 +27,7 @@ func startDetached(exe string) {
 const lnkScript = `param([string]$Link,[string]$Target,[string]$Dir,[string]$Icon)
 $s=(New-Object -ComObject WScript.Shell).CreateShortcut($Link)
 $s.TargetPath=$Target; $s.WorkingDirectory=$Dir; $s.IconLocation=$Icon
-$s.Description='MTHANGLEE PhotoSift - loc anh'; $s.Save()`
+$s.Description='MThanglee Cull&Collage'; $s.Save()`
 
 func knownFolder(g syscall.GUID) string {
 	var out *uint16
@@ -57,7 +57,7 @@ func makeLink(script, folder, dir, target, icon string) string {
 		return ""
 	}
 	os.MkdirAll(folder, 0o755)
-	lnk := filepath.Join(folder, "MTHANGLEE PhotoSift.lnk")
+	lnk := filepath.Join(folder, "MThanglee Cull&Collage.lnk")
 	cmd := exec.Command("powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script,
 		"-Link", lnk, "-Target", target, "-Dir", dir, "-Icon", icon)
 	hideCmd(cmd)
@@ -65,7 +65,7 @@ func makeLink(script, folder, dir, target, icon string) string {
 	if _, err := os.Stat(lnk); err == nil {
 		return lnk
 	}
-	url := filepath.Join(folder, "MTHANGLEE PhotoSift.url")
+	url := filepath.Join(folder, "MThanglee Cull&Collage.url")
 	body := "[InternetShortcut]\r\nURL=file:///" + strings.ReplaceAll(strings.ReplaceAll(target, "\\", "/"), " ", "%20") +
 		"\r\nIconFile=" + icon + "\r\nIconIndex=0\r\n"
 	if os.WriteFile(url, []byte(body), 0o644) == nil {
@@ -131,7 +131,7 @@ func reg(dir, launcher, icon, uninst string) {
 func pickFolder() string {
 	script := `Add-Type -AssemblyName System.Windows.Forms
 $f=New-Object System.Windows.Forms.FolderBrowserDialog
-$f.Description='Chọn thư mục để cài MTHANGLEE PhotoSift (sẽ tạo thư mục con riêng)'
+$f.Description='Chọn thư mục để cài MThanglee Cull&Collage (sẽ tạo thư mục con riêng)'
 $f.ShowNewFolderButton=$true
 $top=New-Object System.Windows.Forms.Form; $top.TopMost=$true
 if($f.ShowDialog($top) -eq 'OK'){ [Console]::OutputEncoding=[Text.Encoding]::UTF8; Write-Output $f.SelectedPath }`

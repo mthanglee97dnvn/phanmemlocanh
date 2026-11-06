@@ -52,8 +52,8 @@ func normalizeDir(d string) (string, bool) {
 		return "", false
 	}
 	d = filepath.Clean(d)
-	if !strings.EqualFold(filepath.Base(d), "MTHANGLEE PhotoSift") {
-		d = filepath.Join(d, "MTHANGLEE PhotoSift")
+	if !strings.EqualFold(filepath.Base(d), "MThanglee CullCollage") {
+		d = filepath.Join(d, "MThanglee CullCollage")
 	}
 	return d, true
 }

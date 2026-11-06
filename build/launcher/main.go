@@ -1,5 +1,5 @@
-// MTHANGLEE PhotoSift - bộ khởi chạy không cửa sổ đen.
-// Nếu PhotoSift đang chạy thì chỉ mở lại trình duyệt; nếu chưa thì bật máy chủ cục bộ ẩn.
+// MThanglee Cull&Collage - bộ khởi chạy không cửa sổ đen.
+// Nếu ứng dụng đang chạy thì chỉ mở lại trình duyệt; nếu chưa thì bật máy chủ cục bộ ẩn.
 package main
 
 import (
@@ -28,7 +28,7 @@ func dataHome() string {
 	return filepath.Join(h, ".photosift")
 }
 
-// findRunning trả về địa chỉ nếu một phiên PhotoSift đang chạy và trả lời được.
+// findRunning trả về địa chỉ nếu một phiên đang chạy và trả lời được.
 func findRunning(home string) (string, bool) {
 	b, err := os.ReadFile(filepath.Join(home, "running.json"))
 	if err != nil {
@@ -77,7 +77,7 @@ func main() {
 		return
 	}
 
-	core := filepath.Join(dir, "core", "PhotoSiftCore.exe")
+	core := filepath.Join(dir, "core", "CullCollageCore.exe")
 	var cmd *exec.Cmd
 	if _, err := os.Stat(core); err == nil {
 		// Bản đóng gói sẵn: không dùng Python
@@ -85,11 +85,11 @@ func main() {
 	} else {
 		py := filepath.Join(dir, "python", "python.exe")
 		if _, err := os.Stat(filepath.Join(dir, "python", "ready.txt")); err != nil {
-			msgBox("MTHANGLEE PhotoSift", "Bản cài đặt chưa hoàn tất. Hãy chạy lại file cài đặt (MTHANGLEE_PhotoSift_Setup.exe).")
+			msgBox("MThanglee Cull&Collage", "Bản cài đặt chưa hoàn tất. Hãy chạy lại file cài đặt (MThanglee_CullCollage_Setup.exe).")
 			return
 		}
 		if _, err := os.Stat(py); err != nil {
-			msgBox("MTHANGLEE PhotoSift", "Không tìm thấy Python đi kèm. Hãy chạy lại file cài đặt.")
+			msgBox("MThanglee Cull&Collage", "Không tìm thấy Python đi kèm. Hãy chạy lại file cài đặt.")
 			return
 		}
 		cmd = exec.Command(py, append(append([]string{"run.py"}, os.Args[1:]...), "--no-browser")...)
@@ -102,7 +102,7 @@ func main() {
 	}
 	hideWindow(cmd)
 	if err := cmd.Start(); err != nil {
-		msgBox("MTHANGLEE PhotoSift", "Không khởi động được: "+err.Error())
+		msgBox("MThanglee Cull&Collage", "Không khởi động được: "+err.Error())
 		return
 	}
 	// Máy chủ tự mở trình duyệt; ở đây chờ nó sẵn sàng để giữ khoá, báo lỗi nếu thoát sớm.
@@ -122,7 +122,7 @@ func main() {
 		}
 		select {
 		case <-exited:
-			msgBox("MTHANGLEE PhotoSift", "PhotoSift đã dừng ngay khi khởi động. Xem file photosift.log trong thư mục cài đặt:\n"+dir)
+			msgBox("MThanglee Cull&Collage", "Ứng dụng đã dừng ngay khi khởi động. Xem file photosift.log trong thư mục cài đặt:\n"+dir)
 			return
 		case <-time.After(500 * time.Millisecond):
 		}

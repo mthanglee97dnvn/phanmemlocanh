@@ -1,4 +1,4 @@
-// MTHANGLEE PhotoSift - bộ cài đặt (Windows 10/11 64-bit, cài theo từng người dùng, không cần quyền Admin).
+// MThanglee Cull&Collage - bộ cài đặt (Windows 10/11 64-bit, cài theo từng người dùng, không cần quyền Admin).
 package main
 
 import (
@@ -34,9 +34,9 @@ var uninstallExe []byte
 var iconIco []byte
 
 const (
-	appName   = "MTHANGLEE PhotoSift"
+	appName   = "MThanglee Cull&Collage"
 	version   = "1.0.0"
-	regKey    = `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\MTHANGLEEPhotoSift`
+	regKey    = `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\MThangleeCullCollage`
 	pyURL     = "https://www.python.org/ftp/python/3.12.8/python-3.12.8-embed-amd64.zip"
 	getPipURL = "https://bootstrap.pypa.io/get-pip.py"
 	lbfURL    = "https://raw.githubusercontent.com/kurnianggoro/GSOC2017/master/data/lbfmodel.yaml"
@@ -84,10 +84,10 @@ func pause() {
 
 func defaultDir() string {
 	if d := os.Getenv("LOCALAPPDATA"); d != "" {
-		return filepath.Join(d, "MTHANGLEE PhotoSift")
+		return filepath.Join(d, "MThanglee CullCollage")
 	}
 	h, _ := os.UserHomeDir()
-	return filepath.Join(h, "MTHANGLEE PhotoSift")
+	return filepath.Join(h, "MThanglee CullCollage")
 }
 
 func dataHome() string {
@@ -271,7 +271,7 @@ func run(dir string, name string, args ...string) error {
 	return err
 }
 
-// stopRunning yêu cầu phiên PhotoSift đang chạy (nếu có) tự thoát để thay file.
+// stopRunning yêu cầu phiên đang chạy đang chạy (nếu có) tự thoát để thay file.
 func stopRunning() {
 	b, err := os.ReadFile(filepath.Join(dataHome(), "running.json"))
 	if err != nil {
@@ -301,7 +301,7 @@ func env(key, def string) string {
 	return def
 }
 
-// chooseDir cho người dùng chọn nơi cài. Luôn cài vào một thư mục con riêng «MTHANGLEE PhotoSift»
+// chooseDir cho người dùng chọn nơi cài. Luôn cài vào một thư mục con riêng «MThanglee CullCollage»
 // để việc gỡ cài đặt chỉ xoá đúng thư mục của phần mềm, không bao giờ đụng tới thư mục khác.
 func chooseDir(def string) string {
 	for {
@@ -327,8 +327,8 @@ func chooseDir(def string) string {
 			continue
 		}
 		d := filepath.Clean(base)
-		if !strings.EqualFold(filepath.Base(d), "MTHANGLEE PhotoSift") {
-			d = filepath.Join(d, "MTHANGLEE PhotoSift")
+		if !strings.EqualFold(filepath.Base(d), "MThanglee CullCollage") {
+			d = filepath.Join(d, "MThanglee CullCollage")
 		}
 		say("\n  Sẽ cài vào: %s", d)
 		fmt.Print("  Đồng ý? [Enter = đồng ý, n = chọn lại]: ")
@@ -360,7 +360,7 @@ func runInstall(dir string) string {
 	os.Remove(filepath.Join(modelsDir, "lbfmodel.yaml.skip"))
 
 	_, haveReady := os.Stat(ready)
-	bundled := zipHas(appZip, "core/PhotoSiftCore.exe") // gói đã chứa sẵn mọi thứ: không cần Python
+	bundled := zipHas(appZip, "core/CullCollageCore.exe") // gói đã chứa sẵn mọi thứ: không cần Python
 	needPy := haveReady != nil && !bundled
 
 	// ---- Bước 1: chép ứng dụng + tải song song
@@ -532,7 +532,7 @@ func runInstall(dir string) string {
 
 	// ---- Bước 4: lối tắt
 	stage(4, "Tạo lối tắt Desktop, Start Menu và đăng ký gỡ cài đặt")
-	launcher := filepath.Join(dir, "MTHANGLEE PhotoSift.exe")
+	launcher := filepath.Join(dir, "MThanglee CullCollage.exe")
 	icon := filepath.Join(dir, "photosift.ico")
 	uninst := filepath.Join(dir, "Uninstall.exe")
 	for p, b := range map[string][]byte{launcher: launcherExe, icon: iconIco, uninst: uninstallExe} {
@@ -583,7 +583,7 @@ func main() {
 	launcher := runInstall(dir)
 	say("\nCài đặt xong!")
 	if !unattended {
-		fmt.Print("\nMở PhotoSift ngay bây giờ? [Enter = có, n = không]: ")
+		fmt.Print("\nMở Cull&Collage ngay bây giờ? [Enter = có, n = không]: ")
 		ans, _ := reader.ReadString('\n')
 		if !strings.HasPrefix(strings.ToLower(strings.TrimSpace(ans)), "n") {
 			startDetached(launcher)

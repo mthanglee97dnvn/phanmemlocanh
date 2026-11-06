@@ -38,7 +38,7 @@ var mutexHandle uintptr
 
 // acquireSingleton trả về false nếu một bộ khởi chạy khác đang chạy.
 func acquireSingleton() bool {
-	name, _ := syscall.UTF16PtrFromString("Local\\MTHANGLEE_PhotoSift_Launcher")
+	name, _ := syscall.UTF16PtrFromString("Local\\MThanglee_CullCollage_Launcher")
 	h, _, err := pMutex.Call(0, 0, uintptr(unsafe.Pointer(name)))
 	if h == 0 {
 		return true

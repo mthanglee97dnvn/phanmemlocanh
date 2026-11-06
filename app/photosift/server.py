@@ -21,6 +21,7 @@ import cv2
 from . import models
 from .analyzer import ALL_EXT, _jpg, load_bgr, read_meta
 from .library import FACES, PREVIEWS, THUMBS, Library
+from .license import License
 
 WEB = Path(__file__).parent / "web"
 LAST_SEEN = [time.time()]   # lần cuối giao diện hỏi trạng thái (để tự thoát khi đóng trình duyệt)
@@ -209,13 +210,13 @@ def lan_connect(host, user, password):
     return dict(ok=True)
 
 
-def make_handler(lib: Library, token: str, port: int):
+def make_handler(lib: Library, token: str, port: int, lic: License):
     previews = _Preview(32)
     allowed_hosts = {f"127.0.0.1:{port}", f"localhost:{port}"}
 
     class H(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
-        server_version = "PhotoSift"
+        server_version = "CullCollage"
 
         def log_message(self, *a):  # im lặng
             pass
@@ -254,13 +255,18 @@ def make_handler(lib: Library, token: str, port: int):
                     if self.headers.get("Host", "") not in allowed_hosts:
                         return self._send(403, b"forbidden", "text/plain")
                     if q.get("t") == token or self._authed():
-                        html = (WEB / "shell.html").read_bytes()   # khung hai chế độ: Lọc ảnh + Dàn trang
+                        html = (WEB / ("shell.html" if lic.ok() else "activate.html")).read_bytes()   # chưa có key: bảng kích hoạt
                         return self._send(200, html, "text/html; charset=utf-8",
                                           {"Set-Cookie": f"ps={token}; HttpOnly; SameSite=Strict; Path=/",
                                            "Cache-Control": "no-store"})
-                    return self._send(403, "Mở ứng dụng bằng đường dẫn do PhotoSift in ra.".encode(), "text/plain; charset=utf-8")
+                    return self._send(403, "Mở ứng dụng bằng lối tắt MThanglee Cull&Collage.".encode(), "text/plain; charset=utf-8")
                 if not self._authed():
                     return self._send(403, b"forbidden", "text/plain")
+                if u.path == "/api/license":
+                    LAST_SEEN[0] = time.time()
+                    return self._json(lic.info())
+                if not lic.ok() and u.path not in ("/logo.png", "/favicon.png", "/api/status"):
+                    return self._json(dict(error="Chưa kích hoạt key", license=False), 402)
 
                 if u.path in ("/filter", "/layout"):
                     name = "index.html" if u.path == "/filter" else "layout.html"
@@ -287,6 +293,8 @@ def make_handler(lib: Library, token: str, port: int):
                 if u.path == "/api/status":
                     idle = time.time() - LAST_SEEN[0]
                     LAST_SEEN[0] = time.time()
+                    if not lic.ok():
+                        return self._json(dict(idle=round(idle, 1), license=False))
                     return self._json(dict(lib.status, eyes=lib.an.has_eyes, settings=lib.settings,
                                            online=lib.online.ok, idle=round(idle, 1)))
                 if u.path == "/api/photos":
@@ -351,6 +359,13 @@ def make_handler(lib: Library, token: str, port: int):
                 return self._send(403, b"forbidden", "text/plain")
             try:
                 b = self._body()
+                if u.path == "/api/license/activate":
+                    return self._json(lic.activate(str(b.get("key", ""))))
+                if u.path == "/api/license/remove":
+                    lic.remove()
+                    return self._json(dict(ok=True))
+                if not lic.ok() and u.path != "/api/quit":
+                    return self._json(dict(error="Chưa kích hoạt key", license=False), 402)
                 if u.path == "/api/open":
                     path = os.path.abspath(os.path.expanduser(b["path"]))
                     if not os.path.isdir(path):
@@ -432,11 +447,12 @@ def serve(port: int = 8765, open_browser: bool = True, folder: str | None = None
         print("Thiếu model:", ", ".join(missing), "- chạy: python -m photosift.models", file=sys.stderr)
         sys.exit(1)
     lib = Library()
+    lic = License()
     token = secrets.token_urlsafe(18)
     httpd = None
     for p in range(port, port + 20):
         try:
-            httpd = ThreadingHTTPServer(("127.0.0.1", p), make_handler(lib, token, p))
+            httpd = ThreadingHTTPServer(("127.0.0.1", p), make_handler(lib, token, p, lic))
             port = p
             break
         except OSError:
@@ -446,7 +462,7 @@ def serve(port: int = 8765, open_browser: bool = True, folder: str | None = None
         sys.exit(1)
     url = f"http://127.0.0.1:{port}/?t={token}"
     print("=" * 60, flush=True)
-    print(" PhotoSift đã chạy. Nếu trình duyệt không tự mở, hãy copy", flush=True)
+    print(" MThanglee Cull&Collage đã chạy. Nếu trình duyệt không tự mở, hãy copy", flush=True)
     print(" TOÀN BỘ đường dẫn dưới đây dán vào Chrome/Edge:", flush=True)
     print("\n " + url + "\n", flush=True)
     print(" (Đóng cửa sổ này để thoát)", flush=True)
@@ -476,7 +492,7 @@ def serve(port: int = 8765, open_browser: bool = True, folder: str | None = None
                     finally:
                         os._exit(0)
         threading.Thread(target=_idle, daemon=True).start()
-    if folder:
+    if folder and lic.ok():
         lib.open_folder(os.path.abspath(folder), True)
     if open_browser:
         def _open():

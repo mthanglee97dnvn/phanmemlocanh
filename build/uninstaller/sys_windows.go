@@ -25,7 +25,7 @@ func startNewConsole(exe string, args ...string) {
 }
 
 func msgErr(text string) {
-	t, _ := syscall.UTF16PtrFromString("MTHANGLEE PhotoSift")
+	t, _ := syscall.UTF16PtrFromString("MThanglee Cull&Collage")
 	m, _ := syscall.UTF16PtrFromString(text)
 	syscall.NewLazyDLL("user32.dll").NewProc("MessageBoxW").Call(0, uintptr(unsafe.Pointer(m)), uintptr(unsafe.Pointer(t)), 0x10)
 }
@@ -135,8 +135,8 @@ func removeShortcutsByName() {
 		{Data1: 0xB4BFCC3A, Data2: 0xDB2C, Data3: 0x424C, Data4: [8]byte{0xB0, 0x29, 0x7F, 0xE9, 0x9A, 0x87, 0xC6, 0x41}},
 		{Data1: 0xA77F5D77, Data2: 0x2E2B, Data3: 0x44C3, Data4: [8]byte{0xA6, 0xA2, 0xAB, 0xA6, 0x01, 0x05, 0x4A, 0x51}}} {
 		if d := knownFolder(g); d != "" {
-			os.Remove(filepath.Join(d, "MTHANGLEE PhotoSift.lnk"))
-			os.Remove(filepath.Join(d, "MTHANGLEE PhotoSift.url"))
+			os.Remove(filepath.Join(d, "MThanglee Cull&Collage.lnk"))
+			os.Remove(filepath.Join(d, "MThanglee Cull&Collage.url"))
 		}
 	}
 	syscall.NewLazyDLL("shell32.dll").NewProc("SHChangeNotify").Call(0x08000000, 0, 0, 0)

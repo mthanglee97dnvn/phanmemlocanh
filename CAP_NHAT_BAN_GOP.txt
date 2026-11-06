@@ -1,0 +1,31 @@
+CẬP NHẬT LÊN MThanglee Cull&Collage
+===================================
+Gói này gồm các file mới hoặc đã đổi, kể cả phần gộp Dàn trang. Các file khác trong kho GitHub giữ nguyên.
+
+BƯỚC 1. Tạo bộ khóa
+  - Mở MThanglee_KeyGen.exe, đặt mật khẩu, bấm Tạo bộ khóa.
+  - Bấm Tải file sao lưu và cất file đó ngoài máy (USB riêng). Nhớ mật khẩu.
+  - Bấm Sao chép khóa công khai.
+
+BƯỚC 2. Tải mã nguồn lên GitHub
+  - Giải nén gói này.
+  - Trong kho GitHub bấm Add file > Upload files, kéo các mục trong gói vào: app, build, keygen, tools, .github
+    và 2 file txt. Bấm Commit changes.
+    Thư mục .github là thư mục ẩn: trong File Explorer bấm View > Show > Hidden items.
+
+BƯỚC 3. Dán khóa công khai
+  - Mở file app/photosift/license_pub.py trên GitHub, bấm biểu tượng bút chì.
+  - Dán khóa vào giữa hai dấu ngoặc kép: PUB_HEX = "dán vào đây"
+  - Bấm Commit changes. Thiếu bước này thì bản build sẽ dừng với báo lỗi.
+
+BƯỚC 4. Build
+  - Tab Actions > chờ "Build MThanglee CullCollage Setup" có dấu tick xanh (8-15 phút).
+  - Tải MThanglee_CullCollage_Setup ở mục Artifacts, giải nén ra file cài đặt.
+
+BƯỚC 5. Cài đặt
+  - Đóng PhotoSift cũ. Chạy MThanglee_CullCollage_Setup.exe. App mới cài vào thư mục riêng.
+  - Mở app, chép Mã máy, tạo key trong KeyGen, dán key để kích hoạt.
+  - Kiểm tra app mới thấy dữ liệu cũ, rồi gỡ MTHANGLEE PhotoSift trong Settings > Apps.
+    BỎ TÍCH ô "Xoá luôn dữ liệu người dùng", vì hai app dùng chung dữ liệu.
+
+Build lỗi dấu X đỏ: chụp bước bị lỗi gửi cho Claude.

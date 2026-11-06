@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="google" content="notranslate">
+<title>Kích hoạt MThanglee Cull&amp;Collage</title>
+<link rel="icon" type="image/png" href="/favicon.png">
+<style>
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{display:grid;place-items:center;padding:16px;color:#f4f8ff;font:14px/1.5 "Segoe UI Variable Display","Segoe UI",system-ui,sans-serif;
+  background:radial-gradient(800px 560px at 0 0,rgba(255,140,52,.5),transparent 62%),radial-gradient(800px 600px at 100% 100%,rgba(255,176,24,.42),transparent 62%),linear-gradient(135deg,#071a30,#0b3b66 55%,#1286c4)}
+main{width:min(520px,100%);background:rgba(8,30,60,.82);border:1px solid rgba(255,255,255,.22);border-radius:16px;padding:26px}
+img{height:34px;display:block;margin-bottom:14px}
+h1{font-size:23px;margin:0}
+p{color:#c5d6ea;margin:6px 0 16px;font-size:13.5px}
+label{display:block;font-size:12.5px;color:#a9c0da;margin-bottom:4px}
+.code{display:flex;gap:8px;margin-bottom:16px}
+.code output{flex:1;min-width:0;padding:8px 10px;border-radius:8px;background:#071a30;border:1px solid #2b4d70;font:600 15px Consolas,monospace;letter-spacing:.04em;user-select:all}
+textarea{width:100%;min-height:104px;padding:9px;border-radius:8px;background:#071a30;color:#f4f8ff;border:1px solid #2b4d70;font:12.5px Consolas,monospace;resize:vertical}
+textarea:focus-visible,button:focus-visible{outline:2px solid #ffa31a;outline-offset:1px}
+button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid #2b4d70;background:#163350;color:#f4f8ff;padding:7px 14px}
+#go{width:100%;margin-top:12px;background:#ffa31a;border-color:#ffa31a;color:#241200;font-weight:700;padding:10px}
+#go:disabled{opacity:.5;cursor:default}
+#err{min-height:20px;margin-top:8px;color:#ff9d9b;font-size:13px}
+</style>
+</head>
+<body>
+<main>
+  <img src="/logo.png" alt="MTHANGLEE STUDIO">
+  <h1>MThanglee Cull&amp;Collage</h1>
+  <p>Nhập key để sử dụng. Gửi mã máy dưới đây cho MTHANGLEE STUDIO để nhận key.</p>
+  <label for="mach">Mã máy của bạn</label>
+  <div class="code"><output id="mach">…</output><button id="copy">Sao chép</button></div>
+  <label for="key">Key kích hoạt</label>
+  <textarea id="key" placeholder="MTCC-…" spellcheck="false" autofocus></textarea>
+  <div id="err" role="status"></div>
+  <button id="go">Kích hoạt</button>
+</main>
+<script>
+"use strict";
+const $=i=>document.getElementById(i);
+async function load(){const s=await fetch('/api/license').then(r=>r.json());$('mach').textContent=s.machine;if(s.ok)location.href='/';else{if(s.reason)$('err').textContent=s.reason;if(!s.has_pub){$('go').disabled=true;$('err').textContent='Bản cài này chưa có khóa công khai nên chưa kích hoạt được.'}}}
+load();setInterval(()=>fetch('/api/license').catch(()=>{}),20000);
+$('copy').onclick=async e=>{try{await navigator.clipboard.writeText($('mach').textContent);e.target.textContent='Đã chép'}catch(err){getSelection().selectAllChildren($('mach'));e.target.textContent='Nhấn Ctrl+C'}setTimeout(()=>e.target.textContent='Sao chép',1600)};
+async function go(){const k=$('key').value.trim();if(!k){$('err').textContent='Hãy dán key vào ô trên.';return}$('go').disabled=true;$('go').textContent='Đang kiểm tra…';
+  try{const r=await fetch('/api/license/activate',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({key:k})}).then(x=>x.json());if(r.ok){location.href='/';return}$('err').textContent=r.reason}catch(e){$('err').textContent='Chưa kiểm tra được key. Hãy thử lại.'}
+  $('go').disabled=false;$('go').textContent='Kích hoạt'}
+$('go').onclick=go;
+</script>
+</body>
+</html>

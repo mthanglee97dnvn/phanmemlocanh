@@ -1,14 +1,7 @@
 #!/usr/bin/env python3
-"""PhotoSift — lọc ảnh tự động + nhận diện khuôn mặt (kiểu Photo Mechanic)."""
+"""MThanglee Cull&Collage — lọc ảnh tự động + nhận diện khuôn mặt (kiểu Photo Mechanic)."""
 import argparse
 import sys
-
-# Bản đóng gói sẵn (PyInstaller) không đọc PYTHONUTF8: ép in tiếng Việt bằng UTF-8, không bao giờ lỗi mã hoá
-for _s in (sys.stdout, sys.stderr):
-    try:
-        _s.reconfigure(encoding="utf-8", errors="replace")
-    except Exception:  # noqa: BLE001
-        pass
 
 if "--selftest" in sys.argv:   # kiểm tra nhanh gói đóng sẵn có đủ thư viện (dùng khi build)
     import cv2, numpy, PIL
@@ -23,7 +16,7 @@ if "--selftest" in sys.argv:   # kiểm tra nhanh gói đóng sẵn có đủ th
     sys.exit(0)
 from photosift.server import serve
 
-ap = argparse.ArgumentParser(description="PhotoSift")
+ap = argparse.ArgumentParser(description="MThanglee Cull&Collage")
 ap.add_argument("folder", nargs="?", help="thư mục ảnh mở sẵn (tuỳ chọn)")
 ap.add_argument("--port", type=int, default=8765)
 ap.add_argument("--no-browser", action="store_true", help="không tự mở trình duyệt")

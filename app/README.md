@@ -1,4 +1,4 @@
-# PhotoSift — lọc ảnh tự động + nhận diện khuôn mặt
+# MThanglee Cull&Collage — lọc ảnh và dàn trang album
 
 Công cụ duyệt và chọn ảnh nhanh kiểu Photo Mechanic, có thêm phân tích tự động. Chạy hoàn toàn trên máy bạn (không gửi ảnh đi đâu).
 Giao diện mở trong trình duyệt, nhưng server chỉ lắng nghe `127.0.0.1`.
@@ -8,7 +8,7 @@ Giao diện mở trong trình duyệt, nhưng server chỉ lắng nghe `127.0.0.
 pip install -r requirements.txt
 python run.py              # hoặc: python run.py "D:/Anh/DamCuoi"
 ```
-Windows (không cần biết Python): chạy `MTHANGLEE_PhotoSift_Setup.exe` (cài cho riêng người dùng, không cần quyền Admin), hoặc giải nén bản zip rồi bấm đúp `PhotoSift.bat`.
+Windows (không cần biết Python): chạy `MThanglee_CullCollage_Setup.exe` (cài cho riêng người dùng, không cần quyền Admin), hoặc giải nén bản zip rồi bấm đúp `PhotoSift.bat`.
 
 **Khoá theo mạng:** lọc ảnh *tối*, *cháy sáng* và *nhắm mắt* chỉ hoạt động khi máy có Internet. Ngoại tuyến vẫn duyệt, chấm sao/nhãn màu, lọc mờ/trùng, nhận diện người và xuất ảnh. Đây là cơ chế khoá mềm (kiểm tra kết nối), không phải bản quyền.
 Lần chạy đầu sẽ tự tải model còn thiếu (`python -m photosift.models` để tải thủ công).
