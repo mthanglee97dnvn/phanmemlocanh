@@ -553,11 +553,16 @@ func runInstall(dir string) string {
 	return launcher
 }
 
+var updateDir string
+
 func main() {
 	setupConsole()
 	dir := defaultDir()
 	cli := false
 	for i, a := range os.Args {
+		if a == "--update-dir" && i+1 < len(os.Args) { // app tự cập nhật: cài đè rồi mở lại app, không hỏi gì
+			updateDir = os.Args[i+1]
+		}
 		if a == "--silent" || a == "--console" {
 			cli = true
 		}

@@ -17,5 +17,6 @@ func openAppWindow(u string) *exec.Cmd { println("[gui]", u); return nil }
 func killWindow(c *exec.Cmd)           {}
 
 func cleanupProfile() {}
+func closeOldApp()    {}
 
 func hasDesktopLink(l []string) bool { return len(l) > 0 }

@@ -21,6 +21,12 @@ html,body{height:100%;margin:0;background:#0a1a2e;color:#f4f8ff;font:13px/1.4 "S
 #mode #tName{font-weight:600;color:#a9c0da;font-size:12.5px;white-space:nowrap}
 #mode #tLic{height:26px;padding:0 10px;border:1px solid #24405f;border-radius:13px;color:#a9c0da;font-weight:500;font-size:12px}
 #mode #tLic.warn{color:#ffb74d;border-color:#ffa31a}
+#mode #tVer{height:26px;padding:0 8px;border:0;color:#a9c0da;font-weight:500;font-size:12px}
+#mode #tUpd{height:26px;padding:0 11px;border:0;border-radius:13px;background:#ffa31a;color:#241200;font-weight:700;font-size:12px}
+#mode #tUpd:hover{color:#241200;background:#ffb74d}
+#uNotes{white-space:pre-wrap;max-height:220px;overflow:auto;font-size:13px;line-height:1.5;margin:0 0 10px;color:#d5e2f0}
+#uBar{height:6px;border-radius:3px;background:#163350;overflow:hidden;margin:6px 0}#uBar i{display:block;height:100%;width:0;background:#ffa31a}
+#uMsg{color:#a9c0da;font-size:12.5px;min-height:18px}
 dialog{background:#0d2238;color:#f4f8ff;border:1px solid #24405f;border-radius:10px;padding:18px;width:min(480px,calc(100vw - 24px))}
 dialog::backdrop{background:#000a}
 dialog h2{font-size:17px;margin:0 0 10px}
@@ -43,7 +49,8 @@ iframe.on{visibility:visible}
     <img src="/logo.png" alt="MTHANGLEE STUDIO">
     <button role="tab" id="tFilter" aria-selected="true">Lọc ảnh<kbd>Ctrl+1</kbd></button>
     <button role="tab" id="tLayout" aria-selected="false">Dàn trang<kbd>Ctrl+2</kbd></button>
-    <span class="sp"></span><span id="tName">MThanglee Cull&amp;Collage</span>
+    <span class="sp"></span><button id="tUpd" hidden></button><span id="tName">MThanglee Cull&amp;Collage</span>
+    <button id="tVer" title="Kiểm tra cập nhật"></button>
     <button id="tLic" title="Thông tin bản quyền"></button>
   </nav>
   <div id="stage">
@@ -51,6 +58,13 @@ iframe.on{visibility:visible}
     <iframe id="fLayout" src="/layout" title="Dàn trang" allow="local-fonts; clipboard-read; clipboard-write"></iframe>
   </div>
 </div>
+<dialog id="updDlg">
+  <h2 id="uHead"></h2>
+  <p id="uNotes"></p>
+  <div id="uBar" hidden><i></i></div>
+  <div id="uMsg" role="status"></div>
+  <div class="btns"><button id="uClose">Để sau</button><button id="uAgain">Kiểm tra lại</button><button class="pri" id="uGo">Cập nhật ngay</button></div>
+</dialog>
 <dialog id="licDlg">
   <h2>Bản quyền</h2>
   <dl><dt>Trạng thái</dt><dd id="lState"></dd><dt>Mã máy</dt><dd id="lMach"></dd></dl>
@@ -72,6 +86,22 @@ async function lic(){let s;try{s=await fetch('/api/license').then(r=>r.json())}c
   const t=$('tLic'),low=!s.permanent&&s.days_left<=14;t.textContent=s.permanent?'Bản quyền vĩnh viễn':`Còn ${s.days_left} ngày`;t.classList.toggle('warn',low);
   $('lState').textContent=s.permanent?'Vĩnh viễn':`Đến ${s.expires}, còn ${s.days_left} ngày`;$('lMach').textContent=s.machine}
 lic();setInterval(lic,600000);
+let U=null,busy=false;
+const showU=(r,msg)=>{U=r;const av=r.available;$('tVer').textContent='Bản '+r.current;$('tUpd').hidden=!av;$('tUpd').textContent='Cập nhật lên bản '+r.latest;
+  $('uHead').textContent=av?'Có bản mới '+r.latest:'Bản '+r.current;$('uNotes').textContent=av?r.notes:(r.error||'Bạn đang dùng bản mới nhất.');$('uGo').hidden=!av;$('uAgain').hidden=av;$('uMsg').textContent=msg||''};
+async function checkUpd(force){try{showU(await fetch('/api/update/check'+(force?'?force=1':'')).then(r=>r.json()))}catch(e){}}
+setTimeout(()=>checkUpd(),3000);setInterval(()=>checkUpd(),21600000);
+$('tVer').onclick=$('tUpd').onclick=()=>{if(U)$('updDlg').showModal()};$('uClose').onclick=()=>{if(!busy)$('updDlg').close()};
+$('uAgain').onclick=async()=>{$('uMsg').textContent='Đang kiểm tra…';await checkUpd(true)};
+$('uGo').onclick=async()=>{const m=$('uMsg'),bar=$('uBar'),go=$('uGo'),stop=t=>{busy=false;go.disabled=false;bar.hidden=true;m.textContent=t};
+  busy=true;go.disabled=true;bar.hidden=false;m.textContent='Đang tải bản mới…';
+  const r=await post('/api/update/start');if(r.error)return stop(r.error);
+  for(;;){await new Promise(z=>setTimeout(z,400));let s;try{s=await fetch('/api/update/status').then(x=>x.json())}catch(e){return stop('Mất kết nối. Hãy thử lại.')}
+    if(s.state==='error')return stop(s.error);
+    bar.firstChild.style.width=(s.total?100*s.got/s.total:0)+'%';m.textContent=`Đang tải ${(s.got/1e6).toFixed(0)}/${(s.total/1e6).toFixed(0)} MB`;
+    if(s.state==='ready')break}
+  m.textContent='Đang cài đặt. App sẽ tự mở lại, không cần làm gì thêm.';
+  const i=await post('/api/update/install');if(i.error)return stop(i.error);setTimeout(()=>window.close(),1500)};
 $('tLic').onclick=()=>{$('licErr').textContent='';$('lKey').value='';$('licDlg').showModal()};$('lClose').onclick=()=>$('licDlg').close();
 $('lGo').onclick=async()=>{const r=await post('/api/license/activate',{key:$('lKey').value});if(r.ok){$('licDlg').close();lic()}else $('licErr').textContent=r.reason};
 let armed=false;$('lRemove').onclick=async e=>{if(!armed){armed=true;e.target.textContent='Bấm lần nữa để gỡ key';return}await post('/api/license/remove');location.reload()};

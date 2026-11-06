@@ -185,12 +185,25 @@ func killWindow(c *exec.Cmd) {
 	k.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: 0x08000000}
 	k.Run()
 	// Edge/Chrome có thể giao cửa sổ cho tiến trình khác nên PID trên không còn giữ cửa sổ: tắt theo thư mục hồ sơ riêng.
+	killProfile("mthanglee_setup_profile")
+}
+
+func killProfile(name string) {
 	ctx, stop := context.WithTimeout(context.Background(), 5*time.Second)
 	defer stop()
 	p := exec.CommandContext(ctx, "powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command",
-		`Get-CimInstance Win32_Process -Filter "Name='msedge.exe' OR Name='chrome.exe'" | Where-Object { $_.CommandLine -like '*mthanglee_setup_profile*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }`)
+		`Get-CimInstance Win32_Process -Filter "Name='msedge.exe' OR Name='chrome.exe'" | Where-Object { $_.CommandLine -like '*`+name+`*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }`)
 	hideCmd(p)
 	p.Run()
+}
+
+// closeOldApp đóng cửa sổ và bộ khởi chạy của bản cũ, nếu không file .exe đang chạy sẽ không ghi đè được.
+func closeOldApp() {
+	time.Sleep(1500 * time.Millisecond)
+	k := exec.Command("taskkill", "/F", "/IM", "MThanglee CullCollage.exe")
+	hideCmd(k)
+	k.Run()
+	killProfile(`.photosift\appwin`)
 }
 
 func cleanupProfile() {

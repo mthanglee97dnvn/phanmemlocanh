@@ -75,6 +75,19 @@ func guiMain() {
 		gs.mu.Unlock()
 	}
 	gs.Dir = defaultDir()
+	if updateDir != "" {
+		gs.Phase, gs.Dir = "running", updateDir
+		go func() {
+			closeOldApp()
+			l := runInstall(updateDir)
+			gs.mu.Lock()
+			gs.launcher, gs.Phase = l, "done"
+			gs.mu.Unlock()
+			startDetached(l)
+			time.Sleep(800 * time.Millisecond)
+			quit()
+		}()
+	}
 	token := fmt.Sprintf("%x", time.Now().UnixNano())
 
 	ln, err := net.Listen("tcp", "127.0.0.1:0")

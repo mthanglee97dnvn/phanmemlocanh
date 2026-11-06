@@ -19,6 +19,7 @@ from urllib.parse import parse_qs, urlparse
 import cv2
 
 from . import models
+from .update import Updater
 from .analyzer import ALL_EXT, _jpg, load_bgr, read_meta
 from .library import COVERS, FACES, PREVIEWS, THUMBS, Library
 from .license import License
@@ -271,6 +272,8 @@ def lan_connect(host, user, password):
 
 
 def make_handler(lib: Library, token: str, port: int, lic: License):
+    upd = Updater()
+
     previews = _Preview(32)
     allowed_hosts = {f"127.0.0.1:{port}", f"localhost:{port}"}
 
@@ -359,6 +362,10 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                                            online=lib.online.ok, idle=round(idle, 1), os=os.name, plat=sys.platform))
                 if u.path == "/api/cache":
                     return self._json(lib.cache_info())
+                if u.path == "/api/update/check":
+                    return self._json(upd.public(upd.check("force" in q)))
+                if u.path == "/api/update/status":
+                    return self._json(upd.state)
                 if u.path == "/api/catalog":
                     return self._json(lib.catalog())
                 if u.path == "/api/cull/last":
@@ -478,6 +485,14 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                     return self._json(lan_connect(str(b.get("host", "")), str(b.get("user", "")), str(b.get("password", ""))))
                 if u.path == "/api/online":
                     return self._json(dict(online=lib.online.recheck()))
+                if u.path == "/api/update/start":
+                    return self._json(upd.start())
+                if u.path == "/api/update/install":
+                    r = upd.install()
+                    self._json(r)
+                    if r.get("ok"):
+                        threading.Timer(0.4, lambda: os._exit(0)).start()
+                    return
                 if u.path == "/api/quit":
                     self._json(dict(ok=True))
                     threading.Timer(0.4, lambda: os._exit(0)).start()
