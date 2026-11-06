@@ -289,12 +289,12 @@ details.adv{margin:6px 0;border-top:1px solid var(--line);padding-top:6px}detail
     <select id="fFilter" title="Lọc"></select>
     <select id="fSort" title="Sắp xếp">
       <option value="name">Tên file</option><option value="time">Thời gian chụp</option>
-      <option value="score">Điểm chất lượng ↓</option><option value="sharp">Độ nét ↓</option>
+      <option value="score">Điểm chất lượng (cao trước)</option><option value="sharp">Độ nét (cao trước)</option>
     </select>
     <input type="range" id="fSize" min="100" max="320" value="170" title="Cỡ ảnh">
     <button id="bCull"><svg class="ic" aria-hidden="true"><use href="#i-funnel"/></svg>Tự động lọc</button>
     <button id="bUndo" disabled><svg class="ic" aria-hidden="true"><use href="#i-undo"/></svg>Hoàn tác</button>
-    <button id="bUnrej" title="Hoàn tác lần lọc gần nhất hoặc bỏ loại toàn bộ ảnh" hidden></button>
+    <button id="bUnrej" title="Khôi phục ảnh đã bị đánh dấu loại" hidden></button>
     <button id="bExport"><svg class="ic" aria-hidden="true"><use href="#i-export"/></svg>Xuất ảnh</button>
     <button id="bLayout" class="pri" title="Gửi ảnh đã lọc sang Dàn trang" hidden><svg class="ic" aria-hidden="true"><use href="#i-layout"/></svg>Dàn trang</button>
     <button id="bInfo" title="Bật/tắt khung thông số ảnh" aria-label="Bật/tắt khung thông số ảnh"><svg class="ic" aria-hidden="true"><use href="#i-info"/></svg></button>
@@ -416,7 +416,7 @@ function renderGrid(){
   const wrap=$('#gridwrap');
   if(!S.photos.length){
     cells.clear(); sigs.clear();
-    wrap.innerHTML = `<div id="empty"><h2>${S.status.state==='scanning'?'Đang đọc ảnh…':(S.status.state==='error'?'Không mở được thư mục':'Chưa có ảnh nào')}</h2>${S.status.state==='error'?`<div style="color:#ffb3b3;max-width:520px;margin:0 auto 10px;word-break:break-word">${esc(S.status.message||'')}</div>`:''}${S.status.state==='done'&&S.status.root&&!S.photos.length?`<div style="color:#ffd9a0;margin-bottom:8px">Thư mục «${esc(S.status.root)}» không có ảnh nào (JPG/PNG/RAW/HEIC).</div>`:''}<div>Mở một thư mục ảnh để bắt đầu.<br>App sẽ tự phát hiện ảnh mờ, tối, nhắm mắt, trùng lặp<br>và nhóm ảnh theo từng người.</div><button class="pri" onclick="pickFolder()"><svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg>Mở thư mục</button></div>`;
+    wrap.innerHTML = `<div id="empty"><h2>${S.status.state==='scanning'?'Đang đọc ảnh…':(S.status.state==='error'?'Không mở được thư mục':'Chưa có ảnh nào')}</h2>${S.status.state==='error'?`<div style="color:#ffb3b3;max-width:520px;margin:0 auto 10px;word-break:break-word">${esc(S.status.message||'')}</div>`:''}${S.status.state==='done'&&S.status.root&&!S.photos.length?`<div style="color:#ffd9a0;margin-bottom:8px">Thư mục «${esc(S.status.root)}» không có ảnh nào (JPG/PNG/RAW/HEIC).</div>`:''}<div>Mở một thư mục ảnh để bắt đầu.<br>App tự phát hiện ảnh mờ, tối, nhắm mắt, trùng lặp<br>và nhóm ảnh theo từng người.</div><button class="pri" onclick="pickFolder()"><svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg>Mở thư mục</button></div>`;
     renderStatus(); return;
   }
   if(!$('#grid')){ cells.clear(); sigs.clear(); wrap.innerHTML='<div id="grid"></div>'; }
@@ -458,12 +458,12 @@ $('#gridwrap').addEventListener('dblclick', e=>{ const c=e.target.closest('.cell
 function renderStatus(){
   const st=S.status||{};
   const nRej=S.photos.filter(p=>p.rating===-1).length, bU=$('#bUnrej');
-  bU.hidden=!nRej; bU.innerHTML=`<svg class="ic" aria-hidden="true"><use href="#i-restore"/></svg>Bỏ loại (${fmt(nRej)})`;
+  bU.hidden=!nRej; bU.innerHTML=`<svg class="ic" aria-hidden="true"><use href="#i-restore"/></svg>Khôi phục ảnh loại (${fmt(nRej)})`;
   $('#bUndo').disabled=!S.undo.length&&!(S.lastCull&&S.lastCull.n);
   $('#sCount').textContent = `${S.view.length}/${S.photos.length} ảnh` + (false&&st.state==='done'&&st.timing&&st.timing.all_s?` • ⏱ thumbnail ${st.timing.thumb_s}s · đọc ảnh ${st.timing.read_s}s · tổng ${st.timing.all_s}s`:'')+
     (st.state==='scanning'?` • thumbnail ${Math.max(st.thumbs,st.quick||0)}/${st.total} • phân tích ${st.done}/${st.total} (chạy nền — bạn có thể chấm ảnh ngay)`:'');
   $('#sSel').textContent = S.sel.size>1 ? `${S.sel.size} đã chọn` : '';
-  const net=$('#sNet'); net.innerHTML = st.online ? '<span class="ok">● Trực tuyến</span>' : '<span class="warn">● Ngoại tuyến — đang khoá lọc tối/sáng/nhắm mắt</span>';
+  const net=$('#sNet'); net.innerHTML = st.online ? '<span class="ok">● Trực tuyến</span>' : '<span class="warn">● Ngoại tuyến: tạm khóa lọc tối, cháy sáng, nhắm mắt</span>';
   const p=S.by.get(S.cur);
   $('#sCur').textContent = p ? `${p.name} • ${p.w}×${p.h} • điểm ${p.score} • độ nét ${p.nf?p.fsharp+' (mặt)':p.sharp}` : '';
 }
@@ -485,7 +485,7 @@ function personModal(p){
   const others=S.people.filter(o=>o.id!==p.id);
   const m=modal(`<h3>Người ${p.id}</h3><div class="row"><label>Tên</label><input type="text" id="pn" maxlength="60" style="flex:1" value="${esc(p.name||'')}" placeholder="Nhập tên…"></div>
    <div class="row"><label>Gộp vào người khác</label><select id="pm" style="flex:1"><option value="">— chọn —</option>${others.map(o=>`<option value="${o.id}">${esc(o.name||'Người '+o.id)} (${o.n})</option>`).join('')}</select><button id="pgo">Gộp</button></div>
-   <div class="hint">Tên được lưu cho các thư mục khác và ghi vào từ khoá XMP khi xuất ảnh.</div>
+   <div class="hint">Tên được lưu cho các thư mục khác và ghi vào từ khóa XMP khi xuất ảnh.</div>
    <div class="btns"><button onclick="this.closest('.back').remove()">Đóng</button><button class="pri" id="psave">Lưu tên</button></div>`);
   m.querySelector('#pn').focus();
   const save=async()=>{ await api('/api/person/rename',{id:p.id,name:m.querySelector('#pn').value}); m.close(); await loadPeople(); await loadPhotos(); };
@@ -526,7 +526,7 @@ async function undoCull(batch){
   const r=await api('/api/cull/undo',{id:batch}); r.ids.forEach(i=>{ if(S.by.has(i)) S.by.get(i).rating=0; });
   S.undo=S.undo.filter(u=>!(u.t==='cull'&&u.batch===batch)); await refreshCull();
   if(S.filter==='rej'){ S.filter='all'; $('#fFilter').value='all'; }
-  applyView(); if(S.viewer) showViewer(); toast(`Đã hoàn tác, bỏ loại ${fmt(r.n)} ảnh`);
+  applyView(); if(S.viewer) showViewer(); toast(`Đã hoàn tác lần lọc, khôi phục ${fmt(r.n)} ảnh`);
 }
 async function undo(){
   const top=S.undo[S.undo.length-1];
@@ -541,17 +541,17 @@ $('#bUndo').onclick=undo;
 $('#bUnrej').onclick=()=>{
   const rej=S.photos.filter(p=>p.rating===-1).map(p=>p.id), l=S.lastCull&&S.lastCull.n?S.lastCull:null;
   const when=l?new Date(l.time*1000).toLocaleString('vi-VN',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit',year:'numeric'}):'';
-  const m=modal(`<h3>Bỏ loại ảnh</h3>
-   <div class="hint" style="margin-bottom:10px">Thư mục này có <b>${fmt(rej.length)}</b> ảnh đang bị đánh dấu ✕. Ảnh gốc chưa từng bị xoá hay di chuyển.</div>
-   ${l?`<div class="row" style="margin-bottom:8px"><button id="ulast" style="flex:1">Hoàn tác lần lọc gần nhất: ${fmt(l.n)} ảnh, lúc ${esc(when)}</button></div>`:''}
-   <div class="row"><button class="pri" id="uall" style="flex:1">Bỏ loại toàn bộ ${fmt(rej.length)} ảnh</button></div>
+  const m=modal(`<h3>Khôi phục ảnh đã loại</h3>
+   <div class="hint" style="margin-bottom:10px">Thư mục này có <b>${fmt(rej.length)}</b> ảnh đang bị đánh dấu loại (✕). Khôi phục chỉ gỡ dấu ✕, ảnh gốc vẫn nằm nguyên chỗ cũ.</div>
+   ${l?`<div class="row" style="margin-bottom:8px"><button id="ulast" style="flex:1">Khôi phục lần tự động lọc lúc ${esc(when)} (${fmt(l.n)} ảnh)</button></div>`:''}
+   <div class="row"><button class="pri" id="uall" style="flex:1">Khôi phục toàn bộ ${fmt(rej.length)} ảnh</button></div>
    <div class="btns"><button onclick="this.closest('.back').remove()">Đóng</button></div>`);
   if(l) m.querySelector('#ulast').onclick=async()=>{ m.close(); await undoCull(l.id); };
   m.querySelector('#uall').onclick=async()=>{ m.close(); await api('/api/cull/clear',{}); S.undo=S.undo.filter(u=>u.t!=='cull'); await rate(rej,0); await refreshCull();
-    if(S.filter==='rej'){ S.filter='all'; $('#fFilter').value='all'; } applyView(); toast(`Đã bỏ loại ${fmt(rej.length)} ảnh. Nếu lỡ tay, bấm Hoàn tác trước khi đóng app`,4000); };
+    if(S.filter==='rej'){ S.filter='all'; $('#fFilter').value='all'; } applyView(); toast(`Đã khôi phục ${fmt(rej.length)} ảnh. Lỡ tay thì bấm Hoàn tác trước khi đóng app`,4000); };
 };
 
-/* ---------- dải thumbnail dưới trình xem ---------- */
+/* ---------- dải ảnh thu nhỏ dưới trình xem ---------- */
 const SC_W=96; let stripOn=true; try{ stripOn=localStorage.getItem('ps_strip')!=='0'; }catch(e){}
 let stripLast=-1;
 function renderStrip(center){
@@ -591,7 +591,7 @@ function zoomTo(k,cx,cy){
 }
 const zoomToggle=(cx,cy)=>zoomTo(S.zoom?1:Z.click,cx,cy);
 function openViewer(){ if(S.cur===null) return; S.viewer=true; resetZoom(); $('#viewer').classList.add('on'); showViewer(); }
-function toggleStrip(){ stripOn=!stripOn; try{ localStorage.setItem('ps_strip',stripOn?'1':'0'); }catch(e){} renderStrip(true); if(S.viewer) showViewer(); toast(stripOn?'Bật dải thumbnail':'Tắt dải thumbnail (phím T để bật lại)'); }
+function toggleStrip(){ stripOn=!stripOn; try{ localStorage.setItem('ps_strip',stripOn?'1':'0'); }catch(e){} renderStrip(true); if(S.viewer) showViewer(); toast(stripOn?'Bật dải ảnh thu nhỏ':'Tắt dải ảnh thu nhỏ (phím T để bật lại)'); }
 $('#vbGrid').onclick=()=>closeViewer();
 $('#vbCat').onclick=()=>{ closeViewer(); showCatalog(); };
 function closeViewer(){ S.viewer=false; updateMask(); $('#viewer').classList.remove('on'); if(S.cur!==null){ const d=cells.get(S.cur); d&&d.scrollIntoView({block:'nearest'}); } }
@@ -663,13 +663,13 @@ function renderInfo(p, ix){
    <div id="vsec"></div>
    <div class="kv">Điểm chất lượng<b>${p.score}</b></div><div class="kv">Kích thước<b>${p.w}×${p.h}</b></div><div class="kv">Chụp lúc<b>${d}</b></div>
    <div class="kv">Độ nét (toàn ảnh)<b>${p.sharp}</b></div><div class="kv">Độ nét (mặt)<b>${p.nf?p.fsharp:'—'}</b></div>
-   <div class="kv">Độ sáng TB<b>${(p.lum*100).toFixed(0)}%</b></div><div class="kv">Độ mở mắt (EAR)<b>${p.ear>=0?p.ear:'—'}</b></div>
+   <div class="kv">Độ sáng TB<b>${(p.lum*100).toFixed(0)}%</b></div><div class="kv">Độ mở mắt<b>${p.ear>=0?p.ear:'—'}</b></div>
    <div style="margin:10px 0">${p.an===false?'<span class="hint">Đang phân tích…</span>':''}${p.flags.filter(f=>f!=='dup').map(f=>`<span class="chip ${f}" style="margin-right:4px">${FLAG[f]}</span>`).join('')||(p.flags.length?'':'<span class="ok">Không có cảnh báo</span>')}</div>
    ${p.grp?`<div class="hint">Nhóm trùng #${p.grp} ${p.best?'— <b class="ok">bản tốt nhất</b>':''}</div>`:''}
    <div style="margin:8px 0">${p.people.map(i=>`<span class="chip" style="background:var(--sel);margin-right:4px">${esc(pname(i))}</span>`).join('')}</div>
    <hr style="border-color:var(--line)"><button id="vdiag" style="margin-bottom:8px"><svg class="ic" aria-hidden="true"><use href="#i-tool"/></svg>Chẩn đoán file</button><div class="hint">
    <span class="kbd">←</span><span class="kbd">→</span> chuyển ảnh &nbsp; <span class="kbd">0-5</span> sao &nbsp; <span class="kbd">X</span> loại<br>
-   <span class="kbd">6-9</span> nhãn màu &nbsp; <span class="kbd">F</span> tên người &nbsp; Lăn chuột phóng to, giữ chuột phải kéo ảnh, <span class="kbd">Z</span> phóng nhanh<br><span class="kbd">H</span> vùng cháy/tối &nbsp; <span class="kbd">T</span> bật/tắt dải thumbnail &nbsp; <span class="kbd">Esc</span> quay lại</div>`;
+   <span class="kbd">6-9</span> nhãn màu &nbsp; <span class="kbd">F</span> tên người &nbsp; Lăn chuột phóng to, giữ chuột phải kéo ảnh, <span class="kbd">Z</span> phóng nhanh<br><span class="kbd">H</span> vùng cháy/tối &nbsp; <span class="kbd">T</span> bật/tắt dải ảnh thu nhỏ &nbsp; <span class="kbd">Esc</span> quay lại</div>`;
   $('#vstars').onclick=e=>{ const r=e.target.dataset.r; if(r!==undefined) rate([p.id], +r===p.rating?0:+r); };
   fillSections('#vsec', p.id, 'v');
   $('#vdiag').onclick=async()=>{ const r=await api('/api/diag?id='+p.id); const m=modal(`<h3>Chẩn đoán file</h3><pre id="dt" style="white-space:pre-wrap;word-break:break-all;font-size:11px;max-height:55vh;overflow:auto;background:#101114;padding:10px;border-radius:8px"></pre><div class="btns"><button id="dc">Sao chép</button><button class="pri" onclick="this.closest('.back').remove()">Đóng</button></div>`); m.querySelector('#dt').textContent=r.text; m.querySelector('#dc').onclick=()=>{ navigator.clipboard.writeText(r.text); toast('Đã sao chép'); }; };
@@ -809,7 +809,7 @@ function drawCatalog(){
   l.sort((a,b)=>s==='name'?a.name.localeCompare(b.name,'vi',{numeric:true}):((b[s]||0)-(a[s]||0))||a.name.localeCompare(b.name,'vi',{numeric:true}));
   $('#catView').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===Cat.view)));
   const cur=S.status.root, cov=(c,n)=>`/cover/${n}?v=${c.ver}`, img=c=>c.covers.map(n=>`<img loading="lazy" src="${cov(c,n)}" alt="" onerror="this.remove()">`).join('');
-  const del=c=>`<button class="cdel" data-del="${esc(c.root)}" title="Gỡ khỏi catalog" aria-label="Gỡ ${esc(c.name)} khỏi catalog">✕</button>`;
+  const del=c=>`<button class="cdel" data-del="${esc(c.root)}" title="Gỡ khỏi Catalog" aria-label="Gỡ ${esc(c.name)} khỏi catalog">✕</button>`;
   const num=c=>c.n?fmt(c.n)+' ảnh':'Chưa đọc lại'; const stat=c=>`${num(c)} · ${fmt(c.stars)} ★ · ${fmt(c.rej)} ✕`;
   if(!l.length){ box.innerHTML=`<div class="cnone">${Cat.list.length?'Không có thư mục nào khớp.':'<h2>Chưa có thư mục nào</h2><div>Bấm “Thêm thư mục” để chọn thư mục ảnh đầu tiên.</div>'}</div>`; return; }
   if(Cat.view==='det'){
@@ -823,7 +823,7 @@ function catOpen(root){ const c=Cat.list.find(x=>x.root===root); if(!c) return;
   if(c.missing){ toast('Không tìm thấy thư mục này. Ổ đĩa có thể chưa được cắm hoặc thư mục đã đổi tên.',4500); return; }
   openFolder(c.root,c.recursive).catch(e=>toast(e.message,4000)); }
 function catRemove(root){ const c=Cat.list.find(x=>x.root===root);
-  const m=modal(`<h3>Gỡ khỏi catalog?</h3><div class="hint" style="margin-bottom:10px"><b>${esc(c.name)}</b> chỉ bị gỡ khỏi danh sách này. Ảnh gốc, số sao và dấu ✕ vẫn giữ nguyên, mở lại thư mục là thấy.</div><div class="btns"><button onclick="this.closest('.back').remove()">Huỷ</button><button class="pri" id="cgo">Gỡ</button></div>`);
+  const m=modal(`<h3>Gỡ khỏi Catalog?</h3><div class="hint" style="margin-bottom:10px"><b>${esc(c.name)}</b> chỉ bị gỡ khỏi danh sách này. Ảnh gốc, số sao và dấu ✕ vẫn giữ nguyên, mở lại thư mục là thấy.</div><div class="btns"><button onclick="this.closest('.back').remove()">Hủy</button><button class="pri" id="cgo">Gỡ</button></div>`);
   m.querySelector('#cgo').onclick=async()=>{ m.close(); await api('/api/catalog/remove',{root}); Cat.list=Cat.list.filter(x=>x.root!==root); drawCatalog(); }; }
 $('#catBody').onclick=e=>{ const d=e.target.closest('[data-del]'); if(d){ e.stopPropagation(); catRemove(d.dataset.del); return; }
   const th=e.target.closest('th[data-s]'); if(th){ Cat.sort=th.dataset.s; lsSet('ps.catSort',Cat.sort); $('#catSort').value=Cat.sort; drawCatalog(); return; }
@@ -841,7 +841,7 @@ function pickFolder(start, onPick, title='Chọn thư mục'){
     <div class="row" style="margin:4px 0"><button id="dlan" title="Chọn thư mục chia sẻ trên máy khác trong cùng mạng LAN"><svg class="ic" aria-hidden="true"><use href="#i-net"/></svg>Mạng LAN</button><button id="dnew"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Tạo thư mục mới</button><input type="text" id="dnn" placeholder="Tên thư mục mới (ví dụ: Anh 5 sao)" style="flex:1;display:none"><button id="dmk" class="pri" style="display:none">Tạo</button></div>
     <div class="dirs" id="dl"></div>
     <div class="hint" id="di" style="margin-top:6px"></div>
-    <div class="btns"><button onclick="this.closest('.back').remove()">Huỷ</button><button class="pri" id="dok">Chọn thư mục này</button></div>`);
+    <div class="btns"><button onclick="this.closest('.back').remove()">Hủy</button><button class="pri" id="dok">Chọn thư mục này</button></div>`);
   let curPath='', seq=0, inLan=false;
   const paintNav=()=>{ m.querySelector('#dbk').disabled=!(inLan?nav.idx>=0:nav.idx>0); m.querySelector('#dfw').disabled=inLan||nav.idx>=nav.hist.length-1; };
   const setLan=()=>{ inLan=true; seq++; paintNav(); };
@@ -914,17 +914,17 @@ function pickFolder(start, onPick, title='Chọn thư mục'){
   if(!start&&nav.idx>=0) go(nav.hist[nav.idx],true); else go(start||'');
 }
 $('#bOpen').onclick=()=>pickFolder();
-$('#sNet').onclick=async()=>{ toast('Đang kiểm tra kết nối mạng…'); try{ const r=await api('/api/online',{}); toast(r.online?'Đã có mạng — mở khoá lọc tối/sáng/nhắm mắt':'Vẫn chưa có mạng'); }catch(e){} poll(true); };
+$('#sNet').onclick=async()=>{ toast('Đang kiểm tra kết nối mạng…'); try{ const r=await api('/api/online',{}); toast(r.online?'Đã có mạng — mở khóa lọc tối/sáng/nhắm mắt':'Vẫn chưa có mạng'); }catch(e){} poll(true); };
 
 /* ---------- tự động lọc ---------- */
 $('#bCull').onclick=()=>{
   const s=S.settings; const net=!!S.status.online; const eyesOK=S.status.eyes&&net; const lock=net?'':'disabled';
-  const lockMsg=net?'':'<div class="warn" style="margin:4px 0 8px">Đang ngoại tuyến: lọc <b>tối / cháy sáng / nhắm mắt</b> cần kết nối mạng. Hãy bật mạng (tự mở khoá trong ~15 giây, hoặc nhấp “Ngoại tuyến” ở thanh dưới). Vẫn dùng được: ảnh mờ, ảnh trùng lặp.</div>';
+  const lockMsg=net?'':'<div class="warn" style="margin:4px 0 8px">Máy đang không có mạng nên tạm khóa lọc ảnh <b>tối, cháy sáng và nhắm mắt</b>. Vẫn lọc được ảnh mờ và ảnh trùng. Có mạng lại, app tự mở khóa sau khoảng 15 giây, hoặc bấm “Ngoại tuyến” ở thanh dưới để kiểm tra ngay.</div>';
   const sl=(id,lab,min,max,step,val)=>`<div class="row"><label for="${id}">${lab}</label><input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}"><span class="v" id="${id}v"></span></div>`;
   const PRE={nhe:{blur_ratio:.35,dark:.14,bright:.88,ear:.15,dup_hamming:6,dup_seconds:10},vua:{blur_ratio:.45,dark:.2,bright:.8,ear:.19,dup_hamming:10,dup_seconds:20},manh:{blur_ratio:.6,dark:.26,bright:.74,ear:.22,dup_hamming:14,dup_seconds:40}};
   const preOf=()=>Object.keys(PRE).find(k=>Object.entries(PRE[k]).every(([i,v])=>Math.abs((s[i]??0)-v)<1e-6))||'';
   const m=modal(`<h3>Tự động lọc ảnh</h3>
-   <div class="hint" style="margin-bottom:6px">Đánh dấu <b>✕ loại</b> những ảnh chưa chấm sao mà dính cảnh báo. File gốc không bị xoá hay di chuyển, và có thể hoàn tác.</div>
+   <div class="hint" style="margin-bottom:6px">Đánh dấu <b>✕ loại</b> những ảnh chưa chấm sao mà dính cảnh báo. File gốc không bị xóa hay di chuyển, và có thể hoàn tác.</div>
    ${lockMsg}
    <div class="row" style="flex-wrap:wrap;gap:4px 16px"><label><input type="checkbox" id="k_blur" checked> Ảnh mờ</label><label><input type="checkbox" id="k_dark" ${net?'checked':'disabled'}> Ảnh tối</label><label><input type="checkbox" id="k_bright" ${net?'checked':'disabled'}> Cháy sáng</label><label><input type="checkbox" id="k_eyes" ${eyesOK?'checked':'disabled'}> Nhắm mắt</label><label title="Giữ lại ảnh tốt nhất của mỗi nhóm"><input type="checkbox" id="k_dup" checked> Ảnh trùng</label></div>
    ${eyesOK||!net?'':'<div class="hint warn">Chưa có mô hình nhận diện mắt. App tự tải khi có mạng, hãy mở lại app sau vài phút.</div>'}
@@ -950,14 +950,14 @@ $('#bCull').onclick=()=>{
   ids.forEach(i=>m.querySelector('#'+i).addEventListener('input',()=>{ s[i]=+m.querySelector('#'+i).value; paintPre(); })); paintPre();
   ids.forEach(i=>m.querySelector('#'+i).oninput=upd); m.querySelectorAll('input[type=checkbox]').forEach(c=>c.onchange=show);
   ids.forEach(i=>{ const e=m.querySelector('#'+i); m.querySelector('#'+i+'v').textContent=(+e.value%1?(+e.value).toFixed(2):e.value); }); show();
-  m.querySelector('#capply').onclick=async()=>{ const c=cand().map(p=>p.id); if(!c.length) return; m.querySelector('#capply').disabled=true; m.close(); const r=await api('/api/cull/apply',{ids:c}); c.forEach(i=>S.by.get(i).rating=-1); if(r.id) S.undo.push({t:'cull',batch:r.id}); await refreshCull(); S.filter='rej'; $('#fFilter').value='rej'; applyView(); toast(`Đã đánh dấu loại ${c.length} ảnh — kiểm tra lại trong bộ lọc “Đã loại”`,4000); };
+  m.querySelector('#capply').onclick=async()=>{ const c=cand().map(p=>p.id); if(!c.length) return; m.querySelector('#capply').disabled=true; m.close(); const r=await api('/api/cull/apply',{ids:c}); c.forEach(i=>S.by.get(i).rating=-1); if(r.id) S.undo.push({t:'cull',batch:r.id}); await refreshCull(); S.filter='rej'; $('#fFilter').value='rej'; applyView(); toast(`Đã đánh dấu loại ${c.length} ảnh. Lưới đang hiện các ảnh vừa loại để bạn xem lại`,4000); };
 };
 
 /* ---------- xuất ---------- */
 function paintAdvInit(){ paintAdv(); $('#sAdv').onclick=()=>{ S.adv=!S.adv; try{ localStorage.setItem('ps_adv',S.adv?'1':'0'); }catch(e){} paintAdv(); }; }
 paintAdvInit();
 $('#bExport').onclick=()=>{
-  const m=modal(`<h3>Xuất ảnh (sao chép)</h3>
+  const m=modal(`<h3>Xuất ảnh</h3><div class="hint" style="margin:-6px 0 10px">Sao chép ảnh đã chọn sang thư mục đích. Ảnh gốc giữ nguyên.</div>
    <div class="row"><label for="xs">Ảnh cần xuất</label><select id="xs" style="flex:1"><option value="sel">Đang chọn (${S.sel.size||(S.cur!==null?1:0)})</option><option value="view">Tất cả ảnh đang hiển thị (${S.view.length})</option><option value="keep">Tất cả trừ ảnh bị loại (${S.photos.filter(p=>p.rating>=0).length})</option><option value="r5">★★★★★ 5 sao (${S.photos.filter(p=>p.rating===5).length})</option><option value="r3">★ 3 sao trở lên (${S.photos.filter(p=>p.rating>=3).length})</option></select></div>
    <div class="row"><label for="xd">Thư mục đích</label><input type="text" id="xd" style="flex:1" placeholder="Chọn thư mục…"><button id="xb" aria-label="Chọn thư mục đích">Chọn…</button></div>
    <div class="row"><label for="xt">Mẫu tên file</label><input type="text" id="xt" style="flex:1" value="{name}"></div>
@@ -1033,9 +1033,9 @@ function showHelp(){
    <span class="kbd">← → ↑ ↓</span> di chuyển (giữ <span class="kbd">Shift</span> để chọn dải) &nbsp; <span class="kbd">Ctrl+A</span> chọn tất cả<br>
    <span class="kbd">Esc</span> quay lại một bước &nbsp; <span class="kbd">H</span> vùng cháy/mất chi tiết &nbsp; <span class="kbd">T</span> dải ảnh &nbsp; <span class="kbd">Ctrl+1</span>/<span class="kbd">Ctrl+2</span> Lọc ảnh/Dàn trang<br>
    <span class="kbd">Enter</span>/<span class="kbd">Space</span> xem ảnh lớn &nbsp; Lăn chuột phóng to, giữ chuột phải kéo ảnh, <span class="kbd">Z</span> phóng nhanh (kiểm tra độ nét) &nbsp; <span class="kbd">F</span> tên người<br>
-   <span class="kbd">0–5</span> số sao &nbsp; <span class="kbd">X</span> loại / bỏ loại &nbsp; <span class="kbd">6</span> đỏ <span class="kbd">7</span> vàng <span class="kbd">8</span> xanh lá <span class="kbd">9</span> xanh dương <span class="kbd">-</span> bỏ nhãn<br>
+   <span class="kbd">0–5</span> số sao &nbsp; <span class="kbd">X</span> loại / khôi phục &nbsp; <span class="kbd">6</span> đỏ <span class="kbd">7</span> vàng <span class="kbd">8</span> xanh lá <span class="kbd">9</span> xanh dương <span class="kbd">-</span> bỏ nhãn<br>
    <span class="kbd">Ctrl+Z</span> hoàn tác</div>
-   <div class="hint" style="margin-top:10px">Ứng dụng không bao giờ xoá hay di chuyển file gốc. “Loại” chỉ là một dấu trong cơ sở dữ liệu; hãy xuất ảnh để lấy bộ ảnh đã chọn.</div>
+   <div class="hint" style="margin-top:10px">Ứng dụng không bao giờ xóa hay di chuyển file gốc. “Loại” chỉ là một dấu trong cơ sở dữ liệu; hãy xuất ảnh để lấy bộ ảnh đã chọn.</div>
    <div class="btns"><button class="pri" onclick="this.closest('.back').remove()">Đóng</button></div>`);
 }
 $('#bHelp').onclick=showHelp;
