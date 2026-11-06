@@ -32,6 +32,7 @@ XMP_LABEL = {"red": "Red", "yellow": "Yellow", "green": "Green", "blue": "Blue",
 CACHE_VERSION = 3  # tăng khi đổi cách đọc/xoay ảnh → tự đọc lại toàn bộ (giữ sao, nhãn và tên người)
 
 DEFAULT_SETTINGS = dict(
+    cache_gb=20,         # giới hạn bộ nhớ đệm; vượt quá thì dọn thư mục lâu chưa mở
     blur_ratio=0.45,     # mờ nếu độ nét < tỉ lệ này × trung vị của thư mục
     dark=0.20,           # tối nếu độ sáng trung bình < giá trị này
     bright=0.80,         # sáng quá nếu > giá trị này
@@ -80,33 +81,75 @@ class Library:
         self.status = dict(state="idle", total=0, done=0, thumbs=0, errors=0, root="", message="", timing={})
         self._cancel = threading.Event()
         self._thread: threading.Thread | None = None
-        self.reset_cache()   # mỗi lần mở app là một phiên mới: không hiện lại thư mục/ảnh/người của lần trước
 
-    def reset_cache(self):
-        """Xoá toàn bộ cache (thumbnail, ảnh xem trước, khuôn mặt) và kết quả phân tích của phiên trước.
-        Chỉ giữ lại số sao / nhãn màu đã chấm (theo đường dẫn file) để mở lại đúng thư mục đó thì không mất công chấm."""
-        self._cancel.set()
+    # ------------------------------------------------------------------ bộ nhớ đệm
+    # Thumbnail, ảnh xem trước và kết quả phân tích được giữ giữa các lần mở app để mở lại thư mục là có ngay.
+    def cache_info(self):
+        total = 0
+        for d in (THUMBS, FACES, PREVIEWS):
+            try:
+                with os.scandir(d) as it:
+                    total += sum(e.stat().st_size for e in it if e.is_file())
+            except OSError:
+                pass
+        return dict(bytes=total, limit_gb=self.settings["cache_gb"])
+
+    def _evict(self, ids) -> int:
+        """Xoá cache của các ảnh này, giữ dòng trong CSDL nên sao, nhãn, dấu ✕ và id vẫn còn. Trả về số byte đã giải phóng."""
+        ids, freed = list(ids), 0
+
+        def drop(f):
+            nonlocal freed
+            try:
+                freed += f.stat().st_size
+                f.unlink()
+            except OSError:
+                pass
+
         with self.db.lock:
             c = self.db.con
-            keep = [(r["path"], r["dir"], r["rating"], r["label"])
-                    for r in self.db.q("SELECT path,dir,rating,label FROM photos WHERE rating<>0 OR label<>''")]
-            for t in ("faces", "people", "photos", "cur"):
-                try:
-                    c.execute(f"DELETE FROM {t}")
-                except Exception:  # noqa: BLE001
-                    pass
-            c.executemany("INSERT INTO photos(path,dir,rating,label) VALUES(?,?,?,?)", keep)
+            for p in self.db.q("SELECT id FROM people WHERE name<>''"):  # nhớ người đã đặt tên trước khi xoá mặt
+                self._store_centroid(p["id"])
+            for k in range(0, len(ids), 500):
+                part = ids[k:k + 500]
+                marks = ",".join("?" * len(part))
+                for r in self.db.q(f"SELECT id FROM faces WHERE photo_id IN ({marks})", part):
+                    drop(FACES / f"{r['id']}.jpg")
+                c.execute(f"DELETE FROM faces WHERE photo_id IN ({marks})", part)
+                c.execute(f"UPDATE photos SET analyzed=0,ready=0,tv=0,grp=0,best=0,score=0,err=NULL WHERE id IN ({marks})", part)
+                for i in part:
+                    drop(THUMBS / f"{i}.jpg")
+                    drop(PREVIEWS / f"{i}.jpg")
+            c.execute("DELETE FROM people WHERE name='' AND id NOT IN (SELECT person_id FROM faces WHERE person_id IS NOT NULL)")
             c.commit()
-            try:
-                c.execute("PRAGMA wal_checkpoint(TRUNCATE)")
-            except Exception:  # noqa: BLE001
-                pass
-        for d in (THUMBS, FACES, PREVIEWS):
-            shutil.rmtree(d, ignore_errors=True)
-            d.mkdir(parents=True, exist_ok=True)
-        self._exif_cache = {}
-        self.status = dict(state="idle", total=0, done=0, thumbs=0, quick=0, errors=0, root="", message="", timing={})
-        self.root = ""
+        return freed
+
+    def _other_cached(self):
+        """Ảnh có cache ngoài thư mục đang mở, nhóm theo thư mục, thư mục lâu chưa mở nhất đứng đầu."""
+        opened = self.db.q("SELECT root,recursive,opened FROM catalog")
+        groups: dict[str, list[int]] = {}
+        for r in self.db.q("SELECT id,dir FROM photos WHERE ready=1 AND id NOT IN (SELECT id FROM cur)"):
+            groups.setdefault(r["dir"] or "", []).append(r["id"])
+
+        def last(d):
+            hits = [c["opened"] for c in opened if d == c["root"] or (c["recursive"] and d.startswith(c["root"].rstrip("\\/") + os.sep))]
+            return max(hits, default=0)
+
+        return [groups[d] for d in sorted(groups, key=last)]
+
+    def trim_cache(self):
+        limit = self.settings["cache_gb"] * 10 ** 9
+        size = self.cache_info()["bytes"]
+        if size <= limit:
+            return
+        for ids in self._other_cached():
+            size -= self._evict(ids)
+            if size <= limit * 0.8:
+                break
+
+    def clear_cache(self):
+        for ids in self._other_cached():
+            self._evict(ids)
 
     def _migrate(self):
         db = self.db
@@ -166,8 +209,7 @@ class Library:
         self._thread.start()
 
     # ------------------------------------------------------------------ catalog thư mục
-    # Mỗi lần mở app, reset_cache xoá kết quả phân tích và thumbnail của phiên trước, chỉ giữ ảnh đã chấm.
-    # Vì vậy số liệu và ảnh bìa được lưu riêng trong bảng catalog và thư mục COVERS.
+    # Cache của thư mục cũ có thể đã bị dọn, nên số liệu và ảnh bìa được lưu riêng trong bảng catalog và thư mục COVERS.
     @staticmethod
     def _cover_name(root: str, i: int) -> str:
         return f"{hashlib.sha1(root.encode('utf-8', 'replace')).hexdigest()[:16]}_{i}.jpg"
@@ -277,6 +319,9 @@ class Library:
                         db.con.execute("UPDATE photos SET mtime=?,size=?,analyzed=0,ready=0,err=NULL WHERE id=?",
                                        (mt, sz, pid))
                         todo.append((pid, p, False))
+                    elif row["analyzed"] and not (THUMBS / f"{pid}.jpg").exists():  # cache đã bị dọn: đọc lại
+                        db.con.execute("UPDATE photos SET analyzed=0,ready=0,err=NULL WHERE id=?", (pid,))
+                        todo.append((pid, p, False))
                     elif not row["analyzed"]:
                         todo.append((pid, p, bool(row["ready"]) and (PREVIEWS / f"{pid}.jpg").exists()))
                 ids.append(pid)
@@ -360,6 +405,7 @@ class Library:
         self.regroup()
         try:
             self._catalog_update(root)
+            self.trim_cache()
         except Exception as e:  # noqa: BLE001  catalog lỗi không được làm hỏng phiên lọc
             print("catalog:", e, file=sys.stderr)
         self.status.update(state="done", message="Hoàn tất")
@@ -413,7 +459,8 @@ class Library:
                                   AND person_id IN (SELECT id FROM people WHERE name='')""")
                 db.con.execute("DELETE FROM people WHERE name='' AND id NOT IN (SELECT person_id FROM faces WHERE person_id IS NOT NULL)")
                 db.con.commit()
-            assigned = db.q("SELECT person_id, emb FROM faces WHERE person_id IS NOT NULL")
+            # chỉ so với thư mục đang mở: người chưa đặt tên ở thư mục khác không được gộp vào; người đã đặt tên dùng cent bên dưới
+            assigned = db.q("SELECT f.person_id, f.emb FROM faces f JOIN cur ON cur.id=f.photo_id WHERE f.person_id IS NOT NULL")
             sums: dict[int, np.ndarray] = {}
             for r in assigned:
                 v = np.frombuffer(r["emb"], dtype=np.float32)
@@ -632,7 +679,7 @@ class Library:
     # ------------------------------------------------------------------ nhật ký tự động lọc
     # Lưu trong CSDL nên vẫn hoàn tác được sau khi tắt app. Tự động lọc chỉ chạm ảnh chưa chấm sao,
     # nên hoàn tác là đưa ảnh về 0; ảnh đã được chấm lại sau đó thì giữ nguyên.
-    # Lưu theo đường dẫn vì mỗi lần mở app, id của ảnh được đánh lại (xem reset_cache).
+    # Lưu theo đường dẫn để không phụ thuộc vào id trong CSDL.
     def _rated(self, col: str, vals, rating: int):
         vals, out = list(vals), []
         for k in range(0, len(vals), 500):

@@ -189,6 +189,7 @@ canvas.hist{width:100%;height:120px;display:block;border-radius:10px;background:
     <input type="text" id="catQ" placeholder="Tìm thư mục…" aria-label="Tìm thư mục">
     <select id="catSort" aria-label="Sắp xếp"><option value="opened">Mở gần nhất</option><option value="name">Tên thư mục</option><option value="t1">Ngày chụp mới nhất</option><option value="n">Nhiều ảnh nhất</option><option value="size">Dung lượng lớn nhất</option></select>
     <div class="cview" id="catView" role="group" aria-label="Chế độ xem"><button data-v="lg">Lớn</button><button data-v="md">Vừa</button><button data-v="sm">Nhỏ</button><button data-v="det">Chi tiết</button></div>
+    <button id="catCache" title="Bộ nhớ đệm giúp mở lại thư mục ngay"></button>
     <button class="pri" id="catAdd">＋ Thêm thư mục</button>
   </div>
   <div id="catBody"></div>
@@ -655,7 +656,15 @@ const catDate=t=>t?new Date(t*1000).toLocaleDateString('vi-VN'):'—';
 const catSize=b=>b>=1e9?(b/1e9).toFixed(1).replace('.',',')+' GB':b?Math.round(b/1e6)+' MB':'—';
 const catRange=c=>{ const a=catDate(c.t0),b=catDate(c.t1); return a===b?a:a+' – '+b; };
 async function showCatalog(){ document.body.classList.add('cat'); $('#catBack').hidden=!S.status.root; $('#catSort').value=Cat.sort;
-  try{ Cat.list=await api('/api/catalog'); }catch(e){ toast(e.message,4000); } drawCatalog(); }
+  try{ Cat.list=await api('/api/catalog'); paintCache(await api('/api/cache')); }catch(e){ toast(e.message,4000); } drawCatalog(); }
+const paintCache=c=>{ Cat.cache=c; $('#catCache').textContent='🧹 Bộ nhớ đệm '+catSize(c.bytes); };
+$('#catCache').onclick=()=>{ const c=Cat.cache, opts=[5,10,20,50,100].map(g=>`<option value="${g}"${g===c.limit_gb?' selected':''}>${g} GB</option>`).join('');
+  const m=modal(`<h3>🧹 Bộ nhớ đệm</h3><div class="hint" style="margin-bottom:10px">Đang dùng <b>${catSize(c.bytes)}</b>. Nhờ đó, mở lại thư mục đã đọc là có ngay. Dọn bộ nhớ đệm không ảnh hưởng ảnh gốc, số sao, nhãn màu và dấu ✕, chỉ là thư mục đó phải đọc lại khi mở.</div>
+   <div class="row"><label style="flex:1">Dung lượng tối đa, vượt quá sẽ dọn thư mục lâu chưa mở</label><select id="clim">${opts}</select></div>
+   <div class="btns"><button onclick="this.closest('.back').remove()">Đóng</button><button id="cclr">Dọn hết, trừ thư mục đang mở</button></div>`);
+  m.querySelector('#clim').onchange=async e=>{ paintCache(await api('/api/cache/limit',{limit_gb:+e.target.value})); toast('Đã lưu giới hạn'); };
+  m.querySelector('#cclr').onclick=async()=>{ m.close(); paintCache(await api('/api/cache/clear',{})); toast('Đã dọn bộ nhớ đệm'); };
+};
 function hideCatalog(){ document.body.classList.remove('cat'); }
 function drawCatalog(){
   const q=$('#catQ').value.trim().toLowerCase(), l=Cat.list.filter(c=>c.root.toLowerCase().includes(q)), s=Cat.sort, box=$('#catBody');

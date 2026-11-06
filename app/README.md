@@ -32,7 +32,7 @@ Thanh trên cùng có hai chế độ: **Lọc ảnh** (`Ctrl+1`) và **Dàn tra
 ## Tốc độ khi đọc RAW từ thẻ nhớ
 - Chỉ đọc vài KB cấu trúc file + đúng đoạn ảnh JPEG xem trước (khoảng 1–3 MB), **không đọc cả file RAW** (hàng chục MB).
 - Hai pha: thumbnail hiện ngay khi đọc xong từng ảnh; việc phân tích (mờ, khuôn mặt…) chạy nền song song, tính trên ảnh cache trong ổ máy.
-- Ảnh cache (1600 px) + thumbnail lưu ở thư mục `.photosift` trong thư mục người dùng (khoảng 0,4–0,5 MB/ảnh). Mở lại thư mục đã đọc thì hiện ngay. Muốn dọn: xoá thư mục đó.
+- Ảnh cache (1600 px) + thumbnail lưu ở thư mục `.photosift` trong thư mục người dùng (khoảng 0,4–0,5 MB/ảnh) và được giữ giữa các lần mở app, nên mở lại thư mục đã đọc thì hiện ngay. Mặc định tối đa 20 GB, vượt quá thì tự dọn thư mục lâu chưa mở. Chỉnh giới hạn hoặc dọn tay ở nút Bộ nhớ đệm trong Catalog.
 
 ## Nếu ảnh dọc vẫn sai chiều
 Mở ảnh lớn (Enter) → bấm **🔧 Chẩn đoán file** → bấm "Sao chép" và gửi nội dung cho người hỗ trợ. Báo cáo cho biết file RAW lưu hướng xoay ở đâu.

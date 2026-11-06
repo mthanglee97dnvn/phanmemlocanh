@@ -318,6 +318,8 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                         return self._json(dict(idle=round(idle, 1), license=False))
                     return self._json(dict(lib.status, eyes=lib.an.has_eyes, settings=lib.settings,
                                            online=lib.online.ok, idle=round(idle, 1), os=os.name, plat=sys.platform))
+                if u.path == "/api/cache":
+                    return self._json(lib.cache_info())
                 if u.path == "/api/catalog":
                     return self._json(lib.catalog())
                 if u.path == "/api/cull/last":
@@ -405,6 +407,13 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                         return self._json(dict(error="Không phải thư mục"), 400)
                     lib.open_folder(path, bool(b.get("recursive", True)))
                     return self._json(dict(ok=True))
+                if u.path == "/api/cache/clear":
+                    lib.clear_cache()
+                    return self._json(lib.cache_info())
+                if u.path == "/api/cache/limit":
+                    lib.set_settings(dict(cache_gb=int(b["limit_gb"])))
+                    lib.trim_cache()
+                    return self._json(lib.cache_info())
                 if u.path == "/api/catalog/remove":
                     lib.catalog_remove(str(b["root"]))
                     return self._json(dict(ok=True))
@@ -432,12 +441,7 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                     return self._json(dict(online=lib.online.recheck()))
                 if u.path == "/api/quit":
                     self._json(dict(ok=True))
-                    def _bye():
-                        try:
-                            lib.reset_cache()
-                        finally:
-                            os._exit(0)
-                    threading.Timer(0.4, _bye).start()
+                    threading.Timer(0.4, lambda: os._exit(0)).start()
                     return
                 if u.path == "/api/settings":
                     lib.set_settings(b)
@@ -566,10 +570,7 @@ def serve(port: int = 8765, open_browser: bool = True, folder: str | None = None
                         run_file.unlink()
                     except OSError:
                         pass
-                    try:
-                        lib.reset_cache()
-                    finally:
-                        os._exit(0)
+                    os._exit(0)
         threading.Thread(target=_idle, daemon=True).start()
     if folder and lic.ok():
         lib.open_folder(os.path.abspath(folder), True)
@@ -587,9 +588,5 @@ def serve(port: int = 8765, open_browser: bool = True, folder: str | None = None
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
-        pass
-    try:
-        lib.reset_cache()
-    except Exception:  # noqa: BLE001
         pass
     return lib
