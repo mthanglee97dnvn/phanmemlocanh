@@ -318,6 +318,8 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                         return self._json(dict(idle=round(idle, 1), license=False))
                     return self._json(dict(lib.status, eyes=lib.an.has_eyes, settings=lib.settings,
                                            online=lib.online.ok, idle=round(idle, 1), os=os.name, plat=sys.platform))
+                if u.path == "/api/cull/last":
+                    return self._json(lib.cull_last())
                 if u.path == "/api/export/status":
                     return self._json(lib.export_status())
                 if u.path == "/api/photos":
@@ -394,6 +396,13 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                     if not os.path.isdir(path):
                         return self._json(dict(error="Không phải thư mục"), 400)
                     lib.open_folder(path, bool(b.get("recursive", True)))
+                    return self._json(dict(ok=True))
+                if u.path == "/api/cull/apply":
+                    return self._json(lib.cull_apply(b["ids"]))
+                if u.path == "/api/cull/undo":
+                    return self._json(lib.cull_undo(b.get("id")))
+                if u.path == "/api/cull/clear":
+                    lib.cull_clear()
                     return self._json(dict(ok=True))
                 if u.path == "/api/rate":
                     if "pairs" in b:

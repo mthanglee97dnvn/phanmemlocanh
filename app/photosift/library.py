@@ -557,6 +557,53 @@ class Library:
     def set_ratings(self, pairs):
         self.db.many("UPDATE photos SET rating=? WHERE id=?", [(int(r), int(i)) for i, r in pairs])
 
+    # ------------------------------------------------------------------ nhật ký tự động lọc
+    # Lưu trong CSDL nên vẫn hoàn tác được sau khi tắt app. Tự động lọc chỉ chạm ảnh chưa chấm sao,
+    # nên hoàn tác là đưa ảnh về 0; ảnh đã được chấm lại sau đó thì giữ nguyên.
+    def _with_rating(self, ids, rating: int):
+        ids, out = [int(i) for i in ids], []
+        for k in range(0, len(ids), 500):
+            part = ids[k:k + 500]
+            marks = ",".join("?" * len(part))
+            out += [r["id"] for r in self.db.q(f"SELECT id FROM photos WHERE rating=? AND id IN ({marks})", [rating, *part])]
+        return out
+
+    def _root(self) -> str:
+        return self.status.get("root", "") or ""
+
+    def cull_apply(self, ids):
+        hit = self._with_rating(ids, 0)
+        if not hit:
+            return dict(id=0, n=0)
+        self.db.many("UPDATE photos SET rating=-1 WHERE id=?", [(i,) for i in hit])
+        cur = self.db.x("INSERT INTO cull_log(root,time,ids) VALUES(?,?,?)", (self._root(), time.time(), json.dumps(hit)))
+        batch = cur.lastrowid
+        self.db.x("DELETE FROM cull_log WHERE root=? AND id NOT IN (SELECT id FROM cull_log WHERE root=? ORDER BY id DESC LIMIT 20)",
+                  (self._root(), self._root()))
+        return dict(id=batch, n=len(hit))
+
+    def cull_last(self):
+        for row in self.db.q("SELECT id,time,ids FROM cull_log WHERE root=? ORDER BY id DESC", (self._root(),)):
+            left = self._with_rating(json.loads(row["ids"]), -1)
+            if left:
+                return dict(id=row["id"], n=len(left), time=row["time"])
+            self.db.x("DELETE FROM cull_log WHERE id=?", (row["id"],))
+        return dict(id=0, n=0)
+
+    def cull_undo(self, batch=None):
+        last = self.cull_last()
+        target = int(batch) if batch else last["id"]
+        row = self.db.one("SELECT ids FROM cull_log WHERE id=?", (target,))
+        if not row:
+            return dict(ids=[], n=0)
+        left = self._with_rating(json.loads(row["ids"]), -1)
+        self.db.many("UPDATE photos SET rating=0 WHERE id=?", [(i,) for i in left])
+        self.db.x("DELETE FROM cull_log WHERE id=?", (target,))
+        return dict(ids=left, n=len(left))
+
+    def cull_clear(self):
+        self.db.x("DELETE FROM cull_log WHERE root=?", (self._root(),))
+
     def set_label(self, ids, label: str):
         if label not in LABELS:
             raise ValueError("nhãn không hợp lệ")

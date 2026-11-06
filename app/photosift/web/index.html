@@ -153,6 +153,7 @@ canvas.hist{width:100%;height:120px;display:block;border-radius:10px;background:
     <input type="range" id="fSize" min="100" max="320" value="170" title="Cỡ ảnh">
     <button id="bCull">✨ Tự động lọc</button>
     <button id="bUndo" disabled>↶ Hoàn tác</button>
+    <button id="bUnrej" title="Hoàn tác lần lọc gần nhất hoặc bỏ loại toàn bộ ảnh" hidden></button>
     <button id="bExport">📤 Xuất ảnh</button>
     <button id="bLayout" class="pri" title="Gửi ảnh đã lọc sang Dàn trang" hidden>🧩 Dàn trang</button>
     <button id="bInfo" title="Bật/tắt khung thông số ảnh">ℹ️</button>
@@ -214,12 +215,15 @@ function modal(html){
 document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ const m=document.querySelector('.back'); if(m){ m.remove(); e.stopPropagation(); } } }, true);
 
 /* ---------- dữ liệu ---------- */
+const fmt=n=>Number(n).toLocaleString('vi-VN');
 async function loadPhotos(){
   S.photos = await api('/api/photos');
   S.by = new Map(S.photos.map(p=>[p.id,p]));
   for(const id of [...S.sel]) if(!S.by.has(id)) S.sel.delete(id);
+  await refreshCull();
   applyView();
 }
+async function refreshCull(){ try{ S.lastCull=await api('/api/cull/last'); }catch(e){ S.lastCull=null; } }
 async function loadPeople(){ S.people = await api('/api/people'); renderPeople(); }
 function matchFilter(p){
   const f=S.filter;
@@ -300,6 +304,9 @@ $('#gridwrap').addEventListener('dblclick', e=>{ const c=e.target.closest('.cell
 
 function renderStatus(){
   const st=S.status||{};
+  const nRej=S.photos.filter(p=>p.rating===-1).length, bU=$('#bUnrej');
+  bU.hidden=!nRej; bU.textContent=`♻ Bỏ loại (${fmt(nRej)})`;
+  $('#bUndo').disabled=!S.undo.length&&!(S.lastCull&&S.lastCull.n);
   $('#sCount').textContent = `${S.view.length}/${S.photos.length} ảnh` + (st.state==='done'&&st.timing&&st.timing.all_s?` • ⏱ thumbnail ${st.timing.thumb_s}s · đọc ảnh ${st.timing.read_s}s · tổng ${st.timing.all_s}s`:'')+
     (st.state==='scanning'?` • thumbnail ${Math.max(st.thumbs,st.quick||0)}/${st.total} • phân tích ${st.done}/${st.total} (chạy nền — bạn có thể chấm ảnh ngay)`:'');
   $('#sSel').textContent = S.sel.size>1 ? `${S.sel.size} đã chọn` : '';
@@ -362,15 +369,34 @@ function afterChange(ids){
   if(S.filter==='all'){ ids.forEach(refreshCell); renderStatus(); } else applyView();
   if(S.viewer) showViewer();
 }
+async function undoCull(batch){
+  const r=await api('/api/cull/undo',{id:batch}); r.ids.forEach(i=>{ if(S.by.has(i)) S.by.get(i).rating=0; });
+  S.undo=S.undo.filter(u=>!(u.t==='cull'&&u.batch===batch)); await refreshCull();
+  if(S.filter==='rej'){ S.filter='all'; $('#fFilter').value='all'; }
+  applyView(); if(S.viewer) showViewer(); toast(`Đã hoàn tác, bỏ loại ${fmt(r.n)} ảnh`);
+}
 async function undo(){
-  const u=S.undo.pop(); if(!u) return;
-  $('#bUndo').disabled=!S.undo.length;
+  const top=S.undo[S.undo.length-1];
+  if(!top||top.t==='cull'){ const b=top?top.batch:(S.lastCull&&S.lastCull.n?S.lastCull.id:0); if(b) await undoCull(b); return; }
+  const u=S.undo.pop();
   if(u.t==='rate'){ u.old.forEach(([i,r])=>{ if(S.by.has(i)) S.by.get(i).rating=r; }); await api('/api/rate',{pairs:u.old.map(([i,r])=>[i,r])}); }
   else { const g={}; u.old.forEach(([i,l])=>{ if(S.by.has(i)) S.by.get(i).label=l; (g[l]=g[l]||[]).push(i); });
          for(const l in g) await api('/api/label',{ids:g[l],label:l}); }
   applyView(); if(S.viewer) showViewer(); toast('Đã hoàn tác');
 }
 $('#bUndo').onclick=undo;
+$('#bUnrej').onclick=()=>{
+  const rej=S.photos.filter(p=>p.rating===-1).map(p=>p.id), l=S.lastCull&&S.lastCull.n?S.lastCull:null;
+  const when=l?new Date(l.time*1000).toLocaleString('vi-VN',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit',year:'numeric'}):'';
+  const m=modal(`<h3>♻ Bỏ loại ảnh</h3>
+   <div class="hint" style="margin-bottom:10px">Thư mục này có <b>${fmt(rej.length)}</b> ảnh đang bị đánh dấu ✕. Ảnh gốc chưa từng bị xoá hay di chuyển.</div>
+   ${l?`<div class="row" style="margin-bottom:8px"><button id="ulast" style="flex:1">Hoàn tác lần lọc gần nhất: ${fmt(l.n)} ảnh, lúc ${esc(when)}</button></div>`:''}
+   <div class="row"><button class="pri" id="uall" style="flex:1">Bỏ loại toàn bộ ${fmt(rej.length)} ảnh</button></div>
+   <div class="btns"><button onclick="this.closest('.back').remove()">Đóng</button></div>`);
+  if(l) m.querySelector('#ulast').onclick=async()=>{ m.close(); await undoCull(l.id); };
+  m.querySelector('#uall').onclick=async()=>{ m.close(); await api('/api/cull/clear',{}); S.undo=S.undo.filter(u=>u.t!=='cull'); await rate(rej,0); await refreshCull();
+    if(S.filter==='rej'){ S.filter='all'; $('#fFilter').value='all'; } applyView(); toast(`Đã bỏ loại ${fmt(rej.length)} ảnh. Nếu lỡ tay, bấm Hoàn tác trước khi đóng app`,4000); };
+};
 
 /* ---------- dải thumbnail dưới trình xem ---------- */
 const SC_W=96; let stripOn=true; try{ stripOn=localStorage.getItem('ps_strip')!=='0'; }catch(e){}
@@ -668,7 +694,7 @@ $('#bCull').onclick=()=>{
       const r=await api('/api/settings',b); S.settings=r.settings; await loadPhotos(); show(); },250); };
   ids.forEach(i=>m.querySelector('#'+i).oninput=upd); m.querySelectorAll('input[type=checkbox]').forEach(c=>c.onchange=show);
   ids.forEach(i=>{ const e=m.querySelector('#'+i); m.querySelector('#'+i+'v').textContent=(+e.value%1?(+e.value).toFixed(2):e.value); }); show();
-  m.querySelector('#capply').onclick=async()=>{ const c=cand().map(p=>p.id); m.close(); await rate(c,-1); S.filter='rej'; $('#fFilter').value='rej'; applyView(); toast(`Đã đánh dấu loại ${c.length} ảnh — kiểm tra lại trong bộ lọc “Đã loại”`,4000); };
+  m.querySelector('#capply').onclick=async()=>{ const c=cand().map(p=>p.id); m.close(); const r=await api('/api/cull/apply',{ids:c}); c.forEach(i=>S.by.get(i).rating=-1); if(r.id) S.undo.push({t:'cull',batch:r.id}); await refreshCull(); S.filter='rej'; $('#fFilter').value='rej'; applyView(); toast(`Đã đánh dấu loại ${c.length} ảnh — kiểm tra lại trong bộ lọc “Đã loại”`,4000); };
 };
 
 /* ---------- xuất ---------- */
