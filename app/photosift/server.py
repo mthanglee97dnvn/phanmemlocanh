@@ -20,6 +20,7 @@ import cv2
 
 from . import models
 from .update import Updater
+from . import fonts
 from .analyzer import ALL_EXT, _jpg, load_bgr, read_meta
 from .library import COVERS, FACES, PREVIEWS, THUMBS, Library
 from .license import License
@@ -273,6 +274,7 @@ def lan_connect(host, user, password):
 
 def make_handler(lib: Library, token: str, port: int, lic: License):
     upd = Updater()
+    threading.Thread(target=fonts.scan, daemon=True).start()   # đọc sẵn danh sách font để hộp chọn mở ngay
 
     previews = _Preview(32)
     allowed_hosts = {f"127.0.0.1:{port}", f"localhost:{port}"}
@@ -328,6 +330,8 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                 if u.path == "/api/license":
                     LAST_SEEN[0] = time.time()
                     return self._json(lic.info())
+                if u.path == "/ui.css":
+                    return self._send(200, fonts.ui_css().encode("utf-8"), "text/css; charset=utf-8", {"Cache-Control": "no-store"})
                 if not lic.ok() and u.path not in ("/logo.png", "/favicon.png", "/api/status"):
                     return self._json(dict(error="Chưa kích hoạt key", license=False), 402)
 
@@ -362,6 +366,10 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                                            online=lib.online.ok, idle=round(idle, 1), os=os.name, plat=sys.platform))
                 if u.path == "/api/cache":
                     return self._json(lib.cache_info())
+                if u.path == "/api/fonts":
+                    return self._json(fonts.scan())
+                if u.path == "/api/ui":
+                    return self._json(fonts.get_ui())
                 if u.path == "/api/update/check":
                     return self._json(upd.public(upd.check("force" in q)))
                 if u.path == "/api/update/status":
@@ -485,6 +493,11 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                     return self._json(lan_connect(str(b.get("host", "")), str(b.get("user", "")), str(b.get("password", ""))))
                 if u.path == "/api/online":
                     return self._json(dict(online=lib.online.recheck()))
+                if u.path == "/api/ui":
+                    try:
+                        return self._json(fonts.set_ui(b.get("font", "")))
+                    except ValueError as e:
+                        return self._json(dict(error=str(e)), 400)
                 if u.path == "/api/update/start":
                     return self._json(upd.start())
                 if u.path == "/api/update/install":

@@ -1513,13 +1513,18 @@ function sortStyles(l){return[...l].sort((a,b)=>{const x=styleSpec(a),y=styleSpe
 async function loadSystemFonts(){const map=new Map();let fail=null;
   if(window.queryLocalFonts){try{for(const f of await window.queryLocalFonts()){if(!map.has(f.family))map.set(f.family,new Set());if(f.style)map.get(f.family).add(f.style)}}catch(e){fail=e}}
   if(window.vuotNative){try{for(const n of await window.vuotNative.listFonts())if(n&&!map.has(n))map.set(n,new Set())}catch(e){fail=fail||e}}
+  let vi=null;try{const r=await fetch('/api/fonts');if(r.ok){vi=new Map((await r.json()).map(f=>[f.family,f.vi]));for(const n of vi.keys())if(!map.has(n))map.set(n,new Set())}}catch(e){}  // trong app: máy chủ cho biết font nào đủ dấu, không cần xin quyền
   if(!map.size)throw fail||new Error('none');
-  sysFonts=[...map].map(([family,st])=>({family,styles:[...st]})).sort((a,b)=>a.family.localeCompare(b.family,'vi'));
+  sysFonts=[...map].map(([family,st])=>({family,styles:[...st],...(vi&&vi.has(family)?{vi:vi.get(family)}:{})})).sort((a,b)=>a.family.localeCompare(b.family,'vi'));
   try{localStorage.setItem(LS_FONTS,JSON.stringify(sysFonts))}catch(e){}DB.set('fonts',sysFonts).catch(()=>{});return sysFonts.length}
 function fontItems(){const q=$('#fontSearch').value.trim().toLowerCase(),all=sysFonts?sysFonts.map(f=>f.family):FONTS,out=[];
   const hit=f=>!q||f.toLowerCase().includes(q);const rec=recentFonts.filter(hit);
-  if(!q&&rec.length){out.push({head:'Dùng gần đây'});rec.forEach(f=>out.push({font:f}));out.push({head:'Tất cả phông'})}
-  all.filter(hit).forEach(f=>out.push({font:f}));
+  if(!q&&rec.length){out.push({head:'Dùng gần đây'});rec.forEach(f=>out.push({font:f}))}
+  const known=sysFonts&&sysFonts.some(f=>'vi' in f);
+  if(known){const ok=sysFonts.filter(f=>f.vi!==false&&hit(f.family)),no=sysFonts.filter(f=>f.vi===false&&hit(f.family));
+    if(ok.length){out.push({head:'Đủ dấu tiếng Việt'});ok.forEach(f=>out.push({font:f.family}))}
+    if(no.length){out.push({head:'Thiếu dấu tiếng Việt'});no.forEach(f=>out.push({font:f.family}))}}
+  else{if(!q&&rec.length)out.push({head:'Tất cả phông'});all.filter(hit).forEach(f=>out.push({font:f}))}
   if(q&&!all.some(f=>f.toLowerCase()===q))out.push({head:'Dùng tên đã nhập'},{font:$('#fontSearch').value.trim()});
   let y=0;for(const r of out){r.y=y;y+=r.head?HEAD_H:ROW_H}fp.items=out;fp.total=y;fp.rows=out.map((r,i)=>r.font?i:-1).filter(i=>i>=0);if(!fp.rows.includes(fp.hi))fp.hi=fp.rows[0]??-1}
 function paintFonts(){if(!fp)return;const sc=$('#fontScroll'),inner=$('#fontInner'),top=sc.scrollTop-200,bot=sc.scrollTop+sc.clientHeight+200,sample=(fp.it.text.split('\n').find(Boolean)||'Aa Việt').slice(0,28);
@@ -1530,7 +1535,7 @@ function paintFonts(){if(!fp)return;const sc=$('#fontScroll'),inner=$('#fontInne
     const row=el('button',{class:'frow'+(i===fp.hi?' hi':'')+(r.font===fp.orig.font?' on':''),style:`top:${r.y}px`,tabIndex:-1},el('small',{textContent:r.font}),em);
     row.addEventListener('mouseenter',()=>{fp.hi=i;previewFont(r.font);inner.querySelectorAll('.frow.hi').forEach(x=>x.classList.remove('hi'));row.classList.add('hi')});
     row.addEventListener('click',()=>pickFont(r.font));inner.append(row)})}
-function updateFontBar(){const b=$('#fontLoad');$('#fontCount').textContent=sysFonts?`${sysFonts.length} phông trên máy`:`${FONTS.length} phông có sẵn`;b.textContent=sysFonts?'Cập nhật':'Nhập tất cả phông trên máy';b.classList.toggle('primary',!sysFonts)}
+function updateFontBar(){const b=$('#fontLoad'),nv=sysFonts?sysFonts.filter(f=>f.vi).length:0;$('#fontCount').textContent=sysFonts?(nv?`${sysFonts.length} phông, ${nv} đủ dấu tiếng Việt`:`${sysFonts.length} phông trên máy`):`${FONTS.length} phông có sẵn`;b.textContent=sysFonts?'Cập nhật':'Nhập tất cả phông trên máy';b.classList.toggle('primary',!sysFonts)}
 function previewFont(f){if(!fp)return;fp.it.font=f;fp.it.stretch='';fitText(fp.it);dirty=true}
 function closeFont(keep){if(!fp)return;const{it,orig}=fp;if(!keep){Object.assign(it,orig);fitText(it);dirty=true}fp=null;$('#fontPop').hidden=true}
 function pickFont(f){const it=fp.it,fam=(sysFonts||[]).find(x=>x.family===f);closeFont(true);it.font=f;it.stretch='';
@@ -2026,7 +2031,7 @@ const mcv=document.createElement('canvas'),mx=mcv.getContext('2d',{willReadFrequ
 function fontInk(f,font,weight,italic){const lines=textLines(f),size=90,lh=size*f.lh;mx.font=fontStr({font,weight,italic,size});if('letterSpacing'in mx)mx.letterSpacing=(f.lsEm||0)*size+'px';const tw=Math.ceil(Math.max(...lines.map(l=>mx.measureText(l).width)))+40,th=Math.ceil(lh*lines.length+size);mcv.width=clamp(tw,40,2400);mcv.height=clamp(th,40,1200);
   mx.font=fontStr({font,weight,italic,size});if('letterSpacing'in mx)mx.letterSpacing=(f.lsEm||0)*size+'px';mx.fillStyle='#000';mx.textBaseline='alphabetic';const ax=f.align==='center'?mcv.width/2:f.align==='right'?mcv.width-20:20;mx.textAlign=f.align;lines.forEach((l,i)=>mx.fillText(l,ax,size+i*lh));const d=mx.getImageData(0,0,mcv.width,mcv.height).data,w=mcv.width;return inkGrid(null,mcv.width,mcv.height,(x,y)=>d[(y*w+x)*4+3]>110)}
 function inkScore(a,b){if(!a||!b)return 0;const gx=Math.min(a.gx,b.gx),gy=a.gy;let i=0,u=0;for(let y=0;y<gy;y++)for(let x=0;x<gx;x++){const p=a.o[y*a.gx+Math.floor(x*a.gx/gx)],q=b.o[y*b.gx+Math.floor(x*b.gx/gx)];if(p&&q)i++;if(p||q)u++}return(i/Math.max(1,u))*(1-Math.min(.6,Math.abs(Math.log(a.a/b.a))))}
-async function matchFont(f,progress){if(!f.text.trim())return;const target=targetInk(f);if(!target)return;const list=(sysFonts?sysFonts.map(x=>x.family):FONTS).filter(n=>!/emoji|symbol|wingding|webding|dingbat|marlett/i.test(n)),out=[],ws=[400,700];
+async function matchFont(f,progress){if(!f.text.trim())return;const target=targetInk(f);if(!target)return;const list=(sysFonts?sysFonts.filter(x=>!(x.vi===false&&/[^\x00-\x7f]/.test(f.text))).map(x=>x.family):FONTS).filter(n=>!/emoji|symbol|wingding|webding|dingbat|marlett/i.test(n)),out=[],ws=[400,700];
   for(let i=0;i<list.length;i++){const fam=list[i];for(const wg of ws){const b=fontInk(f,fam,wg,!!f.italic),sc=inkScore(target,b);out.push({font:fam,weight:wg,italic:!!f.italic,score:Math.round(sc*100)})}if(i%40===39){progress&&progress(i+1,list.length);await new Promise(r=>setTimeout(r))}}
   out.sort((a,b)=>b.score-a.score);const uniq=[],seen=new Set();for(const m of out){if(seen.has(m.font))continue;seen.add(m.font);uniq.push(m);if(uniq.length>=8)break}f.matches=uniq;const top=uniq[0];if(top){f.font=top.font;f.weight=top.weight;f.italic=top.italic;refFit(f)}}
 function newTextFrame(q,o={}){const lum=ref?(()=>{const{w,h,g}=ref.gray,p=g[Math.floor((q.y+q.h/2)*h)*w+Math.floor((q.x+q.w/2)*w)];return p})():128;return{...q,rot:0,kind:'text',text:'Chữ',font:'Segoe UI',weight:400,italic:false,color:lum>140?'#16181d':'#ffffff',align:'left',lh:1.2,lsEm:0,size:60,...o}}
@@ -2101,4 +2106,4 @@ window.vuotBridge={
     binSel=new Set(ids);renderBin();paintBinSel();await saveNow(false);if(o.flow)autoFlow();toast(`Đã nhận ${ids.length} ảnh từ Lọc ảnh`);return ids.length}};
 if(window.parent!==window&&window.parent.PS){const b=el('button',{class:'btn',id:'btnBack',textContent:'← Lấy ảnh từ Lọc ảnh',title:'Quay lại Lọc ảnh (Ctrl+1)',onclick:()=>window.parent.PS.show('filter')});$('#binAdd').before(b)}
 </script>
-</body></html>
+<link id="uiFont" rel="stylesheet" href="/ui.css"></body></html>

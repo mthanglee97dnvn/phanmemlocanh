@@ -43,7 +43,17 @@ iframe{position:absolute;inset:0;width:100%;height:100%;border:0;visibility:hidd
 iframe.on{visibility:visible}
 ::selection{background:rgba(242,176,30,.32)}
 dialog button:focus-visible,#mode button:focus-visible{outline:2px solid #F2B01E;outline-offset:1px}
+#mode #tFont{height:26px;padding:0 9px;border:0;color:#A1A8B4;font-weight:600;font-size:12.5px}
+#mode #tFont:hover,#mode #tVer:hover{color:#ECEEF2}
+#fontDlg{width:min(560px,calc(100vw - 24px))}
+#fQ{width:100%;background:#14161A;color:#ECEEF2;border:1px solid #383D47;border-radius:6px;padding:7px 10px;font:inherit;margin-bottom:8px}
+#fList{height:340px;overflow:auto;border:1px solid #383D47;border-radius:8px;background:#14161A}
+#fList button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid #22252B;border-radius:0;padding:8px 12px;color:#ECEEF2}
+#fList button:hover{background:#2A2E36}#fList button[aria-pressed=true]{background:rgba(242,176,30,.14);box-shadow:inset 3px 0 0 #F2B01E}
+#fList small{color:#A1A8B4;font:12px "Segoe UI",system-ui,sans-serif}#fList span{font-size:16px}
+#fMsg{color:#A1A8B4;font-size:12.5px;min-height:18px;margin-top:6px}
 </style>
+<link id="uiFont" rel="stylesheet" href="/ui.css">
 </head>
 <body>
 <div id="shell">
@@ -51,7 +61,7 @@ dialog button:focus-visible,#mode button:focus-visible{outline:2px solid #F2B01E
     <img src="/logo.png" alt="MTHANGLEE STUDIO">
     <button role="tab" id="tFilter" aria-selected="true">Lọc ảnh<kbd>Ctrl+1</kbd></button>
     <button role="tab" id="tLayout" aria-selected="false">Dàn trang<kbd>Ctrl+2</kbd></button>
-    <span class="sp"></span><button id="tUpd" hidden></button><span id="tName">MThanglee Cull&amp;Collage</span>
+    <span class="sp"></span><button id="tUpd" hidden></button><button id="tFont" title="Đổi phông chữ của app">Aa Phông chữ</button><span id="tName">MThanglee Cull&amp;Collage</span>
     <button id="tVer" title="Kiểm tra cập nhật"></button>
     <button id="tLic" title="Thông tin bản quyền"></button>
   </nav>
@@ -60,6 +70,13 @@ dialog button:focus-visible,#mode button:focus-visible{outline:2px solid #F2B01E
     <iframe id="fLayout" src="/layout" title="Dàn trang" allow="local-fonts; clipboard-read; clipboard-write"></iframe>
   </div>
 </div>
+<dialog id="fontDlg">
+  <h2>Phông chữ giao diện</h2>
+  <input id="fQ" type="search" placeholder="Tìm phông trên máy…" aria-label="Tìm phông">
+  <div id="fList" role="listbox" aria-label="Phông chữ đủ dấu tiếng Việt"></div>
+  <div id="fMsg" role="status"></div>
+  <div class="btns"><button id="fClose">Xong</button></div>
+</dialog>
 <dialog id="updDlg">
   <h2 id="uHead"></h2>
   <p id="uNotes"></p>
@@ -88,13 +105,28 @@ async function lic(){let s;try{s=await fetch('/api/license').then(r=>r.json())}c
   const t=$('tLic'),low=!s.permanent&&s.days_left<=14;t.textContent=s.permanent?'Bản quyền vĩnh viễn':`Còn ${s.days_left} ngày`;t.classList.toggle('warn',low);
   $('lState').textContent=s.permanent?'Vĩnh viễn':`Đến ${s.expires}, còn ${s.days_left} ngày`;$('lMach').textContent=s.machine}
 lic();setInterval(lic,600000);
+/* phông chữ: chỉ liệt kê phông đã cài trên máy có đủ dấu tiếng Việt; áp dụng ngay cho cả hai tab */
+let FL=null,FCUR='';
+const SAMPLE='Lọc ảnh cưới Gia Huy & Thùy Trân, đã chọn 128 ảnh';
+function reloadUiCss(){const v=Date.now();for(const d of[document,f.contentDocument,l.contentDocument]){const k=d&&d.getElementById('uiFont');if(k)k.href='/ui.css?v='+v}}
+function drawFonts(){const q=$('fQ').value.trim().toLowerCase(),box=$('fList');box.replaceChildren();
+  const vi=(FL||[]).filter(x=>x.vi),items=[{family:'',label:'Mặc định của Windows (Segoe UI)'},...vi.filter(x=>!q||x.family.toLowerCase().includes(q))];
+  for(const it of items){const b=document.createElement('button'),n=document.createElement('small'),p=document.createElement('span');
+    n.textContent=it.label||it.family;p.textContent=SAMPLE;p.style.fontFamily=it.family?`"${it.family}",sans-serif`:'"Segoe UI",system-ui,sans-serif';
+    b.append(n,p);b.setAttribute('role','option');b.setAttribute('aria-pressed',String(it.family===FCUR));b.onclick=()=>pickUiFont(it.family);box.append(b)}
+  $('fMsg').textContent=FL?`${vi.length} phông đủ dấu tiếng Việt trên máy, đã ẩn ${FL.length-vi.length} phông thiếu dấu.`:'Đang đọc phông trên máy…'}
+async function pickUiFont(name){const r=await post('/api/ui',{font:name});if(r.error){$('fMsg').textContent=r.error;return}FCUR=r.font;reloadUiCss();drawFonts()}
+$('tFont').onclick=async()=>{$('fQ').value='';$('fontDlg').showModal();drawFonts();
+  try{FCUR=(await fetch('/api/ui').then(r=>r.json())).font;FL=await fetch('/api/fonts').then(r=>r.json())}catch(e){$('fMsg').textContent='Chưa đọc được phông trên máy. Hãy thử lại.';return}drawFonts();$('fQ').focus()};
+$('fQ').oninput=drawFonts;$('fClose').onclick=()=>$('fontDlg').close();
 let U=null,busy=false;
 const showU=(r,msg)=>{U=r;const av=r.available;$('tVer').textContent='Bản '+r.current;$('tUpd').hidden=!av;$('tUpd').textContent='Cập nhật lên bản '+r.latest;
   $('uHead').textContent=av?'Có bản mới '+r.latest:'Bản '+r.current;$('uNotes').textContent=av?r.notes:(r.error||'Bạn đang dùng bản mới nhất.');$('uGo').hidden=!av;$('uAgain').hidden=av;$('uMsg').textContent=msg||''};
-async function checkUpd(force){try{showU(await fetch('/api/update/check'+(force?'?force=1':'')).then(r=>r.json()))}catch(e){}}
+async function checkUpd(force){try{showU(await fetch('/api/update/check'+(force?'?force=1':'')).then(r=>r.json()));return true}catch(e){return false}}
 setTimeout(()=>checkUpd(),3000);setInterval(()=>checkUpd(),21600000);
 $('tVer').onclick=$('tUpd').onclick=()=>{if(U)$('updDlg').showModal()};$('uClose').onclick=()=>{if(!busy)$('updDlg').close()};
-$('uAgain').onclick=async()=>{$('uMsg').textContent='Đang kiểm tra…';await checkUpd(true)};
+$('uAgain').onclick=async()=>{const b=$('uAgain'),m=$('uMsg'),t=performance.now();b.disabled=true;m.textContent='Đang kiểm tra…';
+  const ok=await checkUpd(true);b.disabled=false;m.textContent=ok?`Đã kiểm tra trong ${((performance.now()-t)/1000).toFixed(1).replace('.',',')} giây`:'Mất kết nối với app. Hãy mở lại app rồi thử lại.'};
 $('uGo').onclick=async()=>{const m=$('uMsg'),bar=$('uBar'),go=$('uGo'),stop=t=>{busy=false;go.disabled=false;bar.hidden=true;m.textContent=t};
   busy=true;go.disabled=true;bar.hidden=false;m.textContent='Đang tải bản mới…';
   const r=await post('/api/update/start');if(r.error)return stop(r.error);
