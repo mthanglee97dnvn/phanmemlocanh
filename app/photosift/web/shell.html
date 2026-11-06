@@ -8,39 +8,41 @@
 <link rel="icon" type="image/png" href="/favicon.png">
 <style>
 *{box-sizing:border-box}
-html,body{height:100%;margin:0;background:#0a1a2e;color:#f4f8ff;font:13px/1.4 "Segoe UI Variable Display","Segoe UI",system-ui,sans-serif;overflow:hidden}
+html,body{height:100%;margin:0;background:#14161A;color:#ECEEF2;font:13px/1.4 "Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;overflow:hidden}
 #shell{display:grid;grid-template-rows:38px minmax(0,1fr);height:100%}
-#mode{display:flex;align-items:center;gap:6px;padding:0 12px;background:#0a1a2e;border-bottom:1px solid #24405f}
+#mode{display:flex;align-items:center;gap:6px;padding:0 12px;background:#14161A;border-bottom:1px solid #383D47}
 #mode img{height:22px;width:auto;margin-right:8px}
-#mode button{background:none;border:0;border-bottom:2px solid transparent;color:#a9c0da;font:inherit;font-weight:600;height:38px;padding:0 14px;cursor:pointer}
+#mode button{background:none;border:0;border-bottom:2px solid transparent;color:#A1A8B4;font:inherit;font-weight:600;height:38px;padding:0 14px;cursor:pointer}
 #mode button:hover{color:#fff}
-#mode button[aria-selected=true]{color:#fff;border-bottom-color:#ffa31a}
-#mode button:focus-visible{outline:2px solid #ffa31a;outline-offset:-3px}
-#mode kbd{font:11px Consolas,monospace;color:#a9c0da;margin-left:6px}
+#mode button[aria-selected=true]{color:#ECEEF2;border-bottom-color:#F2B01E}
+#mode button:focus-visible{outline:2px solid #F2B01E;outline-offset:-3px}
+#mode kbd{font:11px Consolas,monospace;color:#A1A8B4;margin-left:6px}
 #mode .sp{flex:1}
-#mode #tName{font-weight:600;color:#a9c0da;font-size:12.5px;white-space:nowrap}
-#mode #tLic{height:26px;padding:0 10px;border:1px solid #24405f;border-radius:13px;color:#a9c0da;font-weight:500;font-size:12px}
-#mode #tLic.warn{color:#ffb74d;border-color:#ffa31a}
-#mode #tVer{height:26px;padding:0 8px;border:0;color:#a9c0da;font-weight:500;font-size:12px}
-#mode #tUpd{height:26px;padding:0 11px;border:0;border-radius:13px;background:#ffa31a;color:#241200;font-weight:700;font-size:12px}
-#mode #tUpd:hover{color:#241200;background:#ffb74d}
+#mode #tName{font-weight:600;color:#A1A8B4;font-size:12.5px;white-space:nowrap}
+#mode #tLic{height:26px;padding:0 10px;border:1px solid #383D47;border-radius:13px;color:#A1A8B4;font-weight:500;font-size:12px}
+#mode #tLic.warn{color:#F7C757;border-color:#F2B01E}
+#mode #tVer{height:26px;padding:0 8px;border:0;color:#A1A8B4;font-weight:500;font-size:12px}
+#mode #tUpd{height:26px;padding:0 11px;border:0;border-radius:13px;background:#F2B01E;color:#1A1405;font-weight:700;font-size:12px}
+#mode #tUpd:hover{color:#1A1405;background:#F7C757}
 #uNotes{white-space:pre-wrap;max-height:220px;overflow:auto;font-size:13px;line-height:1.5;margin:0 0 10px;color:#d5e2f0}
-#uBar{height:6px;border-radius:3px;background:#163350;overflow:hidden;margin:6px 0}#uBar i{display:block;height:100%;width:0;background:#ffa31a}
-#uMsg{color:#a9c0da;font-size:12.5px;min-height:18px}
-dialog{background:#0d2238;color:#f4f8ff;border:1px solid #24405f;border-radius:10px;padding:18px;width:min(480px,calc(100vw - 24px))}
+#uBar{height:6px;border-radius:3px;background:#2A2E36;overflow:hidden;margin:6px 0}#uBar i{display:block;height:100%;width:0;background:#F2B01E}
+#uMsg{color:#A1A8B4;font-size:12.5px;min-height:18px}
+dialog{background:#1E2127;color:#ECEEF2;border:1px solid #383D47;border-radius:10px;padding:18px;width:min(480px,calc(100vw - 24px))}
 dialog::backdrop{background:#000a}
 dialog h2{font-size:17px;margin:0 0 10px}
 dialog dl{display:grid;grid-template-columns:96px 1fr;gap:5px 10px;margin:0 0 12px;font-size:13px}
-dialog dt{color:#a9c0da}dialog dd{margin:0;font-family:Consolas,monospace;word-break:break-all}
-dialog textarea{width:100%;min-height:74px;background:#071a30;color:#f4f8ff;border:1px solid #24405f;border-radius:6px;padding:7px;font:12px Consolas,monospace}
+dialog dt{color:#A1A8B4}dialog dd{margin:0;font-family:Consolas,monospace;word-break:break-all}
+dialog textarea{width:100%;min-height:74px;background:#14161A;color:#ECEEF2;border:1px solid #383D47;border-radius:6px;padding:7px;font:12px Consolas,monospace}
 dialog .btns{display:flex;gap:8px;justify-content:flex-end;margin-top:10px;flex-wrap:wrap}
-dialog button{background:#163350;color:#f4f8ff;border:1px solid #2b4d70;border-radius:6px;padding:6px 12px;cursor:pointer;font:inherit}
-dialog button.pri{background:#ffa31a;border-color:#ffa31a;color:#241200;font-weight:700}
+dialog button{background:#2A2E36;color:#ECEEF2;border:1px solid #4A505C;border-radius:6px;padding:6px 12px;cursor:pointer;font:inherit}
+dialog button.pri{background:#F2B01E;border-color:#F2B01E;color:#1A1405;font-weight:700}
 dialog button.dg{color:#ff9d9b}
 #licErr{color:#ff9d9b;font-size:12.5px;min-height:18px;margin-top:6px}
 #stage{position:relative;min-height:0}
 iframe{position:absolute;inset:0;width:100%;height:100%;border:0;visibility:hidden}
 iframe.on{visibility:visible}
+::selection{background:rgba(242,176,30,.32)}
+dialog button:focus-visible,#mode button:focus-visible{outline:2px solid #F2B01E;outline-offset:1px}
 </style>
 </head>
 <body>

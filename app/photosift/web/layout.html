@@ -1,4 +1,4 @@
-<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="google" content="notranslate"></head><body><title>Cull&amp;Collage Dàn trang</title>
+<!doctype html><html lang="vi" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="google" content="notranslate"></head><body><title>Cull&amp;Collage Dàn trang</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <style>
 /* Layout: a contact-sheet desk. One long strip of frames in the middle, tools left, properties right, frame rail below. */
@@ -6,7 +6,7 @@
   --ground:#D9DCE1; --panel:#F4F5F7; --panel-2:#E8EAEE; --line:#C8CCD3;
   --fg:#1A1D23; --muted:#59606C; --accent:#8F5E00; --on-accent:#FFFFFF; --sel:#C27C00; --danger:#B3261E;
   --ui:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,Roboto,"Noto Sans",sans-serif;
-  --display:Bahnschrift,"Segoe UI Semibold","Segoe UI",system-ui,sans-serif;
+  --display:"Segoe UI Semibold","Segoe UI",system-ui,sans-serif;
   --mono:"Cascadia Mono",Consolas,"DejaVu Sans Mono",monospace;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
@@ -52,7 +52,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 #tabs button:hover{color:var(--fg)}
 .pane{overflow:auto;padding:14px 12px;min-height:0}
 .pane h2{font:600 15px var(--display);margin:0 0 10px}
-.pane h3{font:600 11px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:16px 0 8px}
+.pane h3{font:600 13px var(--ui);color:var(--fg);margin:16px 0 8px}
 .pane p{margin:0 0 10px;color:var(--muted);font-size:13px}
 .tgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .tpl{padding:0;background:none;border:1px solid var(--line);border-radius:4px;cursor:pointer;overflow:hidden;display:flex;flex-direction:column;text-align:left}
@@ -133,12 +133,12 @@ body.dragging .gap.over{width:44px;background:var(--accent)}
 .tile b{position:absolute;right:2px;bottom:2px;font:10px/1 var(--mono);padding:2px 3px;background:#000b;color:#fff;border-radius:2px}
 #binGrid.over{outline:2px dashed var(--accent);outline-offset:-3px}
 .fr b{position:absolute;left:3px;top:3px;font:10px/1 var(--mono);padding:2px 3px;background:#000a;color:#fff;border-radius:2px}
-#railTools{display:flex;gap:4px;flex:none}
+#railTools{display:flex;gap:4px;flex:none;position:sticky;right:-10px;margin-left:auto;padding:0 10px 0 8px;background:var(--panel)}
 
 /* properties */
 #props{grid-area:props;background:var(--panel);border-left:1px solid var(--line);min-height:0;overflow:auto;padding:14px 12px}
 #props h2{font:600 15px var(--display);margin:0 0 10px}
-#props h3{font:600 11px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:18px 0 8px;padding-top:12px;border-top:1px solid var(--line)}
+#props h3{font:600 13px var(--ui);color:var(--fg);margin:18px 0 8px;padding-top:12px;border-top:1px solid var(--line)}
 .f{display:grid;grid-template-columns:82px minmax(0,1fr) 42px;gap:8px;align-items:center;margin-bottom:6px;font-size:13px}
 .f label{color:var(--muted)}
 .f output{font:12px var(--mono);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
@@ -227,11 +227,11 @@ kbd{justify-self:start;white-space:nowrap;font:11px var(--mono);border:1px solid
 .refside select,.refside input[type=text],.refside input[type=password]{width:100%;min-width:0}
 #aiDlg ol{margin:0 0 10px;padding-left:20px;font-size:13.5px;display:grid;gap:4px}
 #aiDlg textarea{width:100%;min-height:96px;font:12px var(--mono)}
-#aiDlg h3{font:600 12px var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:14px 0 6px}
+#aiDlg h3{font:600 13px var(--ui);color:var(--fg);margin:14px 0 6px}
 #aiDlg input{width:100%;background:var(--panel-2);border:1px solid var(--line);border-radius:3px;padding:6px 8px;margin-bottom:6px}
 .refside .f{margin-bottom:0}
 .refside p{margin:0;font-size:13px;color:var(--muted)}
-.refside h3{font:600 11px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:6px 0 0}
+.refside h3{font:600 13px var(--ui);color:var(--fg);margin:6px 0 0}
 #refDlg.over .refstage{outline:2px dashed var(--accent);outline-offset:-4px}
 @media (max-width:760px){.refwrap{grid-template-columns:minmax(0,1fr)}.refstage{height:48vh}}
 #saveState{font:11px var(--mono);color:var(--muted);white-space:nowrap}

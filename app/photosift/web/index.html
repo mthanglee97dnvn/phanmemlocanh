@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="vi">
 <head>
-<script>try{document.documentElement.dataset.theme=localStorage.getItem('ps_theme')||'glass'}catch(e){document.documentElement.dataset.theme='glass'}</script>
+<script>try{document.documentElement.dataset.theme=localStorage.getItem('ps_theme')||'neutral'}catch(e){document.documentElement.dataset.theme='neutral'}</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="google" content="notranslate">
@@ -13,16 +13,16 @@
   --panel:rgba(8,30,60,.46);--panel2:rgba(255,255,255,.13);--line:rgba(255,255,255,.24);--sel:rgba(53,198,255,.30);--inset:rgba(4,14,30,.58);--field:rgba(4,14,30,.45);
   --blur:blur(18px) saturate(150%);--r:22px;--shadow:0 10px 34px rgba(2,12,30,.35),inset 0 1px 0 rgba(255,255,255,.28);--modal:rgba(8,30,60,.82);
   --pri:linear-gradient(180deg,#ffc24a,#ff8a1f);--pri-tx:#2b1500;--pri-sh:0 4px 14px rgba(255,138,31,.45)}
-html[data-theme=neutral]{--tx:#e7e8ea;--mut:#8b9098;--acc:#4da3ff;--panel:#1e2024;--panel2:#25282d;--line:#33363c;--sel:#1d3550;--inset:#0c0d0f;--field:#101114;
-  --blur:none;--r:12px;--shadow:none;--modal:#1e2024;--pri:#4da3ff;--pri-tx:#04121f;--pri-sh:none}
+html[data-theme=neutral]{--tx:#ECEEF2;--mut:#A1A8B4;--acc:#F2B01E;--acc2:#8DB8E8;--panel:#1E2127;--panel2:#2A2E36;--line:#383D47;--sel:rgba(141,184,232,.2);--inset:#101216;--field:#14161A;
+  --blur:none;--r:10px;--shadow:none;--modal:#1E2127;--pri:#F2B01E;--pri-tx:#1A1405;--pri-sh:none}
 *{box-sizing:border-box}
-html,body{height:100%;margin:0;color:var(--tx);font:13px/1.45 Poppins,"Segoe UI Variable Display","Segoe UI",system-ui,-apple-system,Roboto,sans-serif;overflow:hidden}
+html,body{height:100%;margin:0;color:var(--tx);font:13px/1.45 "Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,Roboto,"Noto Sans",sans-serif;overflow:hidden}
 body{background:
   radial-gradient(900px 620px at -6% -12%,rgba(255,140,52,.78),transparent 62%),
   radial-gradient(820px 620px at 106% 108%,rgba(255,176,24,.72),transparent 62%),
   radial-gradient(900px 700px at 82% -6%,rgba(40,200,255,.55),transparent 62%),
   linear-gradient(135deg,#071a30 0%,#0b3b66 46%,#1286c4 100%) fixed}
-html[data-theme=neutral] body{background:#16171a}
+html[data-theme=neutral] body{background:#14161A}
 #deco{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none}
 html[data-theme=neutral] #deco{display:none}
 #deco .cb{position:absolute;filter:drop-shadow(0 14px 18px rgba(2,12,30,.35))}
@@ -40,7 +40,6 @@ input[type=range]{accent-color:var(--acc)}input[type=checkbox]{accent-color:var(
 .bar{display:flex;gap:8px;align-items:center;padding:8px 16px;flex-wrap:wrap;border-radius:999px}
 .bar .sp{flex:1}
 .bar{gap:6px}#fFilter{max-width:180px}#fSort{max-width:150px}#fSize{width:100px}
-.logo{height:30px;width:auto;display:block;margin-right:6px}
 #prog{height:3px;margin:-6px 20px -4px;border-radius:3px;background:transparent;overflow:hidden}#prog i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--acc2),var(--acc));transition:width .3s}
 #main{display:grid;grid-template-columns:230px 1fr 300px;min-height:0;gap:10px}
 #main.noinfo{grid-template-columns:230px 1fr}
@@ -123,7 +122,6 @@ body.cat #catalog{display:flex}
 .dirs div{padding:7px 12px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.07)}.dirs div:hover{background:var(--panel2)}
 #viewer{--strip:116px;position:fixed;inset:0;background:linear-gradient(135deg,#040b16,#07213a 60%,#0a2f52);z-index:40;display:none;grid-template-columns:1fr 290px;grid-template-rows:minmax(0,1fr) auto}
 #viewer.nostrip{--strip:0px}
-html[data-theme=neutral] #viewer{background:#0b0c0e}
 #viewer.on{display:grid}
 #vstage{position:relative;overflow:auto;display:flex;grid-row:1;grid-column:1;min-height:0}
 #vinfo{grid-row:1;grid-column:2;min-height:0}
@@ -166,9 +164,77 @@ canvas.hist{width:100%;height:120px;display:block;border-radius:10px;background:
 .hs label{display:block;padding:3px 0;cursor:pointer}
 #info{overflow:auto;padding:10px}
 #vwrap #vmask{position:absolute;left:0;top:0;width:100%;height:100%;max-width:none;max-height:none;pointer-events:none;display:none;cursor:default}
+/* lớp hoàn thiện chung cho cả hai giao diện */
+::selection{background:rgba(242,176,30,.32)}
+:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+button{display:inline-flex;align-items:center;gap:6px;border-radius:calc(var(--r)*.6);transition:border-color .12s,background .12s}
+button:hover{transform:none;border-color:var(--mut)}button:active{background:var(--line)}
+button:disabled:hover{border-color:var(--line)}
+button.pri:hover{filter:brightness(1.08);border-color:transparent}
+input[type=text],input[type=number],select{border-radius:calc(var(--r)*.6)}
+input::placeholder{color:var(--mut)}
+select option{background:var(--modal);color:var(--tx)}
+::-webkit-scrollbar-thumb{background:var(--line)}::-webkit-scrollbar-thumb:hover{background:var(--mut)}::-webkit-scrollbar-corner{background:transparent}
+.ic{width:15px;height:15px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.bar{border-radius:var(--r);padding:7px 10px;gap:6px}
+#prog i{background:var(--acc)}
+#side h4{text-transform:none;letter-spacing:0;font-size:13px;color:var(--tx)}
+.person{border-radius:8px}.person img{border:0}
+.cell{border-radius:8px;padding:4px;background:transparent;border-color:transparent}
+.cell:hover{background:var(--panel2)}.cell.cur{box-shadow:0 0 0 2px var(--acc);border-color:transparent}
+.im{border-radius:5px}
+.lab{width:4px}
+.chip{font-weight:600;padding:1px 6px;border-radius:4px}
+.chip.bright{background:#D8B73A;color:#1A1405}
+.nface{border-radius:4px;padding:1px 6px}
+#status{border-radius:var(--r);padding:6px 12px;font-variant-numeric:tabular-nums}
+.kv,.ex,.ctable td.num{font-variant-numeric:tabular-nums}
+.sec{border:0;border-top:1px solid var(--line);border-radius:0;background:none;margin:0}.sec:first-child{border-top:0}
+.sec .sh{background:none;font-size:13px;letter-spacing:0;padding:9px 2px}.sec .sb{padding:2px 2px 12px}
+canvas.hist{border-radius:6px;background:var(--inset)}
+.back{background:rgba(6,8,12,.62);-webkit-backdrop-filter:none;backdrop-filter:none}
+.modal{-webkit-backdrop-filter:none;backdrop-filter:none;border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.45)}
+.dirs{border-radius:8px}.dirs div{display:flex;align-items:center;gap:8px;border-bottom-color:var(--panel2)}
+#toast{border-radius:8px;background:var(--panel2);box-shadow:0 8px 24px rgba(0,0,0,.4)}
+#viewer{background:#0F1013}
+#vinfo{background:var(--panel);-webkit-backdrop-filter:none;backdrop-filter:none}
+#vback button{background:rgba(20,22,26,.82);border-color:var(--line);color:var(--tx)}
+#vbadge .chip{padding:3px 9px}
+#catalog .chead{padding:8px 12px;box-shadow:none}
+#catalog h2{font-size:15px;font-weight:600}
+.cview{border-radius:calc(var(--r)*.6)}.cview button{border-radius:calc(var(--r)*.4)}
+.ccard{border-radius:8px;background:var(--panel)}.ccard:hover{border-color:var(--mut)}.ccard.cur{border-color:var(--acc)}
+.cbadge{border-radius:4px;padding:1px 7px}.cdel{border-radius:6px;display:inline-flex;justify-content:center}
+.ctable tr.cur td:first-child{box-shadow:none}.ctable tr.cur b{color:var(--acc)}
+#empty h2{font-size:20px}
+.bar button{padding:5px 10px}#bInfo,#bTheme,#bHelp{padding:5px 7px}
+.bar select{padding:5px 8px}#fFilter{max-width:150px}#fSort{max-width:124px}#fSize{width:76px}
+.bar .hint{white-space:nowrap}
 </style>
 </head>
 <body class="cat">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+ <symbol id="i-lib" viewBox="0 0 24 24"><path d="M4 5h4v14H4zM10 5h4v14h-4zM16.2 5.6l3.8 1-3.4 12.8-3.8-1"/></symbol>
+ <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+ <symbol id="i-funnel" viewBox="0 0 24 24"><path d="M3.5 5h17l-6.7 8v5.5l-3.6 1.8V13z"/></symbol>
+ <symbol id="i-undo" viewBox="0 0 24 24"><path d="M8.5 5 4 9.5 8.5 14"/><path d="M4 9.5h10.5a5.5 5.5 0 0 1 0 11H10"/></symbol>
+ <symbol id="i-restore" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.6-5.9L4 8.5"/><path d="M4 3.8v4.7h4.7"/></symbol>
+ <symbol id="i-export" viewBox="0 0 24 24"><path d="M12 15V4M7.5 8.5 12 4l4.5 4.5"/><path d="M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></symbol>
+ <symbol id="i-layout" viewBox="0 0 24 24"><path d="M4 4h7v9H4zM13 4h7v5h-7zM13 11h7v9h-7zM4 15h7v5H4z"/></symbol>
+ <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.6v.1"/></symbol>
+ <symbol id="i-theme" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17" /><path d="M12 7h5M12 11h7M12 15h6"/></symbol>
+ <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M9.6 9.5a2.5 2.5 0 1 1 3.9 2.1c-.9.6-1.5 1.1-1.5 2.1M12 16.8v.1"/></symbol>
+ <symbol id="i-tune" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></symbol>
+ <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+ <symbol id="i-up" viewBox="0 0 24 24"><path d="M6.5 10.5 12 5l5.5 5.5M12 5v14"/></symbol>
+ <symbol id="i-net" viewBox="0 0 24 24"><path d="M9 3.5h6v5H9zM3 15.5h6v5H3zM15 15.5h6v5h-6zM12 8.5v3.5M6 15.5V12h12v3.5"/></symbol>
+ <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.4-4.4"/></symbol>
+ <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15.5" r="4.5"/><path d="m11.2 12.3 8.3-8.3M16 7.5l2.5 2.5"/></symbol>
+ <symbol id="i-pc" viewBox="0 0 24 24"><path d="M3.5 5h17v11h-17zM9 20h6M12 16v4"/></symbol>
+ <symbol id="i-disk" viewBox="0 0 24 24"><path d="M3.5 13.5 6 5h12l2.5 8.5V19h-17zM3.5 13.5h17M16.5 16.3v.1"/></symbol>
+ <symbol id="i-tool" viewBox="0 0 24 24"><path d="M14.5 6.5a4 4 0 0 1 5.2-1.2l-3 3 1.9 1.9 3-3a4 4 0 0 1-5.5 5L8 21.3 3.7 17l9-8.7a4 4 0 0 1 1.8-1.8z"/></symbol>
+ <symbol id="i-lock" viewBox="0 0 24 24"><path d="M5 11h14v9H5zM8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+</defs></svg>
 <div id="deco" aria-hidden="true">
 <svg width="0" height="0" style="position:absolute"><defs>
  <linearGradient id="cT" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c9f4ff"/><stop offset="1" stop-color="#52c9ff"/></linearGradient>
@@ -197,15 +263,15 @@ canvas.hist{width:100%;height:120px;display:block;border-radius:10px;background:
     <select id="catSort" aria-label="Sắp xếp"><option value="opened">Mở gần nhất</option><option value="name">Tên thư mục</option><option value="t1">Ngày chụp mới nhất</option><option value="n">Nhiều ảnh nhất</option><option value="size">Dung lượng lớn nhất</option></select>
     <div class="cview" id="catView" role="group" aria-label="Chế độ xem"><button data-v="lg">Lớn</button><button data-v="md">Vừa</button><button data-v="sm">Nhỏ</button><button data-v="det">Chi tiết</button></div>
     <button id="catCache" title="Bộ nhớ đệm giúp mở lại thư mục ngay"></button>
-    <button class="pri" id="catAdd">＋ Thêm thư mục</button>
+    <button class="pri" id="catAdd"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Thêm thư mục</button>
   </div>
   <div id="catBody"></div>
 </div>
 <div id="app">
   <div class="bar">
-    <img class="logo" src="/logo.png" alt="MTHANGLEE STUDIO">
-    <button id="bCat" title="Xem các thư mục đã lọc">📚 Catalog</button>
-    <button id="bOpen" class="pri">📁 Mở thư mục</button>
+    
+    <button id="bCat" title="Xem các thư mục đã lọc"><svg class="ic" aria-hidden="true"><use href="#i-lib"/></svg>Catalog</button>
+    <button id="bOpen"><svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg>Mở thư mục</button>
     <label class="hint"><input type="checkbox" id="cRec" checked> gồm thư mục con</label>
     <span class="sp"></span>
     <select id="fFilter" title="Lọc"></select>
@@ -214,19 +280,19 @@ canvas.hist{width:100%;height:120px;display:block;border-radius:10px;background:
       <option value="score">Điểm chất lượng ↓</option><option value="sharp">Độ nét ↓</option>
     </select>
     <input type="range" id="fSize" min="100" max="320" value="170" title="Cỡ ảnh">
-    <button id="bCull">✨ Tự động lọc</button>
-    <button id="bUndo" disabled>↶ Hoàn tác</button>
+    <button id="bCull"><svg class="ic" aria-hidden="true"><use href="#i-funnel"/></svg>Tự động lọc</button>
+    <button id="bUndo" disabled><svg class="ic" aria-hidden="true"><use href="#i-undo"/></svg>Hoàn tác</button>
     <button id="bUnrej" title="Hoàn tác lần lọc gần nhất hoặc bỏ loại toàn bộ ảnh" hidden></button>
-    <button id="bExport">📤 Xuất ảnh</button>
-    <button id="bLayout" class="pri" title="Gửi ảnh đã lọc sang Dàn trang" hidden>🧩 Dàn trang</button>
-    <button id="bInfo" title="Bật/tắt khung thông số ảnh">ℹ️</button>
-    <button id="bTheme" title="Đổi giao diện: Kính / Tối trung tính (xem màu ảnh chuẩn)">🎨</button>
-    <button id="bHelp">?</button>
+    <button id="bExport"><svg class="ic" aria-hidden="true"><use href="#i-export"/></svg>Xuất ảnh</button>
+    <button id="bLayout" class="pri" title="Gửi ảnh đã lọc sang Dàn trang" hidden><svg class="ic" aria-hidden="true"><use href="#i-layout"/></svg>Dàn trang</button>
+    <button id="bInfo" title="Bật/tắt khung thông số ảnh" aria-label="Bật/tắt khung thông số ảnh"><svg class="ic" aria-hidden="true"><use href="#i-info"/></svg></button>
+    <button id="bTheme" title="Đổi giao diện: Kính / Tối trung tính (xem màu ảnh chuẩn)" aria-label="Đổi giao diện"><svg class="ic" aria-hidden="true"><use href="#i-theme"/></svg></button>
+    <button id="bHelp" title="Phím tắt và trợ giúp" aria-label="Phím tắt và trợ giúp"><svg class="ic" aria-hidden="true"><use href="#i-help"/></svg></button>
   </div>
   <div id="prog"><i></i></div>
   <div id="main">
     <div id="side">
-      <h4>Người <button id="bFaceCfg" title="Độ nhạy nhận diện" style="padding:0 6px">⚙</button></h4>
+      <h4>Người <button id="bFaceCfg" title="Độ nhạy nhận diện" aria-label="Độ nhạy nhận diện" style="padding:2px 6px"><svg class="ic" aria-hidden="true"><use href="#i-tune"/></svg></button></h4>
       <div id="people"></div>
       <div class="hint" id="noPeople" style="padding:6px;display:none">Chưa nhận diện được khuôn mặt nào.</div>
     </div>
@@ -241,7 +307,7 @@ canvas.hist{width:100%;height:120px;display:block;border-radius:10px;background:
   <div id="vinfo"></div>
   <div id="strip"><div id="stripin"></div></div>
   <div id="vbadge"></div>
-  <div id="vback"><button id="vbGrid" title="Quay lại lưới ảnh (Esc)">← Lưới ảnh</button><button id="vbCat" title="Về Catalog thư mục">📚 Catalog</button><span class="chip" id="vzoom" hidden></span></div>
+  <div id="vback"><button id="vbGrid" title="Quay lại lưới ảnh (Esc)">← Lưới ảnh</button><button id="vbCat" title="Về Catalog thư mục"><svg class="ic" aria-hidden="true"><use href="#i-lib"/></svg>Catalog</button><span class="chip" id="vzoom" hidden></span></div>
 </div>
 <div id="toast"></div>
 
@@ -319,7 +385,7 @@ function cellHTML(p){
   const grp = p.grp ? `<span class="chip" style="background:rgba(0,121,107,.85)">⧉${p.grp}${p.best?' ★':''}</span>` : '';
   return `<div class="im"><img loading="lazy" src="/thumb/${p.id}.jpg?v=${p.tv}" alt=""><div class="lab ${p.label?'l-'+p.label:''}"></div>
     <div class="flags">${flags}${grp}</div><div class="xmark">✕</div>
-    <div class="stars">${p.rating>0?'★'.repeat(p.rating):''}</div>${p.nf?`<span class="nface">👤${p.nf}</span>`:''}</div>
+    <div class="stars">${p.rating>0?'★'.repeat(p.rating):''}</div>${p.nf?`<span class="nface">${p.nf} mặt</span>`:''}</div>
     <div class="nm" title="${esc(p.name)}">${esc(p.name)}</div>`;
 }
 const sigs = new Map();
@@ -328,7 +394,7 @@ function renderGrid(){
   const wrap=$('#gridwrap');
   if(!S.photos.length){
     cells.clear(); sigs.clear();
-    wrap.innerHTML = `<div id="empty"><h2>${S.status.state==='scanning'?'Đang đọc ảnh…':(S.status.state==='error'?'Không mở được thư mục':'Chưa có ảnh nào')}</h2>${S.status.state==='error'?`<div style="color:#ffb3b3;max-width:520px;margin:0 auto 10px;word-break:break-word">${esc(S.status.message||'')}</div>`:''}${S.status.state==='done'&&S.status.root&&!S.photos.length?`<div style="color:#ffd9a0;margin-bottom:8px">Thư mục «${esc(S.status.root)}» không có ảnh nào (JPG/PNG/RAW/HEIC).</div>`:''}<div>Mở một thư mục ảnh để bắt đầu.<br>PhotoSift sẽ tự phát hiện ảnh mờ, tối, nhắm mắt, trùng lặp<br>và nhóm ảnh theo từng người.</div><button class="pri" onclick="pickFolder()">📁 Mở thư mục</button></div>`;
+    wrap.innerHTML = `<div id="empty"><h2>${S.status.state==='scanning'?'Đang đọc ảnh…':(S.status.state==='error'?'Không mở được thư mục':'Chưa có ảnh nào')}</h2>${S.status.state==='error'?`<div style="color:#ffb3b3;max-width:520px;margin:0 auto 10px;word-break:break-word">${esc(S.status.message||'')}</div>`:''}${S.status.state==='done'&&S.status.root&&!S.photos.length?`<div style="color:#ffd9a0;margin-bottom:8px">Thư mục «${esc(S.status.root)}» không có ảnh nào (JPG/PNG/RAW/HEIC).</div>`:''}<div>Mở một thư mục ảnh để bắt đầu.<br>PhotoSift sẽ tự phát hiện ảnh mờ, tối, nhắm mắt, trùng lặp<br>và nhóm ảnh theo từng người.</div><button class="pri" onclick="pickFolder()"><svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg>Mở thư mục</button></div>`;
     renderStatus(); return;
   }
   if(!$('#grid')){ cells.clear(); sigs.clear(); wrap.innerHTML='<div id="grid"></div>'; }
@@ -370,7 +436,7 @@ $('#gridwrap').addEventListener('dblclick', e=>{ const c=e.target.closest('.cell
 function renderStatus(){
   const st=S.status||{};
   const nRej=S.photos.filter(p=>p.rating===-1).length, bU=$('#bUnrej');
-  bU.hidden=!nRej; bU.textContent=`♻ Bỏ loại (${fmt(nRej)})`;
+  bU.hidden=!nRej; bU.innerHTML=`<svg class="ic" aria-hidden="true"><use href="#i-restore"/></svg>Bỏ loại (${fmt(nRej)})`;
   $('#bUndo').disabled=!S.undo.length&&!(S.lastCull&&S.lastCull.n);
   $('#sCount').textContent = `${S.view.length}/${S.photos.length} ảnh` + (st.state==='done'&&st.timing&&st.timing.all_s?` • ⏱ thumbnail ${st.timing.thumb_s}s · đọc ảnh ${st.timing.read_s}s · tổng ${st.timing.all_s}s`:'')+
     (st.state==='scanning'?` • thumbnail ${Math.max(st.thumbs,st.quick||0)}/${st.total} • phân tích ${st.done}/${st.total} (chạy nền — bạn có thể chấm ảnh ngay)`:'');
@@ -453,7 +519,7 @@ $('#bUndo').onclick=undo;
 $('#bUnrej').onclick=()=>{
   const rej=S.photos.filter(p=>p.rating===-1).map(p=>p.id), l=S.lastCull&&S.lastCull.n?S.lastCull:null;
   const when=l?new Date(l.time*1000).toLocaleString('vi-VN',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit',year:'numeric'}):'';
-  const m=modal(`<h3>♻ Bỏ loại ảnh</h3>
+  const m=modal(`<h3>Bỏ loại ảnh</h3>
    <div class="hint" style="margin-bottom:10px">Thư mục này có <b>${fmt(rej.length)}</b> ảnh đang bị đánh dấu ✕. Ảnh gốc chưa từng bị xoá hay di chuyển.</div>
    ${l?`<div class="row" style="margin-bottom:8px"><button id="ulast" style="flex:1">Hoàn tác lần lọc gần nhất: ${fmt(l.n)} ảnh, lúc ${esc(when)}</button></div>`:''}
    <div class="row"><button class="pri" id="uall" style="flex:1">Bỏ loại toàn bộ ${fmt(rej.length)} ảnh</button></div>
@@ -579,7 +645,7 @@ function renderInfo(p, ix){
    <div style="margin:10px 0">${p.an===false?'<span class="hint">Đang phân tích…</span>':''}${p.flags.filter(f=>f!=='dup').map(f=>`<span class="chip ${f}" style="margin-right:4px">${FLAG[f]}</span>`).join('')||(p.flags.length?'':'<span class="ok">Không có cảnh báo</span>')}</div>
    ${p.grp?`<div class="hint">Nhóm trùng #${p.grp} ${p.best?'— <b class="ok">bản tốt nhất</b>':''}</div>`:''}
    <div style="margin:8px 0">${p.people.map(i=>`<span class="chip" style="background:var(--sel);margin-right:4px">${esc(pname(i))}</span>`).join('')}</div>
-   <hr style="border-color:var(--line)"><button id="vdiag" style="margin-bottom:8px">🔧 Chẩn đoán file</button><div class="hint">
+   <hr style="border-color:var(--line)"><button id="vdiag" style="margin-bottom:8px"><svg class="ic" aria-hidden="true"><use href="#i-tool"/></svg>Chẩn đoán file</button><div class="hint">
    <span class="kbd">←</span><span class="kbd">→</span> chuyển ảnh &nbsp; <span class="kbd">0-5</span> sao &nbsp; <span class="kbd">X</span> loại<br>
    <span class="kbd">6-9</span> nhãn màu &nbsp; <span class="kbd">F</span> tên người &nbsp; Lăn chuột phóng to, giữ chuột phải kéo ảnh, <span class="kbd">Z</span> phóng nhanh<br><span class="kbd">H</span> vùng cháy/tối &nbsp; <span class="kbd">T</span> bật/tắt dải thumbnail &nbsp; <span class="kbd">Esc</span> quay lại</div>`;
   $('#vstars').onclick=e=>{ const r=e.target.dataset.r; if(r!==undefined) rate([p.id], +r===p.rating?0:+r); };
@@ -702,9 +768,9 @@ const catSize=b=>b>=1e9?(b/1e9).toFixed(1).replace('.',',')+' GB':b?Math.round(b
 const catRange=c=>{ const a=catDate(c.t0),b=catDate(c.t1); return a===b?a:a+' – '+b; };
 async function showCatalog(){ document.body.classList.add('cat'); $('#catBack').hidden=!S.status.root; $('#catSort').value=Cat.sort;
   try{ Cat.list=await api('/api/catalog'); paintCache(await api('/api/cache')); }catch(e){ toast(e.message,4000); } drawCatalog(); }
-const paintCache=c=>{ Cat.cache=c; $('#catCache').textContent='🧹 Bộ nhớ đệm '+catSize(c.bytes); };
+const paintCache=c=>{ Cat.cache=c; $('#catCache').innerHTML='<svg class="ic" aria-hidden="true"><use href="#i-disk"/></svg>Bộ nhớ đệm '+catSize(c.bytes); };
 $('#catCache').onclick=()=>{ const c=Cat.cache, opts=[5,10,20,50,100].map(g=>`<option value="${g}"${g===c.limit_gb?' selected':''}>${g} GB</option>`).join('');
-  const m=modal(`<h3>🧹 Bộ nhớ đệm</h3><div class="hint" style="margin-bottom:10px">Đang dùng <b>${catSize(c.bytes)}</b>. Nhờ đó, mở lại thư mục đã đọc là có ngay. Dọn bộ nhớ đệm không ảnh hưởng ảnh gốc, số sao, nhãn màu và dấu ✕, chỉ là thư mục đó phải đọc lại khi mở.</div>
+  const m=modal(`<h3>Bộ nhớ đệm</h3><div class="hint" style="margin-bottom:10px">Đang dùng <b>${catSize(c.bytes)}</b>. Nhờ đó, mở lại thư mục đã đọc là có ngay. Dọn bộ nhớ đệm không ảnh hưởng ảnh gốc, số sao, nhãn màu và dấu ✕, chỉ là thư mục đó phải đọc lại khi mở.</div>
    <div class="row"><label style="flex:1">Dung lượng tối đa, vượt quá sẽ dọn thư mục lâu chưa mở</label><select id="clim">${opts}</select></div>
    <div class="btns"><button onclick="this.closest('.back').remove()">Đóng</button><button id="cclr">Dọn hết, trừ thư mục đang mở</button></div>`);
   m.querySelector('#clim').onchange=async e=>{ paintCache(await api('/api/cache/limit',{limit_gb:+e.target.value})); toast('Đã lưu giới hạn'); };
@@ -723,7 +789,7 @@ function drawCatalog(){
     const th=(k,t,c='')=>`<th class="${c}" data-s="${k}">${t}</th>`;
     box.innerHTML=`<table class="ctable"><thead><tr>${th('name','Thư mục')}<th>Đường dẫn</th>${th('n','Số ảnh','num')}<th class="num">★</th><th class="num">✕</th>${th('size','Dung lượng','num')}${th('t1','Ngày chụp')}${th('opened','Mở gần nhất')}<th>Trạng thái</th><th></th></tr></thead><tbody>`+
       l.map(c=>`<tr data-root="${esc(c.root)}" tabindex="0" class="${c.root===cur?'cur':''}"><td><div class="cn">${c.covers[0]?`<img loading="lazy" src="${cov(c,c.covers[0])}" alt="">`:'<i></i>'}<b>${esc(c.name)}</b></div></td><td class="cp" title="${esc(c.root)}">${esc(c.root)}</td><td class="num">${c.n?fmt(c.n):'—'}</td><td class="num">${fmt(c.stars)}</td><td class="num">${fmt(c.rej)}</td><td class="num">${catSize(c.size)}</td><td>${catRange(c)}</td><td>${catDate(c.opened)}</td><td>${c.missing?'Không tìm thấy':(c.root===cur?'Đang mở':'Sẵn sàng')}</td><td>${del(c)}</td></tr>`).join('')+'</tbody></table>';
-  } else box.innerHTML=`<div class="cgrid ${Cat.view}">`+l.map(c=>`<div class="ccard ${c.root===cur?'cur':''} ${c.missing?'gone':''}" data-root="${esc(c.root)}" tabindex="0" role="button" title="${esc(c.root)}"><div class="cov n${c.covers.length}">${img(c)||'<span class="none">📁</span>'}</div>${c.missing?'<span class="cbadge warn">Không tìm thấy</span>':(c.root===cur?'<span class="cbadge">Đang mở</span>':'')}${del(c)}<div class="cinf"><b>${esc(c.name)}</b><span class="cpath">${esc(c.root)}</span><span>${stat(c)}</span><span class="cdate">${c.n?catRange(c)+' · '+catSize(c.size):'Mở lại để cập nhật'}</span></div></div>`).join('')+'</div>';
+  } else box.innerHTML=`<div class="cgrid ${Cat.view}">`+l.map(c=>`<div class="ccard ${c.root===cur?'cur':''} ${c.missing?'gone':''}" data-root="${esc(c.root)}" tabindex="0" role="button" title="${esc(c.root)}"><div class="cov n${c.covers.length}">${img(c)||'<span class="none"><svg class="ic" style="width:30px;height:30px" aria-hidden="true"><use href="#i-folder"/></svg></span>'}</div>${c.missing?'<span class="cbadge warn">Không tìm thấy</span>':(c.root===cur?'<span class="cbadge">Đang mở</span>':'')}${del(c)}<div class="cinf"><b>${esc(c.name)}</b><span class="cpath">${esc(c.root)}</span><span>${stat(c)}</span><span class="cdate">${c.n?catRange(c)+' · '+catSize(c.size):'Mở lại để cập nhật'}</span></div></div>`).join('')+'</div>';
 }
 function catOpen(root){ const c=Cat.list.find(x=>x.root===root); if(!c) return;
   if(c.root===S.status.root){ hideCatalog(); return; }
@@ -745,7 +811,7 @@ function pickFolder(start, onPick, title='Chọn thư mục'){
   onPick = onPick || (p=>openFolder(p,$('#cRec').checked));
   const m=modal(`<h3>${title}</h3><div class="row"><button id="dbk" title="Quay lại thư mục trước (Alt+←)" aria-label="Quay lại thư mục trước">←</button><button id="dfw" title="Đi tiếp (Alt+→)" aria-label="Đi tiếp">→</button><input type="text" id="dp" style="flex:1"><button id="dgo">Đi</button></div>
     <div class="row" id="dq" style="flex-wrap:wrap;margin:4px 0"></div>
-    <div class="row" style="margin:4px 0"><button id="dlan" title="Chọn thư mục chia sẻ trên máy khác trong cùng mạng LAN">🖧 Mạng LAN</button><button id="dnew">➕ Tạo thư mục mới</button><input type="text" id="dnn" placeholder="Tên thư mục mới (ví dụ: Anh 5 sao)" style="flex:1;display:none"><button id="dmk" class="pri" style="display:none">Tạo</button></div>
+    <div class="row" style="margin:4px 0"><button id="dlan" title="Chọn thư mục chia sẻ trên máy khác trong cùng mạng LAN"><svg class="ic" aria-hidden="true"><use href="#i-net"/></svg>Mạng LAN</button><button id="dnew"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Tạo thư mục mới</button><input type="text" id="dnn" placeholder="Tên thư mục mới (ví dụ: Anh 5 sao)" style="flex:1;display:none"><button id="dmk" class="pri" style="display:none">Tạo</button></div>
     <div class="dirs" id="dl"></div>
     <div class="hint" id="di" style="margin-top:6px"></div>
     <div class="btns"><button onclick="this.closest('.back').remove()">Huỷ</button><button class="pri" id="dok">Chọn thư mục này</button></div>`);
@@ -768,7 +834,7 @@ function pickFolder(start, onPick, title='Chọn thư mục'){
     { const ds=m.querySelector('#ddrv'); if(ds) ds.onchange=()=>go(ds.value); }
     const sep = r.path.includes('\\')?'\\':'/';
     const list=m.querySelector('#dl'); const isUnc=r.path.startsWith('\\\\');
-    list.innerHTML = (r.parent?`<div data-p="${esc(r.parent)}">⬆ ..</div>`:(isUnc?`<div data-lan="1">⬆ Quay lại Mạng LAN</div>`:'')) + r.dirs.map(d=>`<div data-p="${esc(r.path.replace(/[\\/]$/,'')+sep+d)}">📁 ${esc(d)}</div>`).join('');
+    list.innerHTML = (r.parent?`<div data-p="${esc(r.parent)}"><svg class="ic" aria-hidden="true"><use href="#i-up"/></svg>..</div>`:(isUnc?`<div data-lan="1"><svg class="ic" aria-hidden="true"><use href="#i-up"/></svg>Quay lại Mạng LAN</div>`:'')) + r.dirs.map(d=>`<div data-p="${esc(r.path.replace(/[\\/]$/,'')+sep+d)}"><svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg>${esc(d)}</div>`).join('');
     list.querySelectorAll('div').forEach(x=>x.onclick=()=>x.dataset.lan?lanHome():go(x.dataset.p));
   };
   /* ----- Mạng LAN: quét máy, liệt kê thư mục chia sẻ, đăng nhập nếu cần ----- */
@@ -784,23 +850,23 @@ function pickFolder(start, onPick, title='Chọn thư mục'){
     f.querySelector('#lgo').onclick=async()=>{ const h=f.querySelector('#lh').value.trim(); f.querySelector('#lmsg').textContent='Đang kết nối…';
       try{ const r=await api('/api/lan/connect',{host:h,user:f.querySelector('#lu').value.trim(),password:f.querySelector('#lp').value});
         if(r.error){ f.querySelector('#lmsg').textContent=r.error; return; } lanShares(h); }catch(e){ f.querySelector('#lmsg').textContent=e.message; } }; };
-  const lanShares=async host=>{ setLan(); const box=lanBox(); box.innerHTML=`<div data-lan="1">⬆ Quay lại Mạng LAN</div><div style="padding:8px;cursor:default" class="hint">Đang lấy danh sách thư mục chia sẻ của ${esc(host)}…</div>`;
+  const lanShares=async host=>{ setLan(); const box=lanBox(); box.innerHTML=`<div data-lan="1"><svg class="ic" aria-hidden="true"><use href="#i-up"/></svg>Quay lại Mạng LAN</div><div style="padding:8px;cursor:default" class="hint">Đang lấy danh sách thư mục chia sẻ của ${esc(host)}…</div>`;
     box.querySelector('[data-lan]').onclick=lanHome; const r=await api('/api/lan/shares?host='+encodeURIComponent(host));
     m.querySelector('#di').textContent='Máy: '+host;
-    box.innerHTML=`<div data-lan="1">⬆ Quay lại Mạng LAN</div>`+(r.shares||[]).map(n=>`<div data-p="\\\\${esc(host)}\\${esc(n)}">📁 ${esc(n)}</div>`).join('');
+    box.innerHTML=`<div data-lan="1"><svg class="ic" aria-hidden="true"><use href="#i-up"/></svg>Quay lại Mạng LAN</div>`+(r.shares||[]).map(n=>`<div data-p="\\\\${esc(host)}\\${esc(n)}"><svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg>${esc(n)}</div>`).join('');
     box.querySelectorAll('div[data-lan]').forEach(x=>x.onclick=lanHome); box.querySelectorAll('div[data-p]').forEach(x=>x.onclick=()=>go(x.dataset.p));
     if(!(r.shares||[]).length) lanLogin(host, r.need_login?undefined:(r.error||'Không thấy thư mục chia sẻ nào.')+' Có thể nhập tài khoản để thử lại.'); };
   const lanHome=()=>{ setLan(); const box=lanBox(); m.querySelector('#dp').value=''; m.querySelector('#di').textContent='Mạng LAN: quét để tìm máy, hoặc gõ \\\\TÊN-MÁY\\thư-mục vào ô trên rồi bấm Đi';
-    box.innerHTML=`<div style="padding:8px;cursor:default"><button id="lscan">🔍 Quét máy trong mạng</button> <button id="lcred">🔑 Nhập tài khoản…</button></div><div id="lres" style="cursor:default"></div>`;
+    box.innerHTML=`<div style="padding:8px;cursor:default"><button id="lscan"><svg class="ic" aria-hidden="true"><use href="#i-search"/></svg>Quét máy trong mạng</button> <button id="lcred"><svg class="ic" aria-hidden="true"><use href="#i-key"/></svg>Nhập tài khoản…</button></div><div id="lres" style="cursor:default"></div>`;
     const res=box.querySelector('#lres');
     box.querySelector('#lcred').onclick=()=>{ if(!box.querySelector('.lanlogin')) lanLogin('', 'Nhập máy + tài khoản của máy đó (nếu thư mục có đặt mật khẩu).'); };
     box.querySelector('#lscan').onclick=async()=>{ res.innerHTML='<div class="hint" style="padding:8px">Đang quét mạng, vài giây…</div>';
       try{ const r=await api('/api/lan'); const hs=r.hosts||[];
-        res.innerHTML = hs.length ? hs.map(h=>`<div data-h="${esc(h.host)}" style="cursor:pointer">🖥 ${esc(h.name||h.ip)} <span class="hint">${esc(h.name&&h.ip?h.ip:'')}</span></div>`).join('')
+        res.innerHTML = hs.length ? hs.map(h=>`<div data-h="${esc(h.host)}" style="cursor:pointer"><svg class="ic" aria-hidden="true"><use href="#i-pc"/></svg>${esc(h.name||h.ip)} <span class="hint">${esc(h.name&&h.ip?h.ip:'')}</span></div>`).join('')
           : '<div class="hint" style="padding:8px">Không thấy máy nào bật chia sẻ file. Hãy gõ thẳng đường dẫn dạng \\\\192.168.1.20\\Anh vào ô trên.</div>';
         res.querySelectorAll('[data-h]').forEach(x=>x.onclick=()=>lanShares(x.dataset.h)); }catch(e){ res.textContent=e.message; } };
     box.querySelector('#lscan').click(); };
-  if(S.status.plat==='darwin'){ const b=m.querySelector('#dlan'); b.textContent='🖧 Kết nối máy khác (SMB)'; b.title='Kết nối thư mục chia sẻ trên máy khác trong mạng LAN';
+  if(S.status.plat==='darwin'){ const b=m.querySelector('#dlan'); b.textContent='Kết nối máy khác (SMB)'; b.title='Kết nối thư mục chia sẻ trên máy khác trong mạng LAN';
     b.onclick=()=>{ setLan(); const box=lanBox(); m.querySelector('#dp').value=''; m.querySelector('#di').textContent='Mạng LAN trên Mac: nhập địa chỉ rồi bấm Kết nối; thư mục sẽ xuất hiện trong mục «Volumes».';
       box.innerHTML=`<div style="padding:10px;cursor:default"><div class="hint" style="margin-bottom:6px">Nhập địa chỉ máy chia sẻ, ví dụ <b>smb://192.168.1.10/TenThuMuc</b> (hoặc smb://TEN-MAY). Mac sẽ hỏi tài khoản nếu cần.</div><div class="row"><input type="text" id="smbu" placeholder="smb://192.168.1.10/TenThuMuc" style="flex:1"><button class="pri" id="smbg">Kết nối</button></div><div id="smbm" class="hint" style="margin-top:6px"></div></div>`;
       box.querySelector('#smbg').onclick=async()=>{ const msg=box.querySelector('#smbm'); msg.textContent='Đang kết nối…'; try{ const r=await api('/api/lan/mount',{url:box.querySelector('#smbu').value}); if(r.error){ msg.textContent=r.error; return; } msg.textContent='Đã gửi yêu cầu. Nhập tài khoản trong hộp thoại của Mac nếu có; xong bấm «Volumes» ở trên để chọn thư mục.'; }catch(e){ msg.textContent=e.message; } }; };
@@ -825,9 +891,9 @@ $('#sNet').onclick=async()=>{ toast('Đang kiểm tra kết nối mạng…'); t
 /* ---------- tự động lọc ---------- */
 $('#bCull').onclick=()=>{
   const s=S.settings; const net=!!S.status.online; const eyesOK=S.status.eyes&&net; const lock=net?'':'disabled';
-  const lockMsg=net?'':'<div class="warn" style="margin:4px 0 8px">🔒 Đang ngoại tuyến: lọc <b>tối / cháy sáng / nhắm mắt</b> cần kết nối mạng. Hãy bật mạng (tự mở khoá trong ~15 giây, hoặc nhấp “Ngoại tuyến” ở thanh dưới). Vẫn dùng được: ảnh mờ, ảnh trùng lặp.</div>';
+  const lockMsg=net?'':'<div class="warn" style="margin:4px 0 8px">Đang ngoại tuyến: lọc <b>tối / cháy sáng / nhắm mắt</b> cần kết nối mạng. Hãy bật mạng (tự mở khoá trong ~15 giây, hoặc nhấp “Ngoại tuyến” ở thanh dưới). Vẫn dùng được: ảnh mờ, ảnh trùng lặp.</div>';
   const sl=(id,lab,min,max,step,val)=>`<div class="row"><label>${lab}</label><input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}"><span class="v" id="${id}v"></span></div>`;
-  const m=modal(`<h3>✨ Tự động lọc ảnh</h3>
+  const m=modal(`<h3>Tự động lọc ảnh</h3>
    <div class="hint" style="margin-bottom:6px">Đánh dấu <b>✕ loại</b> những ảnh chưa chấm sao mà dính cảnh báo. File gốc không bị xoá hay di chuyển, và có thể hoàn tác.</div>
    ${lockMsg}
    <div class="row"><label><input type="checkbox" id="k_blur" checked> Ảnh mờ</label></div>${sl('blur_ratio','&nbsp;&nbsp;Ngưỡng mờ (×trung vị)',0.1,1,0.05,s.blur_ratio)}
@@ -853,7 +919,7 @@ $('#bCull').onclick=()=>{
 
 /* ---------- xuất ---------- */
 $('#bExport').onclick=()=>{
-  const m=modal(`<h3>📤 Xuất ảnh (sao chép)</h3>
+  const m=modal(`<h3>Xuất ảnh (sao chép)</h3>
    <div class="row"><label>Ảnh cần xuất</label><select id="xs" style="flex:1"><option value="sel">Đang chọn (${S.sel.size||(S.cur!==null?1:0)})</option><option value="view">Tất cả ảnh đang hiển thị (${S.view.length})</option><option value="keep">Tất cả trừ ảnh bị loại (${S.photos.filter(p=>p.rating>=0).length})</option><option value="r5">★★★★★ 5 sao (${S.photos.filter(p=>p.rating===5).length})</option><option value="r3">★ 3 sao trở lên (${S.photos.filter(p=>p.rating>=3).length})</option></select></div>
    <div class="row"><label>Thư mục đích</label><input type="text" id="xd" style="flex:1" placeholder="Chọn thư mục…"><button id="xb">…</button></div>
    <div class="row"><label>Mẫu tên file</label><input type="text" id="xt" style="flex:1" value="{name}"></div>
