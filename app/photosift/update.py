@@ -10,6 +10,7 @@ import os
 import subprocess
 import threading
 import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -57,8 +58,12 @@ class Updater:
             if self.last and not force and time.time() - self.when < 3600:
                 return self.last
         try:
-            with self._get(f"{API}/repos/{repo}/releases/latest") as r:
-                rel = json.loads(r.read())
+            # lấy số phiên bản cao nhất: "latest" của GitHub theo thời gian tạo, hai bản build gần nhau có thể bị đảo thứ tự
+            with self._get(f"{API}/repos/{repo}/releases?per_page=30") as r:
+                rels = [x for x in json.loads(r.read()) if not x.get("draft") and not x.get("prerelease")]
+            if not rels:
+                return dict(base, error="Chưa có bản phát hành nào trên GitHub.")
+            rel = max(rels, key=lambda x: _key(str(x.get("tag_name", ""))))
             prefix = f"https://github.com/{repo}/releases/download/"
             asset = next((a for a in rel.get("assets", []) if a["name"].lower().endswith(".exe")
                           and a["browser_download_url"].startswith(prefix)), None)
@@ -67,9 +72,17 @@ class Updater:
             if asset and tag and _key(tag) > _key(cur):
                 out.update(available=True, size=asset.get("size", 0), asset=asset["browser_download_url"],
                            name=os.path.basename(asset["name"]), digest=str(asset.get("digest") or ""))
-        except Exception as e:  # noqa: BLE001  mất mạng hay GitHub lỗi không được ảnh hưởng tới app
+        except urllib.error.HTTPError as e:
             print("update check:", e)
-            return dict(base, error="Chưa kiểm tra được. Hãy kiểm tra mạng rồi thử lại.")
+            if e.code == 404:
+                return dict(base, error="Chưa có bản phát hành nào trên GitHub, hoặc kho đang để riêng tư.")
+            return dict(base, error=f"GitHub từ chối yêu cầu (mã {e.code}). Hãy thử lại sau.")
+        except urllib.error.URLError as e:
+            print("update check:", e)
+            return dict(base, error=f"Không kết nối được tới GitHub: {e.reason}")
+        except Exception as e:  # noqa: BLE001  lỗi lạ không được ảnh hưởng tới app
+            print("update check:", e)
+            return dict(base, error=f"Chưa kiểm tra được: {e}")
         with self.lock:
             self.last, self.when = out, time.time()
         return out
