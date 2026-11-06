@@ -9,7 +9,7 @@
 <title>MThanglee Cull&amp;Collage</title>
 <link rel="icon" type="image/png" href="/favicon.png">
 <style>
-:root{--tx:#f4f8ff;--mut:#a9c0da;--acc:#ffa31a;--acc2:#35c6ff;--red:#ef5350;--yel:#fbc02d;--grn:#43a047;--blu:#1e88e5;--pur:#ab47bc;--sz:170px;
+:root{--tx:#f4f8ff;--mut:#a9c0da;--acc:#ffa31a;--acc2:#35c6ff;--red:#ef5350;--yel:#fbc02d;--grn:#43a047;--blu:#1e88e5;--pur:#ab47bc;--sz:150px;
   --panel:rgba(8,30,60,.46);--panel2:rgba(255,255,255,.13);--line:rgba(255,255,255,.24);--sel:rgba(53,198,255,.30);--inset:rgba(4,14,30,.58);--field:rgba(4,14,30,.45);
   --blur:blur(18px) saturate(150%);--r:22px;--shadow:0 10px 34px rgba(2,12,30,.35),inset 0 1px 0 rgba(255,255,255,.28);--modal:rgba(8,30,60,.82);
   --pri:linear-gradient(180deg,#ffc24a,#ff8a1f);--pri-tx:#2b1500;--pri-sh:0 4px 14px rgba(255,138,31,.45)}
@@ -221,6 +221,37 @@ details.adv{margin:6px 0;border-top:1px solid var(--line);padding-top:6px}detail
 .bar button{padding:5px 10px}#bInfo,#bTheme,#bHelp{padding:5px 7px}
 .bar select{padding:5px 8px}#fFilter{max-width:150px}#fSort{max-width:124px}#fSize{width:76px}
 .bar .hint{white-space:nowrap}
+
+/* ---- layout pass ---- */
+:root{--s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px}
+.bar{flex-wrap:nowrap;gap:var(--s2);padding:var(--s2) var(--s3);container-type:inline-size;container-name:bar;min-width:0}
+.bar .grp{display:flex;align-items:center;gap:var(--s1);flex:none;min-width:0}
+.bar .grp+.grp,.bar .sp+.grp{padding-left:var(--s2);border-left:1px solid var(--line)}
+.bar .sp+.grp{border-left:0;padding-left:0}
+.bar .grp.util{gap:2px}
+.bar .grp label.hint{white-space:nowrap;margin-left:var(--s1)}
+.bar button{white-space:nowrap}
+@container bar (max-width:1240px){ .bar #bCull .lbl,.bar #bUndo .lbl,.bar #bUnrej .lbl{display:none} }
+@container bar (max-width:1040px){ .bar .lbl{display:none} .bar .grp label.hint{display:none} #fFilter{max-width:120px} #fSort{max-width:104px} }
+#grid{grid-template-columns:repeat(auto-fill,minmax(var(--sz),calc(var(--sz)*1.15)));justify-content:start}
+#status{flex-wrap:nowrap;align-items:center;gap:var(--s4);white-space:nowrap;min-width:0;overflow:hidden}
+#status>*{flex:none}
+#status #sCur{flex:1 1 0;min-width:0;overflow:hidden;text-overflow:ellipsis;text-align:right}
+#sSize{display:flex;align-items:center;gap:var(--s2)}#sSize #fSize{width:96px}
+#main.nopeople #side{display:none}
+@media (max-width:1366px){ #main{grid-template-columns:200px 1fr 264px} #main.noinfo{grid-template-columns:200px 1fr} }
+#main.nopeople{grid-template-columns:minmax(0,1fr) 300px}#main.nopeople.noinfo{grid-template-columns:minmax(0,1fr)}
+@media (max-width:1366px){ #main.nopeople{grid-template-columns:minmax(0,1fr) 264px} }
+@media (max-width:1180px){
+  #main,#main.noinfo{grid-template-columns:200px 1fr}
+  #main.nopeople,#main.nopeople.noinfo{grid-template-columns:minmax(0,1fr)}
+  #main{position:relative}
+  #main:not(.noinfo) #info{position:absolute;right:0;top:0;bottom:0;width:280px;z-index:5;box-shadow:0 12px 32px rgba(0,0,0,.45)}
+}
+#catalog .chead{flex-wrap:nowrap;row-gap:var(--s2)}@media (max-width:1200px){#catalog .chead{flex-wrap:wrap}}#catalog .chead h2,#catalog .chead button,#catalog .chead .cview{white-space:nowrap;flex:none}#catalog .chead #catQ{min-width:100px;flex:0 1 220px;width:auto}
+#catalog .chead #catAdd{margin-left:var(--s2)}
+.ctable td.num,.ctable th.num{width:1%;white-space:nowrap}
+.chip.more{background:rgba(20,22,26,.82);color:var(--tx);border:1px solid var(--line)}
 </style>
 <link id="uiFont" rel="stylesheet" href="/ui.css">
 </head>
@@ -269,37 +300,26 @@ details.adv{margin:6px 0;border-top:1px solid var(--line);padding-top:6px}detail
 <div id="catalog">
   <div class="chead">
     <h2>Catalog thư mục</h2>
+    <button class="pri" id="catAdd"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Thêm thư mục</button>
     <button id="catBack" hidden>← Về thư mục đang mở</button>
     <span class="sp"></span>
     <input type="text" id="catQ" placeholder="Tìm thư mục…" aria-label="Tìm thư mục">
     <select id="catSort" aria-label="Sắp xếp"><option value="opened">Mở gần nhất</option><option value="name">Tên thư mục</option><option value="t1">Ngày chụp mới nhất</option><option value="n">Nhiều ảnh nhất</option><option value="size">Dung lượng lớn nhất</option></select>
     <div class="cview" id="catView" role="group" aria-label="Chế độ xem"><button data-v="lg">Lớn</button><button data-v="md">Vừa</button><button data-v="sm">Nhỏ</button><button data-v="det">Chi tiết</button></div>
     <button id="catCache" title="Bộ nhớ đệm giúp mở lại thư mục ngay"></button>
-    <button class="pri" id="catAdd"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Thêm thư mục</button>
   </div>
   <div id="catBody"></div>
 </div>
 <div id="app">
   <div class="bar">
-    
-    <button id="bCat" title="Xem các thư mục đã lọc"><svg class="ic" aria-hidden="true"><use href="#i-lib"/></svg>Catalog</button>
-    <button id="bOpen"><svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg>Mở thư mục</button>
-    <label class="hint"><input type="checkbox" id="cRec" checked> gồm thư mục con</label>
-    <span class="sp"></span>
-    <select id="fFilter" title="Lọc"></select>
-    <select id="fSort" title="Sắp xếp">
+    <div class="grp"><button id="bCat" aria-label="Catalog" title="Xem các thư mục đã lọc"><svg class="ic" aria-hidden="true"><use href="#i-lib"/></svg><span class="lbl">Catalog</span></button><button id="bOpen" aria-label="Mở thư mục"><svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg><span class="lbl">Mở thư mục</span></button><label class="hint"><input type="checkbox" id="cRec" checked> gồm thư mục con</label></div>
+    <div class="grp"><select id="fFilter" title="Lọc" aria-label="Lọc ảnh"></select><select id="fSort" title="Sắp xếp" aria-label="Sắp xếp">
       <option value="name">Tên file</option><option value="time">Thời gian chụp</option>
       <option value="score">Điểm chất lượng (cao trước)</option><option value="sharp">Độ nét (cao trước)</option>
-    </select>
-    <input type="range" id="fSize" min="100" max="320" value="170" title="Cỡ ảnh">
-    <button id="bCull"><svg class="ic" aria-hidden="true"><use href="#i-funnel"/></svg>Tự động lọc</button>
-    <button id="bUndo" disabled><svg class="ic" aria-hidden="true"><use href="#i-undo"/></svg>Hoàn tác</button>
-    <button id="bUnrej" title="Khôi phục ảnh đã bị đánh dấu loại" hidden></button>
-    <button id="bExport"><svg class="ic" aria-hidden="true"><use href="#i-export"/></svg>Xuất ảnh</button>
-    <button id="bLayout" class="pri" title="Gửi ảnh đã lọc sang Dàn trang" hidden><svg class="ic" aria-hidden="true"><use href="#i-layout"/></svg>Dàn trang</button>
-    <button id="bInfo" title="Bật/tắt khung thông số ảnh" aria-label="Bật/tắt khung thông số ảnh"><svg class="ic" aria-hidden="true"><use href="#i-info"/></svg></button>
-    <button id="bTheme" title="Đổi giao diện: Kính / Tối trung tính (xem màu ảnh chuẩn)" aria-label="Đổi giao diện"><svg class="ic" aria-hidden="true"><use href="#i-theme"/></svg></button>
-    <button id="bHelp" title="Phím tắt và trợ giúp" aria-label="Phím tắt và trợ giúp"><svg class="ic" aria-hidden="true"><use href="#i-help"/></svg></button>
+    </select></div>
+    <span class="sp"></span>
+    <div class="grp"><button id="bCull" aria-label="Tự động lọc"><svg class="ic" aria-hidden="true"><use href="#i-funnel"/></svg><span class="lbl">Tự động lọc</span></button><button id="bUndo" aria-label="Hoàn tác" disabled><svg class="ic" aria-hidden="true"><use href="#i-undo"/></svg><span class="lbl">Hoàn tác</span></button><button id="bUnrej" title="Khôi phục ảnh đã bị đánh dấu loại" hidden></button><button id="bExport" aria-label="Xuất ảnh"><svg class="ic" aria-hidden="true"><use href="#i-export"/></svg><span class="lbl">Xuất ảnh</span></button><button id="bLayout" aria-label="Gửi ảnh sang Dàn trang" class="pri" title="Gửi ảnh đã lọc sang Dàn trang" hidden><svg class="ic" aria-hidden="true"><use href="#i-layout"/></svg><span class="lbl">Dàn trang</span></button></div>
+    <div class="grp util"><button id="bInfo" title="Bật/tắt khung thông số ảnh" aria-label="Bật/tắt khung thông số ảnh"><svg class="ic" aria-hidden="true"><use href="#i-info"/></svg></button><button id="bTheme" title="Đổi giao diện: Kính / Tối trung tính (xem màu ảnh chuẩn)" aria-label="Đổi giao diện"><svg class="ic" aria-hidden="true"><use href="#i-theme"/></svg></button><button id="bHelp" title="Phím tắt và trợ giúp" aria-label="Phím tắt và trợ giúp"><svg class="ic" aria-hidden="true"><use href="#i-help"/></svg></button></div>
   </div>
   <div id="prog"><i></i></div>
   <div id="main">
@@ -311,15 +331,15 @@ details.adv{margin:6px 0;border-top:1px solid var(--line);padding-top:6px}detail
     <div id="gridwrap"><div id="grid"></div></div>
     <aside id="info"><div id="infobody"></div></aside>
   </div>
-  <div id="status"><span id="sCount"></span><button id="sAdv" title="Sau khi chấm sao, loại hoặc gắn nhãn một ảnh, tự chuyển sang ảnh kế tiếp"></button><span id="sSel"></span><span id="sCur" style="flex:1;text-align:right"></span><span id="sNet" title="Nhấp để kiểm tra lại kết nối mạng" style="cursor:pointer;margin-left:14px"></span></div>
+  <div id="status"><span id="sCount"></span><span id="sProg" class="hint"></span><button id="sAdv" title="Sau khi chấm sao, loại hoặc gắn nhãn một ảnh, tự chuyển sang ảnh kế tiếp"></button><span id="sSel"></span><span id="sCur"></span><span id="sNet" title="Nhấp để kiểm tra lại kết nối mạng" style="cursor:pointer"></span><label id="sSize" title="Cỡ ảnh trong lưới"><span class="hint">Cỡ ảnh</span><input type="range" id="fSize" min="100" max="320" value="150" aria-label="Cỡ ảnh trong lưới"></label></div>
 </div>
 
 <div id="viewer">
+  <div id="vback"><button id="vbGrid" title="Quay lại lưới ảnh (Esc)">← Lưới ảnh</button><button id="vbCat" title="Về Catalog thư mục"><svg class="ic" aria-hidden="true"><use href="#i-lib"/></svg>Catalog</button><span class="chip" id="vzoom" hidden></span></div>
   <div id="vstage"><div id="vwrap"><img id="vimg" alt=""><img id="vmask" alt=""><div id="vfaces"></div></div></div>
   <div id="vinfo"></div>
   <div id="strip"><div id="stripin"></div></div>
   <div id="vbadge"></div>
-  <div id="vback"><button id="vbGrid" title="Quay lại lưới ảnh (Esc)">← Lưới ảnh</button><button id="vbCat" title="Về Catalog thư mục"><svg class="ic" aria-hidden="true"><use href="#i-lib"/></svg>Catalog</button><span class="chip" id="vzoom" hidden></span></div>
 </div>
 <div id="toast"></div>
 
@@ -402,11 +422,13 @@ function applyView(){
 
 /* ---------- lưới ---------- */
 const cells = new Map();
+function capChips(h){ const t=document.createElement('div'); t.innerHTML=h; const k=[...t.children]; if(k.length<=2) return h;
+  const rest=k.slice(2).map(e=>e.textContent).join(', '); return k.slice(0,2).map(e=>e.outerHTML).join('')+`<span class="chip more" title="${esc(rest)}">+${k.length-2}</span>`; }
 function cellHTML(p){
   const flags = p.an===false ? '<span class="chip" style="opacity:.7">…</span>' : p.flags.filter(f=>f!=='dup').map(f=>`<span class="chip ${f}">${FLAG[f]}</span>`).join('');
   const grp = p.grp ? (p.best?`<span class="chip topdup" title="Ảnh tốt nhất trong nhóm ảnh trùng ${p.grp}">★ Tốt nhất · ${p.grp}</span>`:`<span class="chip dup" title="Ảnh trùng, thuộc nhóm ${p.grp}">Trùng · ${p.grp}</span>`) : '';
   return `<div class="im"><img loading="lazy" src="/thumb/${p.id}.jpg?v=${p.tv}" alt=""><div class="lab ${p.label?'l-'+p.label:''}"></div>
-    <div class="flags">${flags}${grp}</div><div class="xmark">✕</div>
+    <div class="flags">${capChips(grp+flags)}</div><div class="xmark">✕</div>
     <div class="stars">${p.rating>0?'★'.repeat(p.rating):''}</div>${p.nf?`<span class="nface">${p.nf} mặt</span>`:''}</div>
     <div class="nm" title="${esc(p.name)}">${esc(p.name)}</div>`;
 }
@@ -458,11 +480,12 @@ $('#gridwrap').addEventListener('dblclick', e=>{ const c=e.target.closest('.cell
 function renderStatus(){
   const st=S.status||{};
   const nRej=S.photos.filter(p=>p.rating===-1).length, bU=$('#bUnrej');
-  bU.hidden=!nRej; bU.innerHTML=`<svg class="ic" aria-hidden="true"><use href="#i-restore"/></svg>Khôi phục ảnh loại (${fmt(nRej)})`;
+  bU.hidden=!nRej; bU.innerHTML=`<svg class="ic" aria-hidden="true"><use href="#i-restore"/></svg><span class="lbl">Khôi phục ảnh loại</span> (${fmt(nRej)})`; bU.setAttribute('aria-label',`Khôi phục ${fmt(nRej)} ảnh đã loại`);
   $('#bUndo').disabled=!S.undo.length&&!(S.lastCull&&S.lastCull.n);
   $('#sCount').textContent = `${S.view.length}/${S.photos.length} ảnh` + (false&&st.state==='done'&&st.timing&&st.timing.all_s?` • ⏱ thumbnail ${st.timing.thumb_s}s · đọc ảnh ${st.timing.read_s}s · tổng ${st.timing.all_s}s`:'')+
     (st.state==='scanning'?` • thumbnail ${Math.max(st.thumbs,st.quick||0)}/${st.total} • phân tích ${st.done}/${st.total} (chạy nền — bạn có thể chấm ảnh ngay)`:'');
   $('#sSel').textContent = S.sel.size>1 ? `${S.sel.size} đã chọn` : '';
+  { let a=0,u=0; for(const q of S.photos){ if(q.rating>0)a++; else if(q.rating===0)u++; } $('#sProg').textContent=S.photos.length?`★ ${fmt(a)} · ✕ ${fmt(nRej)} · chưa chấm ${fmt(u)}`:''; }
   const net=$('#sNet'); net.innerHTML = st.online ? '<span class="ok">● Trực tuyến</span>' : '<span class="warn">● Ngoại tuyến: tạm khóa lọc tối, cháy sáng, nhắm mắt</span>';
   const p=S.by.get(S.cur);
   $('#sCur').textContent = p ? `${p.name} • ${p.w}×${p.h} • điểm ${p.score} • độ nét ${p.nf?p.fsharp+' (mặt)':p.sharp}` : '';
@@ -472,6 +495,7 @@ function renderStatus(){
 function renderPeople(){
   const box=$('#people'); box.innerHTML='';
   $('#noPeople').style.display = S.people.length?'none':'block';
+  $('#main').classList.toggle('nopeople', !S.people.length);
   for(const p of S.people){
     const d=document.createElement('div'); d.className='person'+(S.person===p.id?' on':'');
     d.innerHTML=`<img src="/face/${p.face}.jpg" alt=""><div class="n">${esc(p.name||'Người '+p.id)}<div class="c">${p.n} ảnh</div></div>`;
@@ -660,13 +684,13 @@ function renderInfo(p, ix){
   $('#vinfo').innerHTML = `<h4>${esc(p.name)}</h4><div class="hint" style="margin-bottom:8px">${ix+1} / ${S.view.length}</div>
    <div class="st" id="vstars" role="group" aria-label="Chấm sao">${[1,2,3,4,5].map(i=>`<button data-r="${i}" aria-label="${i} sao" aria-pressed="${i<=p.rating}">${i<=p.rating?'★':'☆'}</button>`).join('')} <button data-r="-1" class="vrej" aria-label="Loại ảnh" aria-pressed="${p.rating===-1}" style="color:${p.rating===-1?'var(--red)':'var(--mut)'}">✕</button></div>
    <div style="margin-bottom:10px" role="group" aria-label="Nhãn màu">${LABELS.map(l=>`<button class="lbtn l-${l} ${p.label===l?'on':''}" data-l="${l}" title="${LABEL_NAME[l]}" aria-label="Nhãn ${LABEL_NAME[l]}" aria-pressed="${p.label===l}"></button>`).join('')}<button class="lclr" data-l="">Bỏ nhãn</button></div>
-   <div id="vsec"></div>
    <div class="kv">Điểm chất lượng<b>${p.score}</b></div><div class="kv">Kích thước<b>${p.w}×${p.h}</b></div><div class="kv">Chụp lúc<b>${d}</b></div>
    <div class="kv">Độ nét (toàn ảnh)<b>${p.sharp}</b></div><div class="kv">Độ nét (mặt)<b>${p.nf?p.fsharp:'—'}</b></div>
    <div class="kv">Độ sáng TB<b>${(p.lum*100).toFixed(0)}%</b></div><div class="kv">Độ mở mắt<b>${p.ear>=0?p.ear:'—'}</b></div>
    <div style="margin:10px 0">${p.an===false?'<span class="hint">Đang phân tích…</span>':''}${p.flags.filter(f=>f!=='dup').map(f=>`<span class="chip ${f}" style="margin-right:4px">${FLAG[f]}</span>`).join('')||(p.flags.length?'':'<span class="ok">Không có cảnh báo</span>')}</div>
    ${p.grp?`<div class="hint">Nhóm trùng #${p.grp} ${p.best?'— <b class="ok">bản tốt nhất</b>':''}</div>`:''}
    <div style="margin:8px 0">${p.people.map(i=>`<span class="chip" style="background:var(--sel);margin-right:4px">${esc(pname(i))}</span>`).join('')}</div>
+   <div id="vsec"></div>
    <hr style="border-color:var(--line)"><button id="vdiag" style="margin-bottom:8px"><svg class="ic" aria-hidden="true"><use href="#i-tool"/></svg>Chẩn đoán file</button><div class="hint">
    <span class="kbd">←</span><span class="kbd">→</span> chuyển ảnh &nbsp; <span class="kbd">0-5</span> sao &nbsp; <span class="kbd">X</span> loại<br>
    <span class="kbd">6-9</span> nhãn màu &nbsp; <span class="kbd">F</span> tên người &nbsp; Lăn chuột phóng to, giữ chuột phải kéo ảnh, <span class="kbd">Z</span> phóng nhanh<br><span class="kbd">H</span> vùng cháy/tối &nbsp; <span class="kbd">T</span> bật/tắt dải ảnh thu nhỏ &nbsp; <span class="kbd">Esc</span> quay lại</div>`;
@@ -722,7 +746,7 @@ async function fillSections(sel,id,kind){
     const E=secHTML('exif','Thông số ảnh',exifHTML(r&&r.exif)), Hh=secHTML('hist','Histogram',histHTML(r&&r.hist));
     el.innerHTML = kind==='v'
       ? Hh + secHTML('hs','Vùng cháy sáng / mất chi tiết',`<div class="hs">${hsHTML()}</div><div class="hint" style="margin-top:6px">Phím <span class="kbd">H</span> để đổi nhanh</div>`) + E
-      : E + Hh + ((q&&q.an)?secHTML('q','Chất lượng tự động',`<dl class="ex"><dt>Điểm</dt><dd>${q.score}</dd><dt>Độ nét</dt><dd>${q.nf?q.fsharp+' (mặt)':q.sharp}</dd><dt>Độ sáng TB</dt><dd>${Math.round(q.lum*100)}%</dd><dt>Khuôn mặt</dt><dd>${q.nf}</dd><dt>Cảnh báo</dt><dd>${q.flags.map(f=>FLAG[f]).join(', ')||'—'}</dd></dl>`):'');
+      : ((q&&q.an)?secHTML('q','Chất lượng tự động',`<dl class="ex"><dt>Điểm</dt><dd>${q.score}</dd><dt>Độ nét</dt><dd>${q.nf?q.fsharp+' (mặt)':q.sharp}</dd><dt>Độ sáng TB</dt><dd>${Math.round(q.lum*100)}%</dd><dt>Khuôn mặt</dt><dd>${q.nf}</dd><dt>Cảnh báo</dt><dd>${q.flags.map(f=>FLAG[f]).join(', ')||'—'}</dd></dl>`):'') + Hh + E;
     const cv=el.querySelector('canvas.hist'); if(cv) drawHist(cv,r&&r.hist);
     el.querySelectorAll('input[name=hs]').forEach(i=>i.onchange=()=>setHS(i.value));
   };
@@ -746,7 +770,7 @@ function updateMask(){
   m.src=`/api/mask?id=${S.cur}&m=${S.hs}`; m.style.display='block';
 }
 $('#bInfo').onclick=()=>{ const m=$('#main'); m.classList.toggle('noinfo'); try{ localStorage.setItem('ps_info',m.classList.contains('noinfo')?'0':'1'); }catch(e){} scheduleInfo(); };
-try{ if(localStorage.getItem('ps_info')==='0') $('#main').classList.add('noinfo'); }catch(e){}
+try{ const v=localStorage.getItem('ps_info'); if(v==='0'||(v===null&&innerWidth<=1180)) $('#main').classList.add('noinfo'); }catch(e){}
 
 /* ---------- phím tắt ---------- */
 function cols(){ const g=$('#grid'); return g ? getComputedStyle(g).gridTemplateColumns.split(' ').length : 1; }
@@ -1046,7 +1070,8 @@ $('#bTheme').onclick=()=>{ const n=document.documentElement.dataset.theme==='neu
 $('#fFilter').innerHTML = FILTERS.map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
 $('#fFilter').onchange=e=>{ S.filter=e.target.value; applyView(); e.target.blur(); };
 $('#fSort').onchange=e=>{ S.sort=e.target.value; applyView(); e.target.blur(); };
-$('#fSize').oninput=e=>document.documentElement.style.setProperty('--sz', e.target.value+'px');
+$('#fSize').oninput=e=>{ document.documentElement.style.setProperty('--sz', e.target.value+'px'); try{ localStorage.setItem('ps_sz',e.target.value); }catch(_){} };
+try{ const z=+localStorage.getItem('ps_sz'); if(z>=100&&z<=320){ $('#fSize').value=z; document.documentElement.style.setProperty('--sz', z+'px'); } }catch(e){}
 
 /* ---------- vòng lặp trạng thái ---------- */
 let busy=false;

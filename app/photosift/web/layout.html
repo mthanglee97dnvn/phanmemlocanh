@@ -23,7 +23,8 @@ body{background:var(--ground);color:var(--fg);font:14px/1.4 var(--ui);overflow:h
 button,input,select,textarea{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 
-#app{height:100%;display:grid;grid-template:"top top top" auto "tools stage props" minmax(0,1fr) "tools rail props" auto "bin bin bin" auto / 288px minmax(0,1fr) 288px}
+#app{height:100%;display:grid;grid-template:"top top top" auto "tools stage props" minmax(0,1fr) "tools rail props" auto "bin bin bin" auto / clamp(248px,18vw,288px) minmax(0,1fr) clamp(248px,18vw,288px)}
+@media (max-height:820px){#binGrid{height:108px}}
 
 /* top bar */
 #top{grid-area:top;display:flex;align-items:center;gap:8px;background:var(--panel);border-bottom:1px solid var(--line);
