@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net"
 	"net/http"
 	"os"
@@ -28,6 +29,7 @@ type guiState struct {
 	Dir      string   `json:"dir"`
 	Log      []string `json:"log"`
 	launcher string
+	doneAt   time.Time
 	seen     time.Time
 }
 
@@ -112,13 +114,14 @@ func guiMain() {
 	mux.HandleFunc("/api/state", auth(func(w http.ResponseWriter, r *http.Request) {
 		gs.mu.Lock()
 		gs.seen = time.Now()
+		left := closeLeft()
 		cp := struct {
 			Phase, Text, Err, Dir, Warn string
 			Step, Sub                   int
 			Log                         []string
 		}{gs.Phase, gs.Text, gs.Err, gs.Dir, gs.Warn, gs.Step, gs.Sub, append([]string(nil), gs.Log...)}
 		gs.mu.Unlock()
-		js(w, map[string]any{"phase": cp.Phase, "text": cp.Text, "err": cp.Err, "warn": cp.Warn, "dir": cp.Dir, "step": cp.Step, "sub": cp.Sub, "log": cp.Log})
+		js(w, map[string]any{"phase": cp.Phase, "text": cp.Text, "err": cp.Err, "warn": cp.Warn, "dir": cp.Dir, "step": cp.Step, "sub": cp.Sub, "log": cp.Log, "closeIn": left})
 	}))
 	mux.HandleFunc("/api/pick", auth(func(w http.ResponseWriter, r *http.Request) {
 		js(w, map[string]string{"path": pickFolder()})
@@ -165,18 +168,34 @@ func guiMain() {
 
 	// Thoát khi cửa sổ đã đóng (và không còn đang cài dở)
 	for {
-		time.Sleep(time.Second)
+		time.Sleep(200 * time.Millisecond)
 		gs.mu.Lock()
 		idle := time.Since(gs.seen)
 		busy := gs.Phase == "running"
+		left := closeLeft()
+		closing := !gs.doneAt.IsZero()
 		gs.mu.Unlock()
-		if idle > 20*time.Second && !busy {
+		if (idle > 20*time.Second && !busy) || (closing && left <= 0) {
 			quit()
 		}
 	}
 }
 
+// closeLeft trả về số giây còn lại trước khi tự đóng sau khi cài xong; đếm ở đây chứ không ở trang web,
+// vì trình duyệt có thể giãn nhịp hoặc dừng bộ đếm của cửa sổ nằm dưới cửa sổ khác. Cần giữ gs.mu.
+func closeLeft() int {
+	if gs.Phase != "done" || gs.Warn != "" {
+		return -1
+	}
+	if gs.doneAt.IsZero() {
+		gs.doneAt = time.Now()
+	}
+	return int(math.Ceil((autoCloseAfter - time.Since(gs.doneAt)).Seconds()))
+}
+
 var appWin *exec.Cmd
+
+const autoCloseAfter = 5 * time.Second
 
 func quit() {
 	killWindow(appWin)

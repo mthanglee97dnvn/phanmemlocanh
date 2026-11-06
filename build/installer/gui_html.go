@@ -75,10 +75,8 @@ var init=false,t4=null,lastStep=0;
 $("pick").onclick=function(){$("pick").disabled=true;api("/api/pick",{}).then(function(r){$("pick").disabled=false;if(r.path){$("dir").value=r.path;upd()}})};
 $("go").onclick=function(){$("e1").textContent="";api("/api/start",{dir:$("dir").value}).then(function(r){if(r.error)$("e1").textContent=r.error})};
 $("cancel").onclick=$("close").onclick=$("close2").onclick=function(){api("/api/exit",{});setTimeout(function(){window.close()},200)};
-$("open").onclick=function(){clearInterval(cd);api("/api/launch",{})};
+$("open").onclick=function(){api("/api/launch",{})};
 function show(n){["p1","p2","p3","p4"].forEach(function(p,i){$(p).className=(i+1===n)?"":"hide"})}
-var left=-1,cd=0;
-function autoClose(){if(left>=0)return;left=5;$("close").textContent="Đóng ("+left+")";cd=setInterval(function(){left--;$("close").textContent="Đóng ("+Math.max(left,0)+")";if(left<=0){clearInterval(cd);$("close").click()}},1000)}
 function tick(){api("/api/state").then(function(s){
  if(!init){init=true;$("dir").value=s.dir;upd()}
  if(s.phase==="welcome")show(1);
@@ -92,7 +90,7 @@ function tick(){api("/api/state").then(function(s){
   for(var j=1;j<=4;j++)$("s"+j).className="st"+(j<s.step?" ok":(j===s.step?" on":""));
   for(var j=1;j<s.step;j++)$("s"+j).firstChild.textContent="✓";
   var L=$("log");L.textContent=s.log.slice(-40).join("\n");L.scrollTop=L.scrollHeight}
- else if(s.phase==="done"){show(3);if(s.warn)$("doneMsg").textContent=s.warn;else autoClose()}
+ else if(s.phase==="done"){show(3);if(s.warn)$("doneMsg").textContent=s.warn;if(s.closeIn>0)$("close").textContent="Đóng ("+s.closeIn+")"}
  else if(s.phase==="error"){show(4);$("emsg").textContent=s.err;$("log2").textContent=s.log.slice(-30).join("\n")}
 }).catch(function(){})}
 setInterval(tick,700);tick();

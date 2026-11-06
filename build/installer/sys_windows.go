@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 	"unsafe"
 )
 
@@ -182,6 +184,13 @@ func killWindow(c *exec.Cmd) {
 	k := exec.Command("taskkill", "/F", "/T", "/PID", strconv.Itoa(c.Process.Pid))
 	k.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: 0x08000000}
 	k.Run()
+	// Edge/Chrome có thể giao cửa sổ cho tiến trình khác nên PID trên không còn giữ cửa sổ: tắt theo thư mục hồ sơ riêng.
+	ctx, stop := context.WithTimeout(context.Background(), 5*time.Second)
+	defer stop()
+	p := exec.CommandContext(ctx, "powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command",
+		`Get-CimInstance Win32_Process -Filter "Name='msedge.exe' OR Name='chrome.exe'" | Where-Object { $_.CommandLine -like '*mthanglee_setup_profile*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }`)
+	hideCmd(p)
+	p.Run()
 }
 
 func cleanupProfile() {
