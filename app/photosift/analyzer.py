@@ -21,7 +21,9 @@ ALL_EXT = RAW_EXT | IMG_EXT
 
 ANALYSIS_SIDE = 1600   # cạnh dài tối đa khi phân tích
 SHARP_SIDE = 1024      # cạnh dài khi đo độ nét
-DETECT_SIDE = 1280     # cạnh dài khi phát hiện/nhận diện khuôn mặt
+DETECT_SIDE = 960         # cạnh dài ảnh dùng để tìm mặt; 960px vẫn thấy mặt từ khoảng 36px trên ảnh 1616px
+FACE_REF_SIDE = 1280      # MIN_FACE_PX và EAR_MIN_FACE_PX tính theo cỡ ảnh này
+MIN_ID_PX = 60            # mặt nhỏ hơn cỡ này (theo ảnh gốc) không được nhận diện người
 THUMB_SIDE = 360
 MIN_FACE_PX = 28       # mặt nhỏ hơn (trên ảnh phân tích) bị bỏ qua
 EAR_MIN_FACE_PX = 60   # chỉ đo mắt với mặt đủ lớn
@@ -585,12 +587,12 @@ class Analyzer:
         return r
 
     def analyze_image(self, img, ow: int, oh: int) -> dict:
-        """Pha 2 (CPU): độ nét, phơi sáng, dHash, khuôn mặt (phát hiện ở tối đa 1280px cho nhanh)."""
+        """Pha 2 (CPU): độ nét, phơi sáng, dHash, khuôn mặt.
+        Tìm mặt trên ảnh thu nhỏ cho nhanh, còn nhận diện và đo mắt dùng ảnh lớn cho chính xác."""
         h, w = img.shape[:2]
-        sd = DETECT_SIDE / max(h, w)
-        if sd < 1:
-            img = cv2.resize(img, (round(w * sd), round(h * sd)), interpolation=cv2.INTER_AREA)
-            h, w = img.shape[:2]
+        sd = min(1.0, DETECT_SIDE / max(h, w))
+        small = cv2.resize(img, (round(w * sd), round(h * sd)), interpolation=cv2.INTER_LINEAR) if sd < 1 else img
+        ref = min(1.0, FACE_REF_SIDE / max(h, w))   # các ngưỡng cỡ mặt tính theo ảnh cạnh dài 1280px
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
         s = SHARP_SIDE / max(h, w)
@@ -602,12 +604,14 @@ class Analyzer:
         dh = dhash(gray)
 
         # ---- khuôn mặt ----
-        det = self._det(w, h)
-        _, rows = det.detect(img)
+        det = self._det(small.shape[1], small.shape[0])
+        _, rows = det.detect(small)
         faces = []
         if rows is not None:
             rec = self._rec()
-            kept = [r for r in rows if r[14] >= 0.85 and min(r[2], r[3]) >= MIN_FACE_PX]
+            rows = rows.copy()
+            rows[:, :14] /= sd   # đổi toạ độ về ảnh lớn
+            kept = [r for r in rows if r[14] >= 0.85 and min(r[2], r[3]) * ref >= MIN_FACE_PX]
             kept.sort(key=lambda r: -(r[2] * r[3]))
             rects = []
             for r in kept:
@@ -615,16 +619,19 @@ class Analyzer:
                 x0, y0 = max(0, int(x)), max(0, int(y))
                 x1, y1 = min(w, int(x + fw)), min(h, int(y + fh))
                 rects.append((x0, y0, max(1, x1 - x0), max(1, y1 - y0)))
-            ears = self._ear(img, [rc for rc, r in zip(rects, kept) if rc[2] >= EAR_MIN_FACE_PX])
+            ears = self._ear(img, [rc for rc, r in zip(rects, kept) if rc[2] * ref >= EAR_MIN_FACE_PX])
             ear_iter = iter(ears)
             for r, rc in zip(kept, rects):
-                try:
-                    emb = rec.feature(rec.alignCrop(img, r)).flatten().astype(np.float32)
-                    emb /= (np.linalg.norm(emb) + 1e-9)
-                except Exception:  # noqa: BLE001
-                    continue
+                px = int(rc[2] / w * ow)
+                emb = None
+                if px >= MIN_ID_PX:   # mặt nhỏ hơn không dùng để gom người nên không tốn công nhận diện
+                    try:
+                        emb = rec.feature(rec.alignCrop(img, r)).flatten().astype(np.float32)
+                        emb /= (np.linalg.norm(emb) + 1e-9)
+                    except Exception:  # noqa: BLE001
+                        continue
                 ear = -1.0
-                if rc[2] >= EAR_MIN_FACE_PX:
+                if rc[2] * ref >= EAR_MIN_FACE_PX:
                     ear = next(ear_iter)
                     # chỉ tin EAR khi mặt nhìn thẳng (mũi nằm giữa hai mắt)
                     ex_r, ex_l, nx = r[4], r[6], r[8]
@@ -640,8 +647,8 @@ class Analyzer:
                 fsh = lap_var(cv2.resize(gcrop, (96, 96), interpolation=cv2.INTER_AREA)) if gcrop.size else 0.0
                 faces.append(dict(
                     fx=x0 / w, fy=y0 / h, fw=fw / w, fh=fh / h, det=float(r[14]),
-                    px=int(fw / w * ow), ear=float(ear), sharp=fsh,
-                    emb=emb.tobytes(), crop=_jpg(cv2.resize(crop, (112, 112), interpolation=cv2.INTER_AREA), 88) if crop.size else b"",
+                    px=px, ear=float(ear), sharp=fsh,
+                    emb=emb.tobytes() if emb is not None else b"", crop=_jpg(cv2.resize(crop, (112, 112), interpolation=cv2.INTER_AREA), 88) if crop.size else b"",
                 ))
 
         ears = [f["ear"] for f in faces if f["ear"] >= 0]

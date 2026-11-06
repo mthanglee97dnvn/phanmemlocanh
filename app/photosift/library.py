@@ -358,7 +358,8 @@ class Library:
                 list(pa.map(qa, quick))
         self.status["timing"]["thumb_s"] = round(time.time() - t0, 1)
         # Pha 1 (I/O): đọc ảnh xem trước → thumbnail hiện ngay. Pha 2 (CPU): độ nét, khuôn mặt… chạy nền song song.
-        cpu = max(1, min(8, (os.cpu_count() or 2)))
+        n = os.cpu_count() or 2
+        cpu = n if n <= 8 else min(16, n - 1)   # máy nhiều nhân: chừa một nhân để giao diện vẫn mượt
         p1 = ThreadPoolExecutor(max_workers=io_n)
         p2 = ThreadPoolExecutor(max_workers=cpu)
 
@@ -367,11 +368,16 @@ class Library:
                 for k, v in kw.items():
                     self.status[k] += v
 
-        def phase2(pid):
+        waiting = [0]   # số ảnh đã giải mã đang chờ, giới hạn để không chiếm nhiều bộ nhớ
+
+        def phase2(pid, img=None):
+            if img is not None:
+                with self._slock:
+                    waiting[0] -= 1
             if cancel.is_set():
                 return
             try:
-                ok = self._analyze_cached(pid)
+                ok = self._analyze_cached(pid, img)
             except Exception as e:  # noqa: BLE001
                 self.db.x("UPDATE photos SET analyzed=1, err=? WHERE id=?", (str(e)[:200], pid))
                 ok = False
@@ -380,15 +386,21 @@ class Library:
         def phase1(pid, path, cached):
             if cancel.is_set():
                 return
+            img = None
             if not cached:
                 try:
-                    self._prepare_one(pid, path)
+                    img = self._prepare_one(pid, path)
                 except Exception as e:  # noqa: BLE001
                     self.db.x("UPDATE photos SET analyzed=1, ready=0, err=? WHERE id=?", (str(e)[:200], pid))
                     bump(done=1, thumbs=1, errors=1)
                     return
             bump(thumbs=1)
-            p2.submit(phase2, pid)
+            with self._slock:
+                if img is not None and waiting[0] >= cpu * 2:
+                    img = None   # hàng chờ dài: phân tích sẽ đọc lại từ ảnh cache
+                elif img is not None:
+                    waiting[0] += 1
+            p2.submit(phase2, pid, img)
 
         for pid, path, cached in todo:
             p1.submit(phase1, pid, path, cached)
@@ -417,15 +429,18 @@ class Library:
         (PREVIEWS / f"{pid}.jpg").write_bytes(r["prev"])
         taken = r["taken"] or os.path.getmtime(path)
         self.db.x("UPDATE photos SET w=?,h=?,taken=?,ready=1,tv=2,err=NULL WHERE id=?", (r["w"], r["h"], taken, pid))
+        return r["img"]
 
-    def _analyze_cached(self, pid: int) -> bool:
+    def _analyze_cached(self, pid: int, img=None) -> bool:
         """Pha 2: phân tích từ ảnh cache trên ổ đĩa máy (không đụng tới thẻ nhớ nữa)."""
         row = self.db.one("SELECT w,h FROM photos WHERE id=?", (pid,))
-        f = PREVIEWS / f"{pid}.jpg"
-        img = cv2.imdecode(np.fromfile(str(f), dtype=np.uint8), cv2.IMREAD_COLOR) if f.exists() else None
+        if img is None:
+            f = PREVIEWS / f"{pid}.jpg"
+            img = cv2.imdecode(np.fromfile(str(f), dtype=np.uint8), cv2.IMREAD_COLOR) if f.exists() else None
         if img is None:
             raise ValueError("thiếu ảnh cache")
         r = self.an.analyze_image(img, row["w"], row["h"])
+        crops = []
         with self.db.lock:
             old = self.db.q("SELECT id FROM faces WHERE photo_id=?", (pid,))
             for o in old:
@@ -443,8 +458,10 @@ class Library:
                     "INSERT INTO faces(photo_id,fx,fy,fw,fh,det,px,ear,emb) VALUES(?,?,?,?,?,?,?,?,?)",
                     (pid, fc["fx"], fc["fy"], fc["fw"], fc["fh"], fc["det"], fc["px"], fc["ear"], fc["emb"]))
                 if fc["crop"]:
-                    (FACES / f"{cur.lastrowid}.jpg").write_bytes(fc["crop"])
+                    crops.append((cur.lastrowid, fc["crop"]))
             self.db.con.commit()
+        for fid, crop in crops:   # ghi file ngoài khoá để các luồng khác không phải chờ ổ đĩa
+            (FACES / f"{fid}.jpg").write_bytes(crop)
         return True
 
     # ------------------------------------------------------------------ gom người
@@ -473,19 +490,28 @@ class Library:
             todo = db.q("""SELECT f.id, f.emb, f.px, f.det FROM faces f JOIN cur ON cur.id=f.photo_id
                            WHERE f.person_id IS NULL AND f.px>=60 ORDER BY f.det*f.px DESC""")
             upd = []
+            ids = list(cents)                       # so một mặt với mọi người cùng lúc bằng ma trận
+            mat = np.zeros((max(16, len(ids) * 2), 128), dtype=np.float32)
+            for i, pid in enumerate(ids):
+                mat[i] = cents[pid]
             for r in todo:
                 v = np.frombuffer(r["emb"], dtype=np.float32)
-                best, bs = None, -1.0
-                for pid, c in cents.items():
-                    s = float(v @ c)
-                    if s > bs:
-                        best, bs = pid, s
-                if best is None or bs < thr:
+                i, bs = -1, -1.0
+                if ids:
+                    sims = mat[:len(ids)] @ v
+                    i = int(sims.argmax())
+                    bs = float(sims[i])
+                if i < 0 or bs < thr:
                     best = db.con.execute("INSERT INTO people(name) VALUES('')").lastrowid
                     sums[best] = v.copy()
+                    i = len(ids)
+                    ids.append(best)
+                    if i >= len(mat):
+                        mat = np.vstack([mat, np.zeros_like(mat)])
                 else:
+                    best = ids[i]
                     sums[best] = sums[best] + v
-                cents[best] = sums[best] / (np.linalg.norm(sums[best]) + 1e-9)
+                mat[i] = sums[best] / (np.linalg.norm(sums[best]) + 1e-9)
                 upd.append((best, r["id"]))
             db.con.executemany("UPDATE faces SET person_id=? WHERE id=?", upd)
             db.con.commit()
