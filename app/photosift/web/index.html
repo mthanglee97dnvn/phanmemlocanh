@@ -562,19 +562,27 @@ document.addEventListener('keydown', e=>{
 });
 
 /* ---------- chọn thư mục ---------- */
+const mainDirNav={hist:[],idx:-1};  // nhớ qua các lần mở hộp chọn, để lùi được cả khi đã lỡ bấm "Chọn thư mục này"
 function pickFolder(start, onPick, title='Chọn thư mục'){
+  const nav = onPick ? {hist:[],idx:-1} : mainDirNav;
   onPick = onPick || (async p=>{ await api('/api/open',{path:p, recursive:$('#cRec').checked}); S.person=null; S.photos=[]; S.by=new Map(); S.view=[]; S.undo=[]; $('#bUndo').disabled=true; poll(true); });
-  const m=modal(`<h3>${title}</h3><div class="row"><input type="text" id="dp" style="flex:1"><button id="dgo">Đi</button></div>
+  const m=modal(`<h3>${title}</h3><div class="row"><button id="dbk" title="Quay lại thư mục trước (Alt+←)" aria-label="Quay lại thư mục trước">←</button><button id="dfw" title="Đi tiếp (Alt+→)" aria-label="Đi tiếp">→</button><input type="text" id="dp" style="flex:1"><button id="dgo">Đi</button></div>
     <div class="row" id="dq" style="flex-wrap:wrap;margin:4px 0"></div>
     <div class="row" style="margin:4px 0"><button id="dlan" title="Chọn thư mục chia sẻ trên máy khác trong cùng mạng LAN">🖧 Mạng LAN</button><button id="dnew">➕ Tạo thư mục mới</button><input type="text" id="dnn" placeholder="Tên thư mục mới (ví dụ: Anh 5 sao)" style="flex:1;display:none"><button id="dmk" class="pri" style="display:none">Tạo</button></div>
     <div class="dirs" id="dl"></div>
     <div class="hint" id="di" style="margin-top:6px"></div>
     <div class="btns"><button onclick="this.closest('.back').remove()">Huỷ</button><button class="pri" id="dok">Chọn thư mục này</button></div>`);
-  let curPath='', seq=0;
-  const go=async path=>{
+  let curPath='', seq=0, inLan=false;
+  const paintNav=()=>{ m.querySelector('#dbk').disabled=!(inLan?nav.idx>=0:nav.idx>0); m.querySelector('#dfw').disabled=inLan||nav.idx>=nav.hist.length-1; };
+  const setLan=()=>{ inLan=true; seq++; paintNav(); };
+  const back=()=>{ if(inLan){ if(nav.idx>=0) go(nav.hist[nav.idx],true); return; } if(nav.idx>0) go(nav.hist[--nav.idx],true); };
+  const fwd=()=>{ if(!inLan&&nav.idx<nav.hist.length-1) go(nav.hist[++nav.idx],true); };
+  const go=async(path,moved)=>{
     const my=++seq;
     const r=await api('/api/ls?path='+encodeURIComponent(path||'')); if(my!==seq) return;  // bỏ kết quả cũ đến muộn
-    m.querySelector('#dp').value=r.path; curPath=r.path;
+    m.querySelector('#dp').value=r.path; curPath=r.path; inLan=false;
+    if(!moved&&!r.error&&r.path!==nav.hist[nav.idx]){ nav.hist.splice(nav.idx+1); nav.hist.push(r.path); nav.idx=nav.hist.length-1; }
+    paintNav();
     m.querySelector('#di').textContent = r.error ? r.error : `${r.images} ảnh trong thư mục này • ${r.dirs.length} thư mục con`;
     m.querySelector('#dq').innerHTML = [...(r.quick||[]),...(r.drives||[]).map(d=>({name:d.replace(/^.*\//,'')||d,path:d}))].map(q=>`<button data-p="${esc(q.path)}" style="padding:2px 8px">${esc(q.name)}</button>`).join('');
     m.querySelectorAll('#dq button').forEach(b=>b.onclick=()=>go(b.dataset.p));
@@ -596,13 +604,13 @@ function pickFolder(start, onPick, title='Chọn thư mục'){
     f.querySelector('#lgo').onclick=async()=>{ const h=f.querySelector('#lh').value.trim(); f.querySelector('#lmsg').textContent='Đang kết nối…';
       try{ const r=await api('/api/lan/connect',{host:h,user:f.querySelector('#lu').value.trim(),password:f.querySelector('#lp').value});
         if(r.error){ f.querySelector('#lmsg').textContent=r.error; return; } lanShares(h); }catch(e){ f.querySelector('#lmsg').textContent=e.message; } }; };
-  const lanShares=async host=>{ const box=lanBox(); box.innerHTML=`<div data-lan="1">⬆ Quay lại Mạng LAN</div><div style="padding:8px;cursor:default" class="hint">Đang lấy danh sách thư mục chia sẻ của ${esc(host)}…</div>`;
+  const lanShares=async host=>{ setLan(); const box=lanBox(); box.innerHTML=`<div data-lan="1">⬆ Quay lại Mạng LAN</div><div style="padding:8px;cursor:default" class="hint">Đang lấy danh sách thư mục chia sẻ của ${esc(host)}…</div>`;
     box.querySelector('[data-lan]').onclick=lanHome; const r=await api('/api/lan/shares?host='+encodeURIComponent(host));
     m.querySelector('#di').textContent='Máy: '+host;
     box.innerHTML=`<div data-lan="1">⬆ Quay lại Mạng LAN</div>`+(r.shares||[]).map(n=>`<div data-p="\\\\${esc(host)}\\${esc(n)}">📁 ${esc(n)}</div>`).join('');
     box.querySelectorAll('div[data-lan]').forEach(x=>x.onclick=lanHome); box.querySelectorAll('div[data-p]').forEach(x=>x.onclick=()=>go(x.dataset.p));
     if(!(r.shares||[]).length) lanLogin(host, r.need_login?undefined:(r.error||'Không thấy thư mục chia sẻ nào.')+' Có thể nhập tài khoản để thử lại.'); };
-  const lanHome=()=>{ const box=lanBox(); m.querySelector('#dp').value=''; m.querySelector('#di').textContent='Mạng LAN: quét để tìm máy, hoặc gõ \\\\TÊN-MÁY\\thư-mục vào ô trên rồi bấm Đi';
+  const lanHome=()=>{ setLan(); const box=lanBox(); m.querySelector('#dp').value=''; m.querySelector('#di').textContent='Mạng LAN: quét để tìm máy, hoặc gõ \\\\TÊN-MÁY\\thư-mục vào ô trên rồi bấm Đi';
     box.innerHTML=`<div style="padding:8px;cursor:default"><button id="lscan">🔍 Quét máy trong mạng</button> <button id="lcred">🔑 Nhập tài khoản…</button></div><div id="lres" style="cursor:default"></div>`;
     const res=box.querySelector('#lres');
     box.querySelector('#lcred').onclick=()=>{ if(!box.querySelector('.lanlogin')) lanLogin('', 'Nhập máy + tài khoản của máy đó (nếu thư mục có đặt mật khẩu).'); };
@@ -613,19 +621,23 @@ function pickFolder(start, onPick, title='Chọn thư mục'){
         res.querySelectorAll('[data-h]').forEach(x=>x.onclick=()=>lanShares(x.dataset.h)); }catch(e){ res.textContent=e.message; } };
     box.querySelector('#lscan').click(); };
   if(S.status.plat==='darwin'){ const b=m.querySelector('#dlan'); b.textContent='🖧 Kết nối máy khác (SMB)'; b.title='Kết nối thư mục chia sẻ trên máy khác trong mạng LAN';
-    b.onclick=()=>{ const box=lanBox(); m.querySelector('#dp').value=''; m.querySelector('#di').textContent='Mạng LAN trên Mac: nhập địa chỉ rồi bấm Kết nối; thư mục sẽ xuất hiện trong mục «Volumes».';
+    b.onclick=()=>{ setLan(); const box=lanBox(); m.querySelector('#dp').value=''; m.querySelector('#di').textContent='Mạng LAN trên Mac: nhập địa chỉ rồi bấm Kết nối; thư mục sẽ xuất hiện trong mục «Volumes».';
       box.innerHTML=`<div style="padding:10px;cursor:default"><div class="hint" style="margin-bottom:6px">Nhập địa chỉ máy chia sẻ, ví dụ <b>smb://192.168.1.10/TenThuMuc</b> (hoặc smb://TEN-MAY). Mac sẽ hỏi tài khoản nếu cần.</div><div class="row"><input type="text" id="smbu" placeholder="smb://192.168.1.10/TenThuMuc" style="flex:1"><button class="pri" id="smbg">Kết nối</button></div><div id="smbm" class="hint" style="margin-top:6px"></div></div>`;
       box.querySelector('#smbg').onclick=async()=>{ const msg=box.querySelector('#smbm'); msg.textContent='Đang kết nối…'; try{ const r=await api('/api/lan/mount',{url:box.querySelector('#smbu').value}); if(r.error){ msg.textContent=r.error; return; } msg.textContent='Đã gửi yêu cầu. Nhập tài khoản trong hộp thoại của Mac nếu có; xong bấm «Volumes» ở trên để chọn thư mục.'; }catch(e){ msg.textContent=e.message; } }; };
   } else m.querySelector('#dlan').onclick=lanHome;
   const goInput=()=>{ const v=m.querySelector('#dp').value; const h=uncHost(v); if(h) lanShares(h); else go(v); };
   m.querySelector('#dgo').onclick=goInput;
+  m.querySelector('#dbk').onclick=back; m.querySelector('#dfw').onclick=fwd;
+  m.addEventListener('keydown',e=>{ if(e.altKey&&(e.key==='ArrowLeft'||e.key==='ArrowRight')){ e.preventDefault(); e.stopPropagation(); (e.key==='ArrowLeft'?back:fwd)(); } });
+  m.addEventListener('mouseup',e=>{ if(e.button===3||e.button===4){ e.preventDefault(); (e.button===3?back:fwd)(); } });  // nút lùi/tiến bên hông chuột
   const nn=m.querySelector('#dnn'), mk=m.querySelector('#dmk');
   m.querySelector('#dnew').onclick=()=>{ nn.style.display=mk.style.display=''; nn.focus(); };
   const make=async()=>{ if(!curPath){ toast('Đang tải danh sách thư mục, thử lại sau giây lát'); return; } try{ const r=await api('/api/mkdir',{parent:curPath,name:nn.value}); nn.value=''; nn.style.display=mk.style.display='none'; await go(r.path); toast('Đã tạo thư mục — bấm “Chọn thư mục này”'); }catch(e){ toast(e.message,4000); } };
   mk.onclick=make; nn.onkeydown=e=>{ if(e.key==='Enter') make(); };
   m.querySelector('#dp').onkeydown=e=>{ if(e.key==='Enter') goInput(); };
   m.querySelector('#dok').onclick=async()=>{ const p=m.querySelector('#dp').value.trim(); if(!p){ toast('Hãy chọn một thư mục chia sẻ (bấm vào máy, rồi bấm vào thư mục) trước'); return; } m.close(); await onPick(p); };
-  go(start||'');
+  paintNav();
+  if(!start&&nav.idx>=0) go(nav.hist[nav.idx],true); else go(start||'');
 }
 $('#bOpen').onclick=()=>pickFolder();
 $('#sNet').onclick=async()=>{ toast('Đang kiểm tra kết nối mạng…'); try{ const r=await api('/api/online',{}); toast(r.online?'Đã có mạng — mở khoá lọc tối/sáng/nhắm mắt':'Vẫn chưa có mạng'); }catch(e){} poll(true); };
