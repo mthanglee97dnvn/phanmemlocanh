@@ -21,6 +21,7 @@ import cv2
 from . import models
 from .update import Updater
 from . import fonts
+from .errors import friendly
 from .analyzer import ALL_EXT, _jpg, load_bgr, read_meta
 from .library import COVERS, FACES, PREVIEWS, THUMBS, Library
 from .license import License
@@ -104,7 +105,7 @@ def list_dir(path: str):
             except OSError:
                 pass
     except OSError as e:
-        return dict(path=path, parent=os.path.dirname(path), dirs=[], images=0, error=str(e))
+        return dict(path=path, parent=os.path.dirname(path), dirs=[], images=0, error=friendly(e))
     parent = os.path.dirname(path)
     quick = []
     home = Path.home()
@@ -437,7 +438,7 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                 pass
             except Exception as e:  # noqa: BLE001
                 try:
-                    self._json(dict(error=str(e)), 500)
+                    self._json(dict(error=friendly(e)), 500)
                 except Exception:  # noqa: BLE001
                     pass
 
@@ -497,7 +498,7 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                     try:
                         return self._json(fonts.set_ui(b.get("font", "")))
                     except ValueError as e:
-                        return self._json(dict(error=str(e)), 400)
+                        return self._json(dict(error=friendly(e)), 400)
                 if u.path == "/api/reveal":   # mở thư mục đích sau khi xuất ảnh
                     d = os.path.abspath(str(b.get("path", "")))
                     if not os.path.isdir(d):
@@ -523,7 +524,7 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                     lib.set_settings(b)
                     return self._json(dict(ok=True, settings=lib.settings))
                 if u.path == "/api/person/rename":
-                    lib.rename_person(int(b["id"]), b["name"])
+                    lib.rename_person(int(b["id"]), str(b["name"])[:60])
                     return self._json(dict(ok=True))
                 if u.path == "/api/person/merge":
                     lib.merge_people(int(b["src"]), int(b["dst"]))
@@ -562,7 +563,7 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
             except KeyError as e:
                 self._json(dict(error=f"thiếu tham số {e}"), 400)
             except Exception as e:  # noqa: BLE001
-                self._json(dict(error=str(e)), 500)
+                self._json(dict(error=friendly(e)), 500)
 
     return H
 

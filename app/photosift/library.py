@@ -18,6 +18,7 @@ import cv2
 import numpy as np
 
 from .analyzer import ALL_EXT, RAW_EXT, Analyzer, diag_raw, hamming, read_exif
+from .errors import friendly
 from .db import DB, HOME
 from .online import Online
 
@@ -300,7 +301,7 @@ class Library:
         try:
             files = self._list_files(root, recursive)
         except Exception as e:  # noqa: BLE001
-            self.status.update(state="error", message=str(e))
+            self.status.update(state="error", message=friendly(e))
             return
         db = self.db
         todo, ids = [], []   # todo: (id, path, đã có ảnh cache?)
@@ -804,7 +805,7 @@ class Library:
                 r = self.export(ids, dest, by_person, template, xmp, progress=self.export_job)
                 self.export_job.update(state="done", copied=r["copied"], errors=r["errors"], n_errors=r["n_errors"])
             except Exception as e:  # noqa: BLE001
-                self.export_job.update(state="error", message=str(e))
+                self.export_job.update(state="error", message=friendly(e))
         threading.Thread(target=work, daemon=True).start()
         return dict(ok=True, total=len(ids))
 
@@ -849,7 +850,7 @@ class Library:
                         out.with_suffix(".xmp").write_text(self._xmp(r["rating"], r["label"], labels), encoding="utf-8")
                     copied += 1
                 except Exception as e:  # noqa: BLE001
-                    errors.append(f"{src.name}: {e}")
+                    errors.append(f"{src.name}: {friendly(e)}")
             if progress is not None:
                 progress.update(done=seq, copied=copied, n_errors=len(errors), errors=errors[:20])
         return dict(copied=copied, errors=errors[:20], n_errors=len(errors))

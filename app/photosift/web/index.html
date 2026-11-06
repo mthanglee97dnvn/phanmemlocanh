@@ -104,6 +104,8 @@ body.cat #catalog{display:flex}
 .ctable th{position:sticky;top:0;text-align:left;font-weight:600;color:var(--mut);padding:8px 10px;background:var(--modal);cursor:pointer;white-space:nowrap}
 .ctable th.num,.ctable td.num{text-align:right}
 .ctable td{padding:6px 10px;border-top:1px solid var(--line);white-space:nowrap}
+.ctable .cn b{display:block;max-width:340px;overflow:hidden;text-overflow:ellipsis}
+#lost{position:fixed;left:50%;bottom:52px;transform:translateX(-50%);z-index:100;max-width:min(720px,92vw);padding:10px 16px;border-radius:8px;background:#5A1D1A;color:#FFE3E0;border:1px solid #A33A33;box-shadow:0 8px 24px rgba(0,0,0,.45)}
 .ctable tbody tr{cursor:pointer}.ctable tbody tr:hover{background:var(--panel2)}
 .ctable tr.cur td:first-child{box-shadow:inset 3px 0 0 var(--acc2)}
 .ctable .cn{display:flex;align-items:center;gap:9px;min-width:0}
@@ -336,11 +338,19 @@ const S = {photos:[], by:new Map(), view:[], people:[], sel:new Set(), cur:null,
            status:{}, undo:[], viewer:false, boxes:true, zoom:false, lastDone:-1, settings:{}};
 
 async function api(path, body){
-  const r = await fetch(path, body===undefined ? {} : {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+  let r;
+  try{ r = await fetch(path, body===undefined ? {} : {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)}); }
+  catch(e){ lostLink(); throw new Error('Mất kết nối với app. Hãy đóng cửa sổ rồi mở lại MThanglee Cull&Collage.'); }
+  if(S.lost) linkBack();
   const j = await r.json().catch(()=>({}));
   if(!r.ok) throw new Error(j.error || r.statusText);
   return j;
 }
+/* mất kết nối với máy chủ (app bị tắt, đang cập nhật, máy ngủ): báo một dải cố định, tự ẩn khi nối lại */
+function lostLink(){ if(S.lost) return; S.lost=true; const d=document.createElement('div'); d.id='lost'; d.setAttribute('role','alert');
+  d.textContent='Mất kết nối với app, các thay đổi lúc này sẽ không được lưu. Nếu không tự nối lại, hãy đóng cửa sổ và mở lại app.'; document.body.appendChild(d); }
+function linkBack(){ S.lost=false; const d=$('#lost'); if(d) d.remove(); toast('Đã kết nối lại'); }
+addEventListener('unhandledrejection',e=>{ const m=e.reason&&e.reason.message; if(m){ toast(m,4000); e.preventDefault(); } });
 function toast(msg, ms=2200){ const t=$('#toast'); t.textContent=msg; t.style.display='block'; clearTimeout(toast.t); toast.t=setTimeout(()=>t.style.display='none', ms); }
 function pname(id){ const p = S.people.find(p=>p.id===id); return p && p.name ? p.name : 'Người '+id; }
 
@@ -473,7 +483,7 @@ function renderPeople(){
 }
 function personModal(p){
   const others=S.people.filter(o=>o.id!==p.id);
-  const m=modal(`<h3>Người ${p.id}</h3><div class="row"><label>Tên</label><input type="text" id="pn" style="flex:1" value="${esc(p.name||'')}" placeholder="Nhập tên…"></div>
+  const m=modal(`<h3>Người ${p.id}</h3><div class="row"><label>Tên</label><input type="text" id="pn" maxlength="60" style="flex:1" value="${esc(p.name||'')}" placeholder="Nhập tên…"></div>
    <div class="row"><label>Gộp vào người khác</label><select id="pm" style="flex:1"><option value="">— chọn —</option>${others.map(o=>`<option value="${o.id}">${esc(o.name||'Người '+o.id)} (${o.n})</option>`).join('')}</select><button id="pgo">Gộp</button></div>
    <div class="hint">Tên được lưu cho các thư mục khác và ghi vào từ khoá XMP khi xuất ảnh.</div>
    <div class="btns"><button onclick="this.closest('.back').remove()">Đóng</button><button class="pri" id="psave">Lưu tên</button></div>`);
@@ -781,7 +791,7 @@ async function openFolder(p,recursive){
 const lsGet=(k,d)=>{ try{ return localStorage.getItem(k)||d; }catch(e){ return d; } }, lsSet=(k,v)=>{ try{ localStorage.setItem(k,v); }catch(e){} };
 const Cat={list:[],view:lsGet('ps.catView','md'),sort:lsGet('ps.catSort','opened')};
 const catDate=t=>t?new Date(t*1000).toLocaleDateString('vi-VN'):'—';
-const catSize=b=>b>=1e9?(b/1e9).toFixed(1).replace('.',',')+' GB':b?Math.round(b/1e6)+' MB':'—';
+const catSize=b=>b>=1e9?(b/1e9).toFixed(1).replace('.',',')+' GB':b>=1e6?Math.round(b/1e6)+' MB':b?Math.max(1,Math.round(b/1e3))+' KB':'—';
 const catRange=c=>{ const a=catDate(c.t0),b=catDate(c.t1); return a===b?a:a+' – '+b; };
 async function showCatalog(){ document.body.classList.add('cat'); $('#catBack').hidden=!S.status.root; $('#catSort').value=Cat.sort;
   try{ Cat.list=await api('/api/catalog'); paintCache(await api('/api/cache')); }catch(e){ toast(e.message,4000); } drawCatalog(); }
@@ -805,7 +815,7 @@ function drawCatalog(){
   if(Cat.view==='det'){
     const th=(k,t,c='')=>`<th class="${c}" data-s="${k}">${t}</th>`;
     box.innerHTML=`<table class="ctable"><thead><tr>${th('name','Thư mục')}<th>Đường dẫn</th>${th('n','Số ảnh','num')}<th class="num">★</th><th class="num">✕</th>${th('size','Dung lượng','num')}${th('t1','Ngày chụp')}${th('opened','Mở gần nhất')}<th>Trạng thái</th><th></th></tr></thead><tbody>`+
-      l.map(c=>`<tr data-root="${esc(c.root)}" tabindex="0" class="${c.root===cur?'cur':''}"><td><div class="cn">${c.covers[0]?`<img loading="lazy" src="${cov(c,c.covers[0])}" alt="">`:'<i></i>'}<b>${esc(c.name)}</b></div></td><td class="cp" title="${esc(c.root)}">${esc(c.root)}</td><td class="num">${c.n?fmt(c.n):'—'}</td><td class="num">${fmt(c.stars)}</td><td class="num">${fmt(c.rej)}</td><td class="num">${catSize(c.size)}</td><td>${catRange(c)}</td><td>${catDate(c.opened)}</td><td>${c.missing?'Không tìm thấy':(c.root===cur?'Đang mở':'Sẵn sàng')}</td><td>${del(c)}</td></tr>`).join('')+'</tbody></table>';
+      l.map(c=>`<tr data-root="${esc(c.root)}" tabindex="0" class="${c.root===cur?'cur':''}"><td><div class="cn">${c.covers[0]?`<img loading="lazy" src="${cov(c,c.covers[0])}" alt="">`:'<i></i>'}<b title="${esc(c.name)}">${esc(c.name)}</b></div></td><td class="cp" title="${esc(c.root)}">${esc(c.root)}</td><td class="num">${c.n?fmt(c.n):'—'}</td><td class="num">${fmt(c.stars)}</td><td class="num">${fmt(c.rej)}</td><td class="num">${catSize(c.size)}</td><td>${catRange(c)}</td><td>${catDate(c.opened)}</td><td>${c.missing?'Không tìm thấy':(c.root===cur?'Đang mở':'Sẵn sàng')}</td><td>${del(c)}</td></tr>`).join('')+'</tbody></table>';
   } else box.innerHTML=`<div class="cgrid ${Cat.view}">`+l.map(c=>`<div class="ccard ${c.root===cur?'cur':''} ${c.missing?'gone':''}" data-root="${esc(c.root)}" tabindex="0" role="button" title="${esc(c.root)}"><div class="cov n${c.covers.length}">${img(c)||'<span class="none"><svg class="ic" style="width:30px;height:30px" aria-hidden="true"><use href="#i-folder"/></svg></span>'}</div>${c.missing?'<span class="cbadge warn">Không tìm thấy</span>':(c.root===cur?'<span class="cbadge">Đang mở</span>':'')}${del(c)}<div class="cinf"><b>${esc(c.name)}</b><span class="cpath">${esc(c.root)}</span><span>${stat(c)}</span><span class="cdate">${c.n?catRange(c)+' · '+catSize(c.size):'Mở lại để cập nhật'}</span></div></div>`).join('')+'</div>';
 }
 function catOpen(root){ const c=Cat.list.find(x=>x.root===root); if(!c) return;
@@ -838,9 +848,10 @@ function pickFolder(start, onPick, title='Chọn thư mục'){
   const back=()=>{ if(inLan){ if(nav.idx>=0) go(nav.hist[nav.idx],true); return; } if(nav.idx>0) go(nav.hist[--nav.idx],true); };
   const fwd=()=>{ if(!inLan&&nav.idx<nav.hist.length-1) go(nav.hist[++nav.idx],true); };
   const go=async(path,moved)=>{
-    const my=++seq;
+    const my=++seq, dp=m.querySelector('#dp'), typed=dp.value;
     const r=await api('/api/ls?path='+encodeURIComponent(path||'')); if(my!==seq) return;  // bỏ kết quả cũ đến muộn
-    m.querySelector('#dp').value=r.path; curPath=r.path; inLan=false;
+    if(dp.value!==typed && document.activeElement===dp) return;   // người dùng đang gõ đường dẫn khác: không ghi đè
+    dp.value=r.path; curPath=r.path; inLan=false;
     if(!moved&&!r.error&&r.path!==nav.hist[nav.idx]){ nav.hist.splice(nav.idx+1); nav.hist.push(r.path); nav.idx=nav.hist.length-1; }
     paintNav();
     m.querySelector('#di').textContent = r.error ? r.error : `${r.images} ảnh trong thư mục này • ${r.dirs.length} thư mục con`;
@@ -930,7 +941,7 @@ $('#bCull').onclick=()=>{
   let tmr=null;
   const cand=()=>{ const on=k=>m.querySelector('#k_'+k) && m.querySelector('#k_'+k).checked && !m.querySelector('#k_'+k).disabled;
     const sel=['blur','dark','bright','eyes','dup'].filter(on); return S.photos.filter(p=>p.rating===0 && p.flags.some(f=>sel.includes(f))); };
-  const show=()=>{ const c=cand(); m.querySelector('#cres').innerHTML = `Sẽ loại <span class="warn">${c.length}</span> / ${S.photos.filter(p=>p.rating===0).length} ảnh chưa chấm`; };
+  const show=()=>{ const c=cand(), ap=m.querySelector('#capply'); m.querySelector('#cres').innerHTML = c.length?`Sẽ loại <span class="warn">${c.length}</span> / ${S.photos.filter(p=>p.rating===0).length} ảnh chưa chấm`:'Không có ảnh nào cần loại với mức lọc này.'; ap.disabled=!c.length; };
   const upd=()=>{ ids.forEach(i=>{ const e=m.querySelector('#'+i); m.querySelector('#'+i+'v').textContent = (+e.value%1?(+e.value).toFixed(2):e.value); });
     clearTimeout(tmr); tmr=setTimeout(async()=>{ const b={}; ids.forEach(i=>b[i]=+m.querySelector('#'+i).value);
       const r=await api('/api/settings',b); S.settings=r.settings; await loadPhotos(); show(); },250); };
@@ -939,7 +950,7 @@ $('#bCull').onclick=()=>{
   ids.forEach(i=>m.querySelector('#'+i).addEventListener('input',()=>{ s[i]=+m.querySelector('#'+i).value; paintPre(); })); paintPre();
   ids.forEach(i=>m.querySelector('#'+i).oninput=upd); m.querySelectorAll('input[type=checkbox]').forEach(c=>c.onchange=show);
   ids.forEach(i=>{ const e=m.querySelector('#'+i); m.querySelector('#'+i+'v').textContent=(+e.value%1?(+e.value).toFixed(2):e.value); }); show();
-  m.querySelector('#capply').onclick=async()=>{ const c=cand().map(p=>p.id); m.close(); const r=await api('/api/cull/apply',{ids:c}); c.forEach(i=>S.by.get(i).rating=-1); if(r.id) S.undo.push({t:'cull',batch:r.id}); await refreshCull(); S.filter='rej'; $('#fFilter').value='rej'; applyView(); toast(`Đã đánh dấu loại ${c.length} ảnh — kiểm tra lại trong bộ lọc “Đã loại”`,4000); };
+  m.querySelector('#capply').onclick=async()=>{ const c=cand().map(p=>p.id); if(!c.length) return; m.querySelector('#capply').disabled=true; m.close(); const r=await api('/api/cull/apply',{ids:c}); c.forEach(i=>S.by.get(i).rating=-1); if(r.id) S.undo.push({t:'cull',batch:r.id}); await refreshCull(); S.filter='rej'; $('#fFilter').value='rej'; applyView(); toast(`Đã đánh dấu loại ${c.length} ảnh — kiểm tra lại trong bộ lọc “Đã loại”`,4000); };
 };
 
 /* ---------- xuất ---------- */
@@ -1054,7 +1065,7 @@ async function poll(force){
       S.lastKey=key; S.lastLoad=now; if(st.state!=='idle'){ await loadPhotos(); if(st.state!=='scanning'||!S.people.length||fin) await loadPeople(); }
     }
     renderStatus();
-  }catch(e){ /* server tắt */ }
+  }catch(e){ /* api() đã báo mất kết nối */ }
   busy=false;
 }
 setInterval(()=>poll(false), 900);
