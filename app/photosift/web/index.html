@@ -45,7 +45,7 @@ input[type=range]{accent-color:var(--acc)}input[type=checkbox]{accent-color:var(
 #main.noinfo{grid-template-columns:230px 1fr}
 #main.noinfo #info{display:none}
 #side{overflow:auto;padding:12px 10px}
-#side h4{margin:4px 6px 10px;color:var(--mut);font-weight:600;text-transform:uppercase;font-size:11px;letter-spacing:.9px;display:flex;justify-content:space-between;align-items:center}
+#side h3{margin:4px 6px 10px;color:var(--mut);font-weight:600;text-transform:uppercase;font-size:11px;letter-spacing:.9px;display:flex;justify-content:space-between;align-items:center}
 .person{display:flex;gap:10px;align-items:center;padding:6px;border-radius:16px;cursor:pointer;border:1px solid transparent}
 .person:hover{background:var(--panel2)}.person.on{background:var(--sel);border-color:var(--acc2)}
 .person img{width:40px;height:40px;border-radius:50%;object-fit:cover;background:#000;border:2px solid rgba(255,255,255,.55)}
@@ -178,7 +178,7 @@ select option{background:var(--modal);color:var(--tx)}
 .ic{width:15px;height:15px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .bar{border-radius:var(--r);padding:7px 10px;gap:6px}
 #prog i{background:var(--acc)}
-#side h4{text-transform:none;letter-spacing:0;font-size:13px;color:var(--tx)}
+#side h3{text-transform:none;letter-spacing:0;font-size:13px;color:var(--tx)}
 .person{border-radius:8px}.person img{border:0}
 .cell{border-radius:8px;padding:4px;background:transparent;border-color:transparent}
 .cell:hover{background:var(--panel2)}.cell.cur{box-shadow:0 0 0 2px var(--acc);border-color:transparent}
@@ -200,6 +200,15 @@ canvas.hist{border-radius:6px;background:var(--inset)}
 #vinfo{background:var(--panel);-webkit-backdrop-filter:none;backdrop-filter:none}
 #vback button{background:rgba(20,22,26,.82);border-color:var(--line);color:var(--tx)}
 #vbadge .chip{padding:3px 9px}
+.chip{font-size:11px}.chip.dup{background:#0A6B60}.chip.blur{background:#A84C0E}.chip.topdup{background:#101216;color:#F2B01E;box-shadow:inset 0 0 0 1px #F2B01E}
+#vinfo .st button{background:none;border:0;padding:0 2px;font:inherit;color:#ffca28;cursor:pointer;border-radius:4px}
+#vinfo .st .vrej{font-size:18px;margin-left:4px}
+button.lbtn{padding:0;vertical-align:middle}button.lbtn.on{border-color:var(--tx)}
+.lclr{background:none;border:0;padding:2px 6px;color:var(--mut);font-size:12px;vertical-align:middle}.lclr:hover{color:var(--tx)}
+#sAdv{background:none;border:0;padding:0 4px;color:var(--mut);font-size:12px}#sAdv[aria-pressed=true]{color:var(--tx)}#sAdv:hover{color:var(--tx)}
+.cpre{display:flex;gap:6px;margin:4px 0 10px}.cpre button[aria-pressed=true]{border-color:var(--acc);color:var(--acc)}
+details.adv{margin:6px 0;border-top:1px solid var(--line);padding-top:6px}details.adv summary{cursor:pointer;color:var(--mut);padding:4px 0}details.adv summary:hover{color:var(--tx)}
+
 #catalog .chead{padding:8px 12px;box-shadow:none}
 #catalog h2{font-size:15px;font-weight:600}
 .cview{border-radius:calc(var(--r)*.6)}.cview button{border-radius:calc(var(--r)*.4)}
@@ -293,14 +302,14 @@ canvas.hist{border-radius:6px;background:var(--inset)}
   <div id="prog"><i></i></div>
   <div id="main">
     <div id="side">
-      <h4>Người <button id="bFaceCfg" title="Độ nhạy nhận diện" aria-label="Độ nhạy nhận diện" style="padding:2px 6px"><svg class="ic" aria-hidden="true"><use href="#i-tune"/></svg></button></h4>
+      <h3>Người <button id="bFaceCfg" title="Độ nhạy nhận diện" aria-label="Độ nhạy nhận diện" style="padding:2px 6px"><svg class="ic" aria-hidden="true"><use href="#i-tune"/></svg></button></h3>
       <div id="people"></div>
       <div class="hint" id="noPeople" style="padding:6px;display:none">Chưa nhận diện được khuôn mặt nào.</div>
     </div>
     <div id="gridwrap"><div id="grid"></div></div>
     <aside id="info"><div id="infobody"></div></aside>
   </div>
-  <div id="status"><span id="sCount"></span><span id="sSel"></span><span id="sCur" style="flex:1;text-align:right"></span><span id="sNet" title="Nhấp để kiểm tra lại kết nối mạng" style="cursor:pointer;margin-left:14px"></span></div>
+  <div id="status"><span id="sCount"></span><button id="sAdv" title="Sau khi chấm sao, loại hoặc gắn nhãn một ảnh, tự chuyển sang ảnh kế tiếp"></button><span id="sSel"></span><span id="sCur" style="flex:1;text-align:right"></span><span id="sNet" title="Nhấp để kiểm tra lại kết nối mạng" style="cursor:pointer;margin-left:14px"></span></div>
 </div>
 
 <div id="viewer">
@@ -338,9 +347,11 @@ function pname(id){ const p = S.people.find(p=>p.id===id); return p && p.name ? 
 /* ---------- modal ---------- */
 function modal(html){
   const b = document.createElement('div'); b.className='back';
-  b.innerHTML = `<div class="modal">${html}</div>`;
+  b.innerHTML = `<div class="modal" role="dialog" aria-modal="true">${html}</div>`;
+  const h=b.querySelector('h3'); if(h){ h.id='dlg'+Date.now(); b.firstChild.setAttribute('aria-labelledby',h.id); }
   b.addEventListener('mousedown', e=>{ if(e.target===b) b.remove(); });
   document.body.appendChild(b);
+  setTimeout(()=>{ const q=x=>b.querySelector(x), f=q('[autofocus]')||q('input:not([type=range]):not([type=checkbox]):not([disabled]),select')||q('button.pri')||q('button'); if(f) f.focus(); },0);
   b.close = ()=>b.remove();
   return b;
 }
@@ -382,8 +393,8 @@ function applyView(){
 /* ---------- lưới ---------- */
 const cells = new Map();
 function cellHTML(p){
-  const flags = p.an===false ? '<span class="chip" style="opacity:.7">…</span>' : p.flags.map(f=>`<span class="chip ${f}">${FLAG[f]}</span>`).join('');
-  const grp = p.grp ? `<span class="chip" style="background:rgba(0,121,107,.85)">⧉${p.grp}${p.best?' ★':''}</span>` : '';
+  const flags = p.an===false ? '<span class="chip" style="opacity:.7">…</span>' : p.flags.filter(f=>f!=='dup').map(f=>`<span class="chip ${f}">${FLAG[f]}</span>`).join('');
+  const grp = p.grp ? (p.best?`<span class="chip topdup" title="Ảnh tốt nhất trong nhóm ảnh trùng ${p.grp}">★ Tốt nhất · ${p.grp}</span>`:`<span class="chip dup" title="Ảnh trùng, thuộc nhóm ${p.grp}">Trùng · ${p.grp}</span>`) : '';
   return `<div class="im"><img loading="lazy" src="/thumb/${p.id}.jpg?v=${p.tv}" alt=""><div class="lab ${p.label?'l-'+p.label:''}"></div>
     <div class="flags">${flags}${grp}</div><div class="xmark">✕</div>
     <div class="stars">${p.rating>0?'★'.repeat(p.rating):''}</div>${p.nf?`<span class="nface">${p.nf} mặt</span>`:''}</div>
@@ -395,7 +406,7 @@ function renderGrid(){
   const wrap=$('#gridwrap');
   if(!S.photos.length){
     cells.clear(); sigs.clear();
-    wrap.innerHTML = `<div id="empty"><h2>${S.status.state==='scanning'?'Đang đọc ảnh…':(S.status.state==='error'?'Không mở được thư mục':'Chưa có ảnh nào')}</h2>${S.status.state==='error'?`<div style="color:#ffb3b3;max-width:520px;margin:0 auto 10px;word-break:break-word">${esc(S.status.message||'')}</div>`:''}${S.status.state==='done'&&S.status.root&&!S.photos.length?`<div style="color:#ffd9a0;margin-bottom:8px">Thư mục «${esc(S.status.root)}» không có ảnh nào (JPG/PNG/RAW/HEIC).</div>`:''}<div>Mở một thư mục ảnh để bắt đầu.<br>PhotoSift sẽ tự phát hiện ảnh mờ, tối, nhắm mắt, trùng lặp<br>và nhóm ảnh theo từng người.</div><button class="pri" onclick="pickFolder()"><svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg>Mở thư mục</button></div>`;
+    wrap.innerHTML = `<div id="empty"><h2>${S.status.state==='scanning'?'Đang đọc ảnh…':(S.status.state==='error'?'Không mở được thư mục':'Chưa có ảnh nào')}</h2>${S.status.state==='error'?`<div style="color:#ffb3b3;max-width:520px;margin:0 auto 10px;word-break:break-word">${esc(S.status.message||'')}</div>`:''}${S.status.state==='done'&&S.status.root&&!S.photos.length?`<div style="color:#ffd9a0;margin-bottom:8px">Thư mục «${esc(S.status.root)}» không có ảnh nào (JPG/PNG/RAW/HEIC).</div>`:''}<div>Mở một thư mục ảnh để bắt đầu.<br>App sẽ tự phát hiện ảnh mờ, tối, nhắm mắt, trùng lặp<br>và nhóm ảnh theo từng người.</div><button class="pri" onclick="pickFolder()"><svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg>Mở thư mục</button></div>`;
     renderStatus(); return;
   }
   if(!$('#grid')){ cells.clear(); sigs.clear(); wrap.innerHTML='<div id="grid"></div>'; }
@@ -439,7 +450,7 @@ function renderStatus(){
   const nRej=S.photos.filter(p=>p.rating===-1).length, bU=$('#bUnrej');
   bU.hidden=!nRej; bU.innerHTML=`<svg class="ic" aria-hidden="true"><use href="#i-restore"/></svg>Bỏ loại (${fmt(nRej)})`;
   $('#bUndo').disabled=!S.undo.length&&!(S.lastCull&&S.lastCull.n);
-  $('#sCount').textContent = `${S.view.length}/${S.photos.length} ảnh` + (st.state==='done'&&st.timing&&st.timing.all_s?` • ⏱ thumbnail ${st.timing.thumb_s}s · đọc ảnh ${st.timing.read_s}s · tổng ${st.timing.all_s}s`:'')+
+  $('#sCount').textContent = `${S.view.length}/${S.photos.length} ảnh` + (false&&st.state==='done'&&st.timing&&st.timing.all_s?` • ⏱ thumbnail ${st.timing.thumb_s}s · đọc ảnh ${st.timing.read_s}s · tổng ${st.timing.all_s}s`:'')+
     (st.state==='scanning'?` • thumbnail ${Math.max(st.thumbs,st.quick||0)}/${st.total} • phân tích ${st.done}/${st.total} (chạy nền — bạn có thể chấm ảnh ngay)`:'');
   $('#sSel').textContent = S.sel.size>1 ? `${S.sel.size} đã chọn` : '';
   const net=$('#sNet'); net.innerHTML = st.online ? '<span class="ok">● Trực tuyến</span>' : '<span class="warn">● Ngoại tuyến — đang khoá lọc tối/sáng/nhắm mắt</span>';
@@ -637,8 +648,8 @@ function renderBadge(p){
 function renderInfo(p, ix){
   const d = p.taken ? new Date(p.taken*1000).toLocaleString('vi-VN') : '—';
   $('#vinfo').innerHTML = `<h4>${esc(p.name)}</h4><div class="hint" style="margin-bottom:8px">${ix+1} / ${S.view.length}</div>
-   <div class="st" id="vstars">${[1,2,3,4,5].map(i=>`<span data-r="${i}">${i<=p.rating?'★':'☆'}</span>`).join('')} <span data-r="-1" style="font-size:18px;color:${p.rating===-1?'#ef5350':'#777'}">✕</span></div>
-   <div style="margin-bottom:10px">${LABELS.map(l=>`<span class="lbtn l-${l} ${p.label===l?'on':''}" data-l="${l}" title="${LABEL_NAME[l]}"></span>`).join('')}<span class="hint" style="cursor:pointer" data-l="">bỏ nhãn</span></div>
+   <div class="st" id="vstars" role="group" aria-label="Chấm sao">${[1,2,3,4,5].map(i=>`<button data-r="${i}" aria-label="${i} sao" aria-pressed="${i<=p.rating}">${i<=p.rating?'★':'☆'}</button>`).join('')} <button data-r="-1" class="vrej" aria-label="Loại ảnh" aria-pressed="${p.rating===-1}" style="color:${p.rating===-1?'var(--red)':'var(--mut)'}">✕</button></div>
+   <div style="margin-bottom:10px" role="group" aria-label="Nhãn màu">${LABELS.map(l=>`<button class="lbtn l-${l} ${p.label===l?'on':''}" data-l="${l}" title="${LABEL_NAME[l]}" aria-label="Nhãn ${LABEL_NAME[l]}" aria-pressed="${p.label===l}"></button>`).join('')}<button class="lclr" data-l="">Bỏ nhãn</button></div>
    <div id="vsec"></div>
    <div class="kv">Điểm chất lượng<b>${p.score}</b></div><div class="kv">Kích thước<b>${p.w}×${p.h}</b></div><div class="kv">Chụp lúc<b>${d}</b></div>
    <div class="kv">Độ nét (toàn ảnh)<b>${p.sharp}</b></div><div class="kv">Độ nét (mặt)<b>${p.nf?p.fsharp:'—'}</b></div>
@@ -673,7 +684,8 @@ function exifHTML(x){
   x=x||{};
   const rows=[['Ngày',x.date],['Giờ',x.time],['Vĩ độ',x.lat],['Kinh độ',x.lon],['Máy ảnh',x.model],['Số seri',x.serial],['Firmware',x.firmware],['Số khung',x.frame],
     ['Ống kính',x.lens],['Tiêu cự (mm)',x.focal],['ISO',x.iso],['Khẩu độ',x.aperture?'f/'+x.aperture:''],['Tốc độ',x.shutter],['Bù sáng (EV)',x.expcomp],['Đèn chớp',x.flash],['Dung lượng',x.size_mb?x.size_mb+' MB':'']];
-  return '<dl class="ex">'+rows.map(([k,v])=>`<dt>${k}</dt><dd>${esc(v||'')}</dd>`).join('')+'</dl>';
+  const has=rows.filter(([k,v])=>v!==undefined&&v!==null&&String(v).trim()!=='');   // ẩn dòng trống
+  return has.length?'<dl class="ex">'+has.map(([k,v])=>`<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')+'</dl>':'<div class="hint">Ảnh này không lưu thông số chụp.</div>';
 }
 function drawHist(cv,h){
   const dpr=window.devicePixelRatio||1, W=cv.clientWidth||260, H=cv.clientHeight||120;
@@ -728,6 +740,10 @@ try{ if(localStorage.getItem('ps_info')==='0') $('#main').classList.add('noinfo'
 
 /* ---------- phím tắt ---------- */
 function cols(){ const g=$('#grid'); return g ? getComputedStyle(g).gridTemplateColumns.split(' ').length : 1; }
+/* tự sang ảnh kế sau khi chấm một ảnh: bật/tắt ở thanh trạng thái, nhớ cho lần sau */
+S.adv=(()=>{ try{ return localStorage.getItem('ps_adv')!=='0'; }catch(e){ return true; } })();
+function paintAdv(){ const b=$('#sAdv'); if(b){ b.textContent='Tự sang ảnh kế: '+(S.adv?'Bật':'Tắt'); b.setAttribute('aria-pressed',String(S.adv)); } }
+function advance(t){ if(S.adv && t.length===1) move(1); }
 function move(delta, shift){
   if(!S.view.length) return; let ix=S.view.findIndex(p=>p.id===S.cur); ix=Math.max(0,Math.min(S.view.length-1,(ix<0?0:ix)+delta));
   setCur(S.view[ix].id,{extend:shift});
@@ -745,9 +761,9 @@ document.addEventListener('keydown', e=>{
   else if(k==='ArrowUp'){ e.preventDefault(); S.viewer?move(-1):move(-cols(),e.shiftKey); }
   else if(k==='Enter'||k===' '){ e.preventDefault(); S.viewer?closeViewer():openViewer(); }
   else if(k==='Escape'&&!e.repeat){ if(S.viewer) closeViewer(); else showCatalog(); }   // Esc lùi từng cấp: ảnh lớn → lưới → Catalog
-  else if(/^[0-5]$/.test(k)) rate(targets(), +k);
-  else if(k==='x'||k==='X'){ const t=targets(); if(t.length) rate(t, S.by.get(t[0]).rating===-1?0:-1); }
-  else if(k>='6'&&k<='9') label(targets(), LABELS[+k-6]);
+  else if(/^[0-5]$/.test(k)){ const t=targets(); rate(t, +k); advance(t); }
+  else if(k==='x'||k==='X'){ const t=targets(); if(t.length){ rate(t, S.by.get(t[0]).rating===-1?0:-1); advance(t); } }
+  else if(k>='6'&&k<='9'){ const t=targets(); label(t, LABELS[+k-6]); advance(t); }
   else if(k==='-') label(targets(), '');
   else if(k==='h'||k==='H'){ if(S.viewer) cycleHS(); }
   else if(k==='f'||k==='F'){ S.boxes=!S.boxes; if(S.viewer) showViewer(); }
@@ -893,16 +909,21 @@ $('#sNet').onclick=async()=>{ toast('Đang kiểm tra kết nối mạng…'); t
 $('#bCull').onclick=()=>{
   const s=S.settings; const net=!!S.status.online; const eyesOK=S.status.eyes&&net; const lock=net?'':'disabled';
   const lockMsg=net?'':'<div class="warn" style="margin:4px 0 8px">Đang ngoại tuyến: lọc <b>tối / cháy sáng / nhắm mắt</b> cần kết nối mạng. Hãy bật mạng (tự mở khoá trong ~15 giây, hoặc nhấp “Ngoại tuyến” ở thanh dưới). Vẫn dùng được: ảnh mờ, ảnh trùng lặp.</div>';
-  const sl=(id,lab,min,max,step,val)=>`<div class="row"><label>${lab}</label><input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}"><span class="v" id="${id}v"></span></div>`;
+  const sl=(id,lab,min,max,step,val)=>`<div class="row"><label for="${id}">${lab}</label><input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}"><span class="v" id="${id}v"></span></div>`;
+  const PRE={nhe:{blur_ratio:.35,dark:.14,bright:.88,ear:.15,dup_hamming:6,dup_seconds:10},vua:{blur_ratio:.45,dark:.2,bright:.8,ear:.19,dup_hamming:10,dup_seconds:20},manh:{blur_ratio:.6,dark:.26,bright:.74,ear:.22,dup_hamming:14,dup_seconds:40}};
+  const preOf=()=>Object.keys(PRE).find(k=>Object.entries(PRE[k]).every(([i,v])=>Math.abs((s[i]??0)-v)<1e-6))||'';
   const m=modal(`<h3>Tự động lọc ảnh</h3>
    <div class="hint" style="margin-bottom:6px">Đánh dấu <b>✕ loại</b> những ảnh chưa chấm sao mà dính cảnh báo. File gốc không bị xoá hay di chuyển, và có thể hoàn tác.</div>
    ${lockMsg}
-   <div class="row"><label><input type="checkbox" id="k_blur" checked> Ảnh mờ</label></div>${sl('blur_ratio','&nbsp;&nbsp;Ngưỡng mờ (×trung vị)',0.1,1,0.05,s.blur_ratio)}
-   <div class="row"><label><input type="checkbox" id="k_dark" ${net?'checked':'disabled'}> Ảnh tối</label></div>${sl('dark','&nbsp;&nbsp;Độ sáng dưới',0.03,0.4,0.01,s.dark)}
-   <div class="row"><label><input type="checkbox" id="k_bright" ${net?'checked':'disabled'}> Cháy sáng</label></div>${sl('bright','&nbsp;&nbsp;Độ sáng trên',0.6,0.98,0.01,s.bright)}
-   <div class="row"><label><input type="checkbox" id="k_eyes" ${eyesOK?'checked':'disabled'}> Nhắm mắt</label>${eyesOK||!net?'':'<span class="hint warn">cần model lbfmodel.yaml (python -m photosift.models)</span>'}</div>${sl('ear','&nbsp;&nbsp;Ngưỡng EAR dưới',0.08,0.3,0.01,s.ear)}
-   <div class="row"><label><input type="checkbox" id="k_dup" checked> Ảnh trùng lặp</label><span class="hint">giữ bản điểm cao nhất mỗi nhóm</span></div>
-   ${sl('dup_hamming','&nbsp;&nbsp;Độ giống (dHash ≤)',0,24,1,s.dup_hamming)}${sl('dup_seconds','&nbsp;&nbsp;Cách nhau tối đa (giây)',1,120,1,s.dup_seconds)}
+   <div class="row" style="flex-wrap:wrap;gap:4px 16px"><label><input type="checkbox" id="k_blur" checked> Ảnh mờ</label><label><input type="checkbox" id="k_dark" ${net?'checked':'disabled'}> Ảnh tối</label><label><input type="checkbox" id="k_bright" ${net?'checked':'disabled'}> Cháy sáng</label><label><input type="checkbox" id="k_eyes" ${eyesOK?'checked':'disabled'}> Nhắm mắt</label><label title="Giữ lại ảnh tốt nhất của mỗi nhóm"><input type="checkbox" id="k_dup" checked> Ảnh trùng</label></div>
+   ${eyesOK||!net?'':'<div class="hint warn">Chưa có mô hình nhận diện mắt. App tự tải khi có mạng, hãy mở lại app sau vài phút.</div>'}
+   <div class="row"><label>Mức lọc</label><div class="cpre" role="group" aria-label="Mức lọc"><button data-p="nhe">Nhẹ</button><button data-p="vua">Vừa</button><button data-p="manh">Mạnh</button></div></div>
+   <details class="adv"><summary>Tùy chỉnh nâng cao</summary>
+   ${sl('blur_ratio','Độ nét tối thiểu (so với cả thư mục)',0.1,1,0.05,s.blur_ratio)}
+   ${sl('dark','Tối hơn mức',0.03,0.4,0.01,s.dark)}${sl('bright','Sáng hơn mức',0.6,0.98,0.01,s.bright)}
+   ${sl('ear','Độ mở mắt tối thiểu',0.08,0.3,0.01,s.ear)}
+   ${sl('dup_hamming','Độ khác nhau tối đa để coi là trùng',0,24,1,s.dup_hamming)}${sl('dup_seconds','Chụp cách nhau tối đa (giây)',1,120,1,s.dup_seconds)}
+   </details>
    <div id="cres" style="margin-top:10px;font-weight:600"></div>
    <div class="btns"><button onclick="this.closest('.back').remove()">Đóng</button><button class="pri" id="capply">Đánh dấu loại</button></div>`);
   const ids=['blur_ratio','dark','bright','ear','dup_hamming','dup_seconds'];
@@ -913,30 +934,40 @@ $('#bCull').onclick=()=>{
   const upd=()=>{ ids.forEach(i=>{ const e=m.querySelector('#'+i); m.querySelector('#'+i+'v').textContent = (+e.value%1?(+e.value).toFixed(2):e.value); });
     clearTimeout(tmr); tmr=setTimeout(async()=>{ const b={}; ids.forEach(i=>b[i]=+m.querySelector('#'+i).value);
       const r=await api('/api/settings',b); S.settings=r.settings; await loadPhotos(); show(); },250); };
+  const paintPre=()=>m.querySelectorAll('.cpre button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.p===preOf())));
+  m.querySelector('.cpre').onclick=e=>{ const p=PRE[e.target.dataset.p]; if(!p) return; ids.forEach(i=>{ m.querySelector('#'+i).value=p[i]; }); Object.assign(s,p); paintPre(); upd(); };
+  ids.forEach(i=>m.querySelector('#'+i).addEventListener('input',()=>{ s[i]=+m.querySelector('#'+i).value; paintPre(); })); paintPre();
   ids.forEach(i=>m.querySelector('#'+i).oninput=upd); m.querySelectorAll('input[type=checkbox]').forEach(c=>c.onchange=show);
   ids.forEach(i=>{ const e=m.querySelector('#'+i); m.querySelector('#'+i+'v').textContent=(+e.value%1?(+e.value).toFixed(2):e.value); }); show();
   m.querySelector('#capply').onclick=async()=>{ const c=cand().map(p=>p.id); m.close(); const r=await api('/api/cull/apply',{ids:c}); c.forEach(i=>S.by.get(i).rating=-1); if(r.id) S.undo.push({t:'cull',batch:r.id}); await refreshCull(); S.filter='rej'; $('#fFilter').value='rej'; applyView(); toast(`Đã đánh dấu loại ${c.length} ảnh — kiểm tra lại trong bộ lọc “Đã loại”`,4000); };
 };
 
 /* ---------- xuất ---------- */
+function paintAdvInit(){ paintAdv(); $('#sAdv').onclick=()=>{ S.adv=!S.adv; try{ localStorage.setItem('ps_adv',S.adv?'1':'0'); }catch(e){} paintAdv(); }; }
+paintAdvInit();
 $('#bExport').onclick=()=>{
   const m=modal(`<h3>Xuất ảnh (sao chép)</h3>
-   <div class="row"><label>Ảnh cần xuất</label><select id="xs" style="flex:1"><option value="sel">Đang chọn (${S.sel.size||(S.cur!==null?1:0)})</option><option value="view">Tất cả ảnh đang hiển thị (${S.view.length})</option><option value="keep">Tất cả trừ ảnh bị loại (${S.photos.filter(p=>p.rating>=0).length})</option><option value="r5">★★★★★ 5 sao (${S.photos.filter(p=>p.rating===5).length})</option><option value="r3">★ 3 sao trở lên (${S.photos.filter(p=>p.rating>=3).length})</option></select></div>
-   <div class="row"><label>Thư mục đích</label><input type="text" id="xd" style="flex:1" placeholder="Chọn thư mục…"><button id="xb">…</button></div>
-   <div class="row"><label>Mẫu tên file</label><input type="text" id="xt" style="flex:1" value="{name}"></div>
+   <div class="row"><label for="xs">Ảnh cần xuất</label><select id="xs" style="flex:1"><option value="sel">Đang chọn (${S.sel.size||(S.cur!==null?1:0)})</option><option value="view">Tất cả ảnh đang hiển thị (${S.view.length})</option><option value="keep">Tất cả trừ ảnh bị loại (${S.photos.filter(p=>p.rating>=0).length})</option><option value="r5">★★★★★ 5 sao (${S.photos.filter(p=>p.rating===5).length})</option><option value="r3">★ 3 sao trở lên (${S.photos.filter(p=>p.rating>=3).length})</option></select></div>
+   <div class="row"><label for="xd">Thư mục đích</label><input type="text" id="xd" style="flex:1" placeholder="Chọn thư mục…"><button id="xb" aria-label="Chọn thư mục đích">Chọn…</button></div>
+   <div class="row"><label for="xt">Mẫu tên file</label><input type="text" id="xt" style="flex:1" value="{name}"></div>
    <div class="hint" style="margin:-4px 0 6px 160px">{name} {date} {time} {seq} {person}</div>
    <div class="row"><label></label><label style="flex:1;color:var(--tx)"><input type="checkbox" id="xp"> Tách thư mục theo từng người (ảnh nhiều người được chép vào nhiều thư mục)</label></div>
    <div class="row"><label></label><label style="flex:1;color:var(--tx)"><input type="checkbox" id="xx" checked> Ghi sao/nhãn/tên người vào file .xmp (Lightroom, Bridge, Capture One đọc được với RAW)</label></div>
    <div id="xr" class="hint"></div>
    <div class="btns"><button onclick="this.closest('.back').remove()">Đóng</button><button class="pri" id="xgo">Sao chép</button></div>`);
-  if(S.filter!=='all') m.querySelector('#xs').value='view';
+  // mặc định: lựa chọn lần trước; lần đầu thì "tất cả trừ ảnh loại", hoặc đúng bộ đang lọc
+  const xs=m.querySelector('#xs'), xgo=m.querySelector('#xgo'), ls=k=>{ try{ return localStorage.getItem(k)||''; }catch(e){ return ''; } };
+  const last=ls('ps_xs'); xs.value=[...xs.options].some(o=>o.value===last)?last:(S.filter!=='all'?'view':'keep');
+  m.querySelector('#xd').value=ls('ps_xd');
+  const pick=()=>{ const sc=xs.value; return sc==='sel'?targetsForExport():sc==='view'?S.view.map(p=>p.id):sc==='keep'?S.photos.filter(p=>p.rating>=0).map(p=>p.id):sc==='r5'?S.photos.filter(p=>p.rating===5).map(p=>p.id):S.photos.filter(p=>p.rating>=3).map(p=>p.id); };
+  const paintGo=()=>{ xgo.textContent=`Sao chép ${fmt(pick().length)} ảnh`; };
+  xs.onchange=()=>{ try{ localStorage.setItem('ps_xs',xs.value); }catch(e){} paintGo(); }; paintGo();
   m.querySelector('#xb').onclick=()=>pickFolder(m.querySelector('#xd').value||'', p=>{ m.querySelector('#xd').value=p; }, 'Chọn thư mục đích');
   m.querySelector('#xgo').onclick=async()=>{
-    const sc=m.querySelector('#xs').value; let list;
-    if(sc==='sel') list=targetsForExport(); else if(sc==='view') list=S.view.map(p=>p.id); else if(sc==='keep') list=S.photos.filter(p=>p.rating>=0).map(p=>p.id); else if(sc==='r5') list=S.photos.filter(p=>p.rating===5).map(p=>p.id); else list=S.photos.filter(p=>p.rating>=3).map(p=>p.id);
-    const dest=m.querySelector('#xd').value.trim(); if(!dest){ toast('Chưa chọn thư mục đích'); return; } if(!list.length){ toast('Không có ảnh để xuất'); return; }
+    const list=pick();
+    const dest=m.querySelector('#xd').value.trim(); try{ localStorage.setItem('ps_xd',dest); }catch(e){} if(!dest){ toast('Chưa chọn thư mục đích'); return; } if(!list.length){ toast('Không có ảnh để xuất'); return; }
     m.querySelector('#xgo').disabled=true;
-    const xr=m.querySelector('#xr'); const fmt=n=>n.toLocaleString('vi-VN');
+    const xr=m.querySelector('#xr');
     xr.innerHTML=`<div class="xprog" style="height:14px;border-radius:8px;background:rgba(255,255,255,.12);overflow:hidden;margin:6px 0 4px"><i id="xbar" style="display:block;height:100%;width:0;background:linear-gradient(90deg,#f5a623,#ffd27a);transition:width .25s"></i></div><div id="xtx" style="color:var(--tx)">Đang chuẩn bị…</div>`;
     const bar=xr.querySelector('#xbar'), tx=xr.querySelector('#xtx');
     try{
@@ -952,7 +983,8 @@ $('#bExport').onclick=()=>{
       }
       if(st.state==='error') throw new Error(st.message||'Lỗi khi xuất');
       bar.style.width='100%';
-      tx.innerHTML=`<span class="ok"><b>Hoàn tất 100%</b> — đã xuất ${fmt(st.done)}/${fmt(st.total)} ảnh (${fmt(st.copied)} file).</span>`+(st.n_errors?` <span class="warn">${st.n_errors} lỗi: ${esc((st.errors||[]).join('; '))}</span>`:'');
+      tx.innerHTML=`<span class="ok"><b>Xong.</b> Đã sao chép ${fmt(st.done)}/${fmt(st.total)} ảnh (${fmt(st.copied)} file).</span> <button id="xopen">Mở thư mục</button>`+(st.n_errors?`<div class="warn" style="margin-top:6px">${st.n_errors} ảnh chưa chép được: ${esc((st.errors||[]).slice(0,5).join('; '))}${st.n_errors>5?'…':''}</div>`:'');
+      tx.querySelector('#xopen').onclick=async()=>{ const r=await api('/api/reveal',{path:dest}); if(r.error) toast(r.error); };
     }catch(err){ xr.innerHTML=`<span class="warn">${esc(err.message)}</span>`; }
     m.querySelector('#xgo').disabled=false;
   };
@@ -988,6 +1020,7 @@ function targetsForExport(){ return S.sel.size?[...S.sel]:(S.cur!==null?[S.cur]:
 function showHelp(){
   modal(`<h3>Phím tắt</h3><div style="line-height:2">
    <span class="kbd">← → ↑ ↓</span> di chuyển (giữ <span class="kbd">Shift</span> để chọn dải) &nbsp; <span class="kbd">Ctrl+A</span> chọn tất cả<br>
+   <span class="kbd">Esc</span> quay lại một bước &nbsp; <span class="kbd">H</span> vùng cháy/mất chi tiết &nbsp; <span class="kbd">T</span> dải ảnh &nbsp; <span class="kbd">Ctrl+1</span>/<span class="kbd">Ctrl+2</span> Lọc ảnh/Dàn trang<br>
    <span class="kbd">Enter</span>/<span class="kbd">Space</span> xem ảnh lớn &nbsp; Lăn chuột phóng to, giữ chuột phải kéo ảnh, <span class="kbd">Z</span> phóng nhanh (kiểm tra độ nét) &nbsp; <span class="kbd">F</span> tên người<br>
    <span class="kbd">0–5</span> số sao &nbsp; <span class="kbd">X</span> loại / bỏ loại &nbsp; <span class="kbd">6</span> đỏ <span class="kbd">7</span> vàng <span class="kbd">8</span> xanh lá <span class="kbd">9</span> xanh dương <span class="kbd">-</span> bỏ nhãn<br>
    <span class="kbd">Ctrl+Z</span> hoàn tác</div>

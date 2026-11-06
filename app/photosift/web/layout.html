@@ -38,7 +38,8 @@ button,input,select,textarea{font:inherit;color:inherit}
 .btn:hover{border-color:var(--accent)}
 .btn:disabled{opacity:.45;cursor:default;border-color:var(--line)}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-weight:600}
-.btn.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn.on{background:color-mix(in srgb,var(--accent) 18%,var(--panel-2));border-color:var(--accent);color:var(--fg)}
+::placeholder{color:var(--muted);opacity:1}
 .btn.icon{padding:5px 8px;min-width:32px}
 .btn.danger{color:var(--danger)}
 .btn.wide{width:100%}
@@ -102,12 +103,12 @@ button,input,select,textarea{font:inherit;color:inherit}
 #view.dropping{outline:2px dashed var(--accent);outline-offset:-8px}
 .hud{position:absolute;right:calc(10px + env(safe-area-inset-right,0px));bottom:10px;display:flex;gap:4px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:3px}
 .hud .btn{min-height:26px;min-width:26px;padding:1px 6px;border-color:transparent;background:none}
-.hud .btn.on{background:var(--accent);color:var(--on-accent)}
+.hud .btn.on{background:color-mix(in srgb,var(--accent) 22%,var(--panel-2));color:var(--fg)}
 #zoomPct{font:12px var(--mono);min-width:44px;text-align:center;font-variant-numeric:tabular-nums}
 #cropBar{position:absolute;left:50%;top:10px;transform:translateX(-50%);display:flex;gap:8px;align-items:center;background:var(--panel);border:1px solid var(--accent);border-radius:4px;padding:5px 6px 5px 12px;font-size:13px;max-width:calc(100% - 20px)}
 
 /* rail */
-#rail{grid-area:rail;display:flex;gap:8px;align-items:center;overflow-x:auto;background:var(--panel);border-top:1px solid var(--line);padding:8px 10px}
+#rail{grid-area:rail;display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;background:var(--panel);border-top:1px solid var(--line);padding:8px 10px}
 .fr{flex:none;background:none;border:2px solid transparent;border-radius:4px;padding:0;cursor:pointer;position:relative;line-height:0}
 .fr canvas{height:64px;width:auto;display:block;border-radius:2px}
 .fr[aria-current="true"]{border-color:var(--accent)}
@@ -133,7 +134,8 @@ body.dragging .gap.over{width:44px;background:var(--accent)}
 .tile b{position:absolute;right:2px;bottom:2px;font:10px/1 var(--mono);padding:2px 3px;background:#000b;color:#fff;border-radius:2px}
 #binGrid.over{outline:2px dashed var(--accent);outline-offset:-3px}
 .fr b{position:absolute;left:3px;top:3px;font:10px/1 var(--mono);padding:2px 3px;background:#000a;color:#fff;border-radius:2px}
-#railTools{display:flex;gap:4px;flex:none;position:sticky;right:-10px;margin-left:auto;padding:0 10px 0 8px;background:var(--panel)}
+#railList{flex:1 1 240px;min-width:0;display:flex;gap:8px;align-items:center;overflow-x:auto}
+#railTools{display:flex;flex-wrap:wrap;gap:4px;margin-left:auto}
 
 /* properties */
 #props{grid-area:props;background:var(--panel);border-left:1px solid var(--line);min-height:0;overflow:auto;padding:14px 12px}
@@ -1322,7 +1324,7 @@ const SOLIDS=['#ffffff','#f2f0ec','#e7e9ec','#16181d','#2b3a4a','#f2b01e','#e26d
 function renderPane(){
   const p=$('#pane'),top=p.scrollTop;p.replaceChildren();
   document.querySelectorAll('#tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===tab));
-  if(tab==='templates'){p.append(el('h2',{textContent:'Mẫu bố cục'}),el('p',{textContent:'Kéo mẫu vào slide, hoặc bấm để dùng cho slide đang chọn. Ảnh có sẵn trên slide sẽ tự xếp vào khung mới.'}),el('button',{class:'btn primary wide',id:'btnRef',style:'margin-bottom:10px',textContent:'Tạo mẫu từ ảnh',title:'Tải ảnh layout lấy ở nơi khác để tạo mẫu',onclick:openRef}));
+  if(tab==='templates'){p.append(el('h2',{textContent:'Mẫu bố cục'}),el('p',{textContent:'Kéo mẫu vào slide, hoặc bấm để dùng cho slide đang chọn. Ảnh có sẵn trên slide sẽ tự xếp vào khung mới.'}),el('button',{class:'btn wide',id:'btnRef',style:'margin-bottom:10px',textContent:'Tạo mẫu từ ảnh',title:'Tải ảnh layout lấy ở nơi khác để tạo mẫu',onclick:openRef}));
     const cat=(v,l)=>btn(l,()=>{tplCat=v;renderPane()},{class:tplCat===v?'on':''}),sel=el('select',{id:'tplCount','aria-label':'Lọc theo số ảnh',onchange:e=>{tplCount=e.target.value;renderPane()}});
     [['all','Mọi số ảnh'],['1','1 ảnh'],['2','2 ảnh'],['3','3 ảnh'],['4','4 ảnh'],['5','5 ảnh'],['6','6 ảnh'],['7','7 đến 9 ảnh'],['10','Từ 10 ảnh']].forEach(([v,l])=>sel.append(el('option',{value:v,textContent:l})));sel.value=tplCount;
     p.append(el('div',{class:'tplfilter'},el('div',{class:'row'},cat('all','Tất cả'),cat('Của tôi',`Của tôi (${myTpl.length})`),cat('Lưới','Lưới'),cat('Trải liền','Trải liền'),cat('Có chữ','Có chữ'),cat('Trang trí','Trang trí')),sel));
@@ -1572,7 +1574,7 @@ function railDrop(zone,fn){zone.addEventListener('dragover',e=>{e.preventDefault
   zone.addEventListener('drop',async e=>{e.preventDefault();e.stopPropagation();zone.classList.remove('over');document.body.classList.remove('dragging');
     if(dragTpl){const t=dragTpl;dragTpl=null;fn(null,t);return}if(slideDrag!=null){fn(null);return}const ids=await dropSource(e);if(ids.length)fn(ids)})}
 function renderRail(){
-  if(!doc)return;const r=$('#rail'),left=r.scrollLeft;r.replaceChildren();
+  if(!doc)return;const rail=$('#rail'),old=$('#railList'),left=old?old.scrollLeft:0;rail.replaceChildren();const r=el('div',{id:'railList'});rail.append(r);
   const gap=i=>{const g=el('div',{class:'gap','aria-hidden':'true'});railDrop(g,(ids,t)=>{if(t)useTemplate(t,{insertAt:i});else if(ids)insertFlow(i,ids);else{moveSlide(slideDrag,i);slideDrag=null}});return g};
   r.append(gap(0));
   for(let i=0;i<doc.slides;i++){const c=renderSlide(i,64/doc.h*2,false);
@@ -1581,7 +1583,7 @@ function renderRail(){
     b.addEventListener('dragend',()=>{slideDrag=null;document.body.classList.remove('dragging')});
     railDrop(b,(ids,t)=>{if(t)useTemplate(t,{slide:i});else if(ids)dropAt(ids,{slide:i,free:$('#dropMode').value==='free'});else{moveSlide(slideDrag,i<slideDrag?i:i+1);slideDrag=null}});
     r.append(b,gap(i+1))}
-  r.append(el('div',{id:'railTools'},btn('Giãn cách',()=>{tab='photos';renderPane();const i=$('#p-aG');if(i)i.focus()},{title:'Đổi khoảng cách giữa các ảnh'}),btn('Lưu thành mẫu',()=>openSaveTpl(false),{class:'on',title:'Lưu bố cục của slide này để dùng lại'}),btn('Bố cục ‹',()=>cycleLayout(-1),{title:'Bố cục trước cho slide đang chọn'}),btn('›',()=>cycleLayout(1),{title:'Bố cục sau cho slide đang chọn'}),btn('+ Thêm slide',addSlide,{disabled:doc.slides>=MAX_SLIDES,title:'Thêm slide sau slide đang chọn'}),btn('Xóa slide',removeSlide,{disabled:doc.slides<=1,class:'danger',title:'Xóa slide đang chọn'})));
+  rail.append(el('div',{id:'railTools'},btn('Giãn cách',()=>{tab='photos';renderPane();const i=$('#p-aG');if(i)i.focus()},{title:'Đổi khoảng cách giữa các ảnh'}),btn('Lưu thành mẫu',()=>openSaveTpl(false),{title:'Lưu bố cục của slide này để dùng lại'}),btn('Bố cục ‹',()=>cycleLayout(-1),{title:'Bố cục trước cho slide đang chọn'}),btn('›',()=>cycleLayout(1),{title:'Bố cục sau cho slide đang chọn'}),btn('+ Thêm slide',addSlide,{disabled:doc.slides>=MAX_SLIDES,title:'Thêm slide sau slide đang chọn'}),btn('Xóa slide',removeSlide,{disabled:doc.slides<=1,class:'danger',title:'Xóa slide đang chọn'})));
   r.scrollLeft=left;
 }
 function renderRailState(){document.querySelectorAll('.fr').forEach((b,i)=>b.setAttribute('aria-current',String(i===activeSlide)))}

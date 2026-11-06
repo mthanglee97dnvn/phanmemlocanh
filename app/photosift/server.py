@@ -498,6 +498,15 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                         return self._json(fonts.set_ui(b.get("font", "")))
                     except ValueError as e:
                         return self._json(dict(error=str(e)), 400)
+                if u.path == "/api/reveal":   # mở thư mục đích sau khi xuất ảnh
+                    d = os.path.abspath(str(b.get("path", "")))
+                    if not os.path.isdir(d):
+                        return self._json(dict(error="Không tìm thấy thư mục"), 404)
+                    if os.name == "nt":
+                        os.startfile(d)  # noqa: S606
+                    else:
+                        subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", d])
+                    return self._json(dict(ok=True))
                 if u.path == "/api/update/start":
                     return self._json(upd.start())
                 if u.path == "/api/update/install":
