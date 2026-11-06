@@ -151,6 +151,11 @@ body.dragging .gap.over{width:44px;background:var(--accent)}
 .dpiPre button{background:var(--panel-2);border:1px solid var(--line);border-radius:3px;padding:3px 9px;color:inherit;font:inherit;font-size:12px;cursor:pointer}
 .dpiPre button[aria-pressed=true]{border-color:var(--accent);color:var(--accent)}
 .dpiInfo{color:var(--muted);font-size:13px;margin:6px 0 0}
+.expHead{display:flex;align-items:center;gap:10px;margin:8px 0 0}.expHead p{flex:1;margin:0;color:var(--muted);font-size:13px}.expHead .btn{flex:none}
+.expItem{position:relative;display:block;flex:none;cursor:pointer}
+.expItem input{position:absolute;top:6px;right:6px;width:18px;height:18px;margin:0;accent-color:var(--accent);cursor:pointer}
+.expItem.off canvas{opacity:.35}
+.expDim{display:block;color:var(--muted);font-size:12px;margin-top:4px;text-align:center;white-space:nowrap}
 .f input[type=color]{width:100%;height:28px;padding:1px;background:var(--panel-2);border:1px solid var(--line);border-radius:3px}
 .f input[type=text],.f input[type=number],.f select,textarea{width:100%;min-width:0;background:var(--panel-2);border:1px solid var(--line);border-radius:3px;padding:4px 6px}
 textarea{resize:vertical;min-height:72px;margin-bottom:8px;display:block}
@@ -236,7 +241,7 @@ dialog{background:var(--panel);color:var(--fg);border:1px solid var(--line);bord
 dialog::backdrop{background:#000b}
 dialog h2{font:600 18px var(--display);margin:0 0 12px}
 .dlgfoot{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap}
-.exp{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px;margin-top:10px;max-height:38vh;overflow:auto}
+.exp{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px;margin-top:10px;max-height:38vh;overflow:auto}
 .exp button{padding:0;background:none;border:1px solid var(--line);border-radius:3px;cursor:pointer;position:relative;line-height:0}
 .exp button:hover{border-color:var(--accent)}
 .exp canvas{width:100%;height:auto;display:block}
@@ -481,17 +486,17 @@ dialog h2{font:600 18px var(--display);margin:0 0 12px}
   <h2>Xuất ảnh</h2>
   <div class="f two"><label for="expFmt">Định dạng</label>
     <select id="expFmt"><option value="png">PNG, sắc nét nhất</option><option value="jpeg">JPG, dung lượng nhẹ</option></select></div>
-  <div class="f two"><label for="expSize">Chiều rộng</label>
+  <div class="f two"><label for="expSize">Kích thước</label>
     <select id="expSize"><option value="1">1080 px, chuẩn Instagram</option><option value="1.3334">1440 px</option><option value="2">2160 px</option><option value="3.7037">4000 px, in album</option></select></div>
   <div class="f two"><label for="expDpi">Độ phân giải</label>
     <div class="dpiRow"><input type="range" id="expDpi" min="72" max="600" step="1" value="300" aria-label="Độ phân giải DPI"><input type="number" id="expDpiN" min="72" max="600" step="1" value="300" aria-label="Nhập số DPI"><span>dpi</span></div></div>
   <div class="dpiPre" id="expDpiPre"><button type="button" data-d="72">72</button><button type="button" data-d="150">150</button><button type="button" data-d="240">240</button><button type="button" data-d="300">300</button></div>
   <p class="dpiInfo" id="expDpiInfo"></p>
-  <p style="color:var(--muted);font-size:13px;margin:8px 0 0">Bấm vào từng slide để tải riêng, hoặc tải tất cả trong một file ZIP theo đúng thứ tự đăng.</p>
+  <div class="expHead"><p>Tick trang muốn xuất. Một trang tải thành một file ảnh, nhiều trang tải thành file ZIP.</p><button type="button" class="btn" id="expPick"></button></div>
   <div class="exp" id="expList"></div>
   <div class="dlgfoot">
     <button class="btn" id="expClose">Đóng</button>
-    <button class="btn primary" id="expZip">Tải tất cả (.zip)</button>
+    <button class="btn primary" id="expZip"></button>
   </div>
 </dialog>
 
@@ -1755,23 +1760,32 @@ homeEl.addEventListener('drop',async e=>{e.preventDefault();e.stopPropagation();
 function ask(title,body,yes){return new Promise(ok=>{const d=$('#confirmDlg');$('#confirmTitle').textContent=title;$('#confirmBody').textContent=body;$('#confirmYes').textContent=yes;
   const done=v=>{d.close();$('#confirmYes').onclick=$('#confirmNo').onclick=null;ok(v)};$('#confirmYes').onclick=()=>done(true);$('#confirmNo').onclick=()=>done(false);d.showModal()})}
 let toastT;function toast(m){const t=$('#toast');t.textContent=m;try{t.hidePopover()}catch(e){}try{t.showPopover()}catch(e){}clearTimeout(toastT);toastT=setTimeout(()=>{try{t.hidePopover()}catch(e){}},3200)}
+let expSel=new Set();
 function openExport(){const l=$('#expList');l.replaceChildren();if(firstEmpty())toast('Còn khung ảnh trống. Khung trống sẽ không xuất hiện trong ảnh.');
-  for(let i=0;i<doc.slides;i++){const c=renderSlide(i,.16);l.append(el('button',{title:`Tải slide ${i+1}`,'aria-label':`Tải slide ${i+1}`,onclick:()=>exportOne(i)},c,el('b',{textContent:i+1})))}
-  paintDpi();$('#exportDlg').showModal()}
+  expSel=new Set(Array.from({length:doc.slides},(_,i)=>i));
+  [...$('#expSize').options].forEach(o=>{const w=Math.round(W*+o.value),h=Math.round(doc.h*+o.value);o.textContent=`${w} × ${h} px`+({1080:', chuẩn Instagram',4000:', in album'}[w]||'')});
+  for(let i=0;i<doc.slides;i++){const box=el('input',{type:'checkbox',checked:true,'aria-label':`Xuất trang ${i+1}`,onchange:e=>{e.target.checked?expSel.add(i):expSel.delete(i);paintExpPick()}});
+    l.append(el('label',{className:'expItem'},renderSlide(i,.16),el('b',{textContent:i+1}),box,el('span',{className:'expDim'})))}
+  paintDpi();paintExpPick();$('#exportDlg').showModal()}
+function paintExpPick(){const n=expSel.size,all=n===doc.slides,z=$('#expZip');$('#expPick').textContent=all?'Bỏ chọn tất cả':'Chọn tất cả';
+  z.disabled=!n;z.textContent=!n?'Chưa chọn trang':n===1?'Tải 1 trang':`Tải ${n} trang (.zip)`;
+  [...$('#expList').querySelectorAll('.expItem')].forEach((it,i)=>it.classList.toggle('off',!expSel.has(i)))}
 const fmtOf=()=>$('#expFmt').value,extOf=f=>f==='png'?'png':'jpg',scaleOf=()=>+$('#expSize').value;
 const fileName=(i,f)=>`${safeName()}_${String(i+1).padStart(2,'0')}.${extOf(f)}`;
 const slideIds=i=>[...doc.items.filter(t=>t.type==='photo'&&t.src&&aabb(t).x<(i+1)*W&&aabb(t).x2>i*W).map(t=>t.src),...(doc.bg.type==='image'&&doc.bg.src?[doc.bg.src]:[])];
 const dpiOf=()=>Math.min(600,Math.max(72,Math.round(+$('#expDpi').value)||300));
 function paintDpi(){const d=dpiOf(),s=scaleOf(),w=Math.round(W*s),h=Math.round(doc.h*s),cm=n=>(n/d*2.54).toFixed(1).replace('.',',');
   $('#expDpiN').value=d;$('#expDpiPre').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(+b.dataset.d===d)));
-  $('#expDpiInfo').textContent=`Ảnh vẫn là ${w} × ${h} px, bố cục giữ nguyên. Khi in ở ${d} dpi: ${cm(w)} × ${cm(h)} cm.`}
+  $('#expDpiInfo').textContent=`Mỗi trang ${w} × ${h} px, bố cục giữ nguyên. Khi in ở ${d} dpi: ${cm(w)} × ${cm(h)} cm.`;
+  $('#expList').querySelectorAll('.expDim').forEach(e=>{e.textContent=`${w} × ${h} px`})}
 function pickDpi(v){$('#expDpi').value=Math.min(600,Math.max(72,Math.round(+v)||300));try{localStorage.setItem('vuot.dpi',String(dpiOf()))}catch(e){}paintDpi()}
 const exportBlob=(i,s,f)=>withFull(slideIds(i),async()=>setDpi(await toBlob(renderSlide(i,s,true,true),f),dpiOf()));
 async function exportOne(i){const f=fmtOf(),b=await exportBlob(i,scaleOf(),f);if(await saveFile(fileName(i,f),b))toast(`Đã tải slide ${i+1}`)}
-async function exportZip(){const f=fmtOf(),s=scaleOf(),files=[],btnZ=$('#expZip');btnZ.disabled=true;btnZ.textContent='Đang tạo…';
-  try{for(let i=0;i<doc.slides;i++){btnZ.textContent=`Đang tạo ${i+1}/${doc.slides}…`;files.push({name:fileName(i,f),blob:await exportBlob(i,s,f)})}
-    const z=await makeZip(files);if(await saveFile(safeName()+'.zip',z))toast(`Đã tải ${files.length} slide`)}
-  finally{btnZ.disabled=false;btnZ.textContent='Tải tất cả (.zip)'}}
+async function exportZip(){const pick=[...expSel].sort((a,b)=>a-b);if(!pick.length)return;if(pick.length===1)return exportOne(pick[0]);
+  const f=fmtOf(),s=scaleOf(),files=[],btnZ=$('#expZip');btnZ.disabled=true;btnZ.textContent='Đang tạo…';
+  try{for(const[k,i]of pick.entries()){btnZ.textContent=`Đang tạo ${k+1}/${pick.length}…`;files.push({name:fileName(i,f),blob:await exportBlob(i,s,f)})}
+    const z=await makeZip(files);if(await saveFile(safeName()+'.zip',z))toast(`Đã tải ${files.length} trang`)}
+  finally{paintExpPick()}}
 function openPreview(){const s=$('#swiper'),d=$('#dots');s.replaceChildren();d.replaceChildren();
   for(let i=0;i<doc.slides;i++){s.append(renderSlide(i,.5));d.append(el('i',{}))}
   $('#previewDlg').showModal();s.scrollLeft=0;markDot()}
@@ -1795,6 +1809,7 @@ try{const d=localStorage.getItem('vuot.dpi');if(d)$('#expDpi').value=d}catch(e){
 $('#expDpi').oninput=e=>pickDpi(e.target.value);$('#expDpiN').onchange=e=>pickDpi(e.target.value);$('#expSize').onchange=paintDpi;
 $('#expDpiPre').onclick=e=>{if(e.target.dataset.d)pickDpi(e.target.dataset.d)};
 $('#btnExport').onclick=openExport;$('#expClose').onclick=()=>$('#exportDlg').close();$('#expZip').onclick=exportZip;
+$('#expPick').onclick=()=>{const all=expSel.size===doc.slides;expSel=new Set(all?[]:Array.from({length:doc.slides},(_,i)=>i));$('#expList').querySelectorAll('input').forEach(c=>{c.checked=!all});paintExpPick()};
 $('#btnPreview').onclick=openPreview;$('#pvClose').onclick=()=>$('#previewDlg').close();$('#pvPrev').onclick=()=>pvStep(-1);$('#pvNext').onclick=()=>pvStep(1);
 $('#previewDlg').addEventListener('keydown',e=>{if(e.key==='ArrowRight')pvStep(1);if(e.key==='ArrowLeft')pvStep(-1)});
 $('#zoomIn').onclick=()=>zoomAt(1.2);$('#zoomOut').onclick=()=>zoomAt(1/1.2);$('#zoomFit').onclick=fit;
