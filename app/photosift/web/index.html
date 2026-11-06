@@ -130,6 +130,9 @@ html[data-theme=neutral] #viewer{background:#0b0c0e}
 #vwrap{position:relative;margin:auto;line-height:0}
 #vwrap img{display:block;max-width:calc(100vw - 290px);max-height:calc(100vh - var(--strip));cursor:zoom-in}
 #vstage.zoom #vwrap img{max-width:none;max-height:none;cursor:zoom-out}
+#vstage{scrollbar-width:none}#vstage::-webkit-scrollbar{display:none}
+#vstage.pan,#vstage.pan #vwrap img{cursor:grabbing}
+#vzoom{align-self:center;font-size:12px;padding:3px 10px}
 #strip{grid-row:2;grid-column:1/3;height:116px;background:rgba(0,0,0,.42);border-top:1px solid var(--line);overflow-x:auto;overflow-y:hidden;position:relative}
 #viewer.nostrip #strip{display:none}
 #stripin{position:relative;height:100%}
@@ -238,7 +241,7 @@ canvas.hist{width:100%;height:120px;display:block;border-radius:10px;background:
   <div id="vinfo"></div>
   <div id="strip"><div id="stripin"></div></div>
   <div id="vbadge"></div>
-  <div id="vback"><button id="vbGrid" title="Quay lại lưới ảnh (Esc)">← Lưới ảnh</button><button id="vbCat" title="Về Catalog thư mục">📚 Catalog</button></div>
+  <div id="vback"><button id="vbGrid" title="Quay lại lưới ảnh (Esc)">← Lưới ảnh</button><button id="vbCat" title="Về Catalog thư mục">📚 Catalog</button><span class="chip" id="vzoom" hidden></span></div>
 </div>
 <div id="toast"></div>
 
@@ -483,7 +486,23 @@ function renderStrip(center){
   window.addEventListener('resize',()=>renderStrip(false)); }
 
 /* ---------- trình xem ---------- */
-function openViewer(){ if(S.cur===null) return; S.viewer=true; S.zoom=false; $('#viewer').classList.add('on'); showViewer(); }
+/* phóng ảnh: lăn chuột quanh vị trí con trỏ, giữ chuột phải để kéo, bấm chuột trái hoặc phím Z để đổi nhanh */
+const Z={k:1,hi:false,max:8,hiFrom:1.6,click:2.5};
+function zoomBase(p){ const st=$('#vstage'), w=p.w||1, h=p.h||1, f=Math.min(st.clientWidth/w,st.clientHeight/h); return [w*f,h*f]; }
+function sizeZoom(){ const p=S.by.get(S.cur), img=$('#vimg'); if(!p) return; const [w,h]=zoomBase(p); img.style.width=Math.round(w*Z.k)+'px'; img.style.height=Math.round(h*Z.k)+'px'; }
+function paintZoom(){ const l=$('#vzoom'); l.hidden=!S.zoom; l.textContent=Math.round(Z.k*100)+'%'; }
+function resetZoom(){ Z.k=1; Z.hi=false; S.zoom=false; const img=$('#vimg'); img.style.width=img.style.height=''; paintZoom(); }
+function zoomTo(k,cx,cy){
+  const st=$('#vstage'), img=$('#vimg'), sr=st.getBoundingClientRect(), r=img.getBoundingClientRect();
+  const fx=Math.min(1,Math.max(0,(cx-r.left)/r.width)), fy=Math.min(1,Math.max(0,(cy-r.top)/r.height)), was=S.zoom, wasHi=Z.hi;
+  Z.k=Math.min(Z.max,Math.max(1,k));
+  if(Z.k<=1.001) resetZoom(); else { S.zoom=true; if(Z.k>Z.hiFrom) Z.hi=true; }
+  st.classList.toggle('zoom',S.zoom); if(S.zoom) sizeZoom();
+  st.scrollLeft=fx*img.offsetWidth-(cx-sr.left); st.scrollTop=fy*img.offsetHeight-(cy-sr.top);  // giữ nguyên điểm dưới con trỏ
+  paintZoom(); if(was!==S.zoom||wasHi!==Z.hi) showViewer();
+}
+const zoomToggle=(cx,cy)=>zoomTo(S.zoom?1:Z.click,cx,cy);
+function openViewer(){ if(S.cur===null) return; S.viewer=true; resetZoom(); $('#viewer').classList.add('on'); showViewer(); }
 function toggleStrip(){ stripOn=!stripOn; try{ localStorage.setItem('ps_strip',stripOn?'1':'0'); }catch(e){} renderStrip(true); if(S.viewer) showViewer(); toast(stripOn?'Bật dải thumbnail':'Tắt dải thumbnail (phím T để bật lại)'); }
 $('#vbGrid').onclick=()=>closeViewer();
 $('#vbCat').onclick=()=>{ closeViewer(); showCatalog(); };
@@ -492,18 +511,19 @@ let vTok=0;
 const VPRE=new Map();
 async function showViewer(){
   const p=S.by.get(S.cur); if(!p){ closeViewer(); return; }
-  const tok=++vTok; const img=$('#vimg'); $('#vstage').classList.toggle('zoom',S.zoom);
-  const src = S.zoom ? `/api/preview?id=${p.id}&s=0` : `/api/preview?id=${p.id}&s=2000`;
+  const tok=++vTok; const img=$('#vimg'); $('#vstage').classList.toggle('zoom',S.zoom); if(S.zoom) sizeZoom();
+  const src = Z.hi ? `/api/preview?id=${p.id}&s=0` : `/api/preview?id=${p.id}&s=2000`;
   if(img.dataset.src!==src){
     img.dataset.src=src;
     const thumb=`/thumb/${p.id}.jpg?v=${p.tv}`;
     const fit=(w,h)=>{ // giữ khung ảnh đúng cỡ cuối cùng ngay cả khi mới hiện thumbnail nhỏ → không bị "nhảy"/bóng ma
-      if(S.zoom||!w||!h){ img.style.width=img.style.height=''; return; }
+      if(S.zoom){ sizeZoom(); return; }
+      if(!w||!h){ img.style.width=img.style.height=''; return; }
       const mw=window.innerWidth-290, mh=window.innerHeight-(stripOn?116:0), k=Math.min(mw/w,mh/h);
       img.style.width=Math.round(w*k)+'px'; img.style.height=Math.round(h*k)+'px'; };
     const apply=(im,u,clear)=>{ // chỉ đổi ảnh khi ảnh mới đã giải mã xong và khung đã đúng cỡ → không còn khung hình lẫn ảnh cũ
       const go=()=>{ if(tok!==vTok||img.dataset.src!==src) return; fit(im.naturalWidth,im.naturalHeight); img.src=u;
-        if(clear) setTimeout(()=>{ if(img.dataset.src===src) img.style.width=img.style.height=''; },80); };
+        if(clear) setTimeout(()=>{ if(img.dataset.src===src&&!S.zoom) img.style.width=img.style.height=''; },80); };
       (im.decode?im.decode().then(go,go):go()); };
     const done=VPRE.get(src);
     if(done&&done.complete&&done.naturalWidth){ apply(done,src,true); }   // đã nạp trước: hiện ngay, không qua thumbnail
@@ -518,12 +538,14 @@ async function showViewer(){
   for(const o of [S.view[ix+1],S.view[ix-1],S.view[ix+2]]) if(o){ const u=`/api/preview?id=${o.id}&s=2000`; if(!VPRE.has(u)){ const pre=new Image(); VPRE.set(u,pre); pre.src=u; if(VPRE.size>12){ VPRE.delete(VPRE.keys().next().value); } } }
   renderInfo(p, ix); renderBadge(p); loadBoxes(p, tok); updateMask(); renderStrip(true);
 }
-$('#vimg').addEventListener('click', e=>{
-  const img=e.target; const r=img.getBoundingClientRect(); const fx=(e.clientX-r.left)/r.width, fy=(e.clientY-r.top)/r.height;
-  S.zoom=!S.zoom; showViewer();
-  if(S.zoom){ const st=$('#vstage'); const wait=()=>{ if(img.naturalWidth>1000||img.complete){ st.scrollLeft=img.offsetWidth*fx-st.clientWidth/2; st.scrollTop=img.offsetHeight*fy-st.clientHeight/2; } };
-              img.addEventListener('load',()=>setTimeout(wait,30),{once:true}); }
-});
+$('#vimg').addEventListener('click', e=>zoomToggle(e.clientX,e.clientY));
+{ const st=$('#vstage'); let pan=null;
+  st.addEventListener('wheel',e=>{ e.preventDefault(); zoomTo(Z.k*Math.exp(-e.deltaY*.0015),e.clientX,e.clientY); },{passive:false});
+  st.addEventListener('contextmenu',e=>e.preventDefault());
+  st.addEventListener('mousedown',e=>{ if(e.button!==2) return; e.preventDefault(); pan={x:e.clientX,y:e.clientY,l:st.scrollLeft,t:st.scrollTop}; st.classList.add('pan'); });
+  addEventListener('mousemove',e=>{ if(!pan) return; st.scrollLeft=pan.l-(e.clientX-pan.x); st.scrollTop=pan.t-(e.clientY-pan.y); });
+  addEventListener('mouseup',e=>{ if(e.button===2&&pan){ pan=null; st.classList.remove('pan'); } });
+}
 async function loadBoxes(p, tok){
   const box=$('#vfaces'); box.innerHTML=''; if(!S.boxes||!p.nf) return;
   const fs=await api('/api/faces?id='+p.id); if(tok!==vTok) return;
@@ -559,7 +581,7 @@ function renderInfo(p, ix){
    <div style="margin:8px 0">${p.people.map(i=>`<span class="chip" style="background:var(--sel);margin-right:4px">${esc(pname(i))}</span>`).join('')}</div>
    <hr style="border-color:var(--line)"><button id="vdiag" style="margin-bottom:8px">🔧 Chẩn đoán file</button><div class="hint">
    <span class="kbd">←</span><span class="kbd">→</span> chuyển ảnh &nbsp; <span class="kbd">0-5</span> sao &nbsp; <span class="kbd">X</span> loại<br>
-   <span class="kbd">6-9</span> nhãn màu &nbsp; <span class="kbd">F</span> tên người &nbsp; <span class="kbd">Z</span> phóng 100%<br><span class="kbd">H</span> vùng cháy/tối &nbsp; <span class="kbd">T</span> bật/tắt dải thumbnail &nbsp; <span class="kbd">Esc</span> quay lại</div>`;
+   <span class="kbd">6-9</span> nhãn màu &nbsp; <span class="kbd">F</span> tên người &nbsp; Lăn chuột phóng to, giữ chuột phải kéo ảnh, <span class="kbd">Z</span> phóng nhanh<br><span class="kbd">H</span> vùng cháy/tối &nbsp; <span class="kbd">T</span> bật/tắt dải thumbnail &nbsp; <span class="kbd">Esc</span> quay lại</div>`;
   $('#vstars').onclick=e=>{ const r=e.target.dataset.r; if(r!==undefined) rate([p.id], +r===p.rating?0:+r); };
   fillSections('#vsec', p.id, 'v');
   $('#vdiag').onclick=async()=>{ const r=await api('/api/diag?id='+p.id); const m=modal(`<h3>Chẩn đoán file</h3><pre id="dt" style="white-space:pre-wrap;word-break:break-all;font-size:11px;max-height:55vh;overflow:auto;background:#101114;padding:10px;border-radius:8px"></pre><div class="btns"><button id="dc">Sao chép</button><button class="pri" onclick="this.closest('.back').remove()">Đóng</button></div>`); m.querySelector('#dt').textContent=r.text; m.querySelector('#dc').onclick=()=>{ navigator.clipboard.writeText(r.text); toast('Đã sao chép'); }; };
@@ -662,7 +684,7 @@ document.addEventListener('keydown', e=>{
   else if(k==='-') label(targets(), '');
   else if(k==='h'||k==='H'){ if(S.viewer) cycleHS(); }
   else if(k==='f'||k==='F'){ S.boxes=!S.boxes; if(S.viewer) showViewer(); }
-  else if(k==='z'||k==='Z'){ if(S.viewer){ S.zoom=!S.zoom; showViewer(); } }
+  else if(k==='z'||k==='Z'){ if(S.viewer){ const r=$('#vstage').getBoundingClientRect(); zoomToggle(r.left+r.width/2,r.top+r.height/2); } }
   else if(k==='t'||k==='T'){ if(S.viewer) toggleStrip(); }
   else if(k==='?') showHelp();
 });
@@ -896,7 +918,7 @@ function targetsForExport(){ return S.sel.size?[...S.sel]:(S.cur!==null?[S.cur]:
 function showHelp(){
   modal(`<h3>Phím tắt</h3><div style="line-height:2">
    <span class="kbd">← → ↑ ↓</span> di chuyển (giữ <span class="kbd">Shift</span> để chọn dải) &nbsp; <span class="kbd">Ctrl+A</span> chọn tất cả<br>
-   <span class="kbd">Enter</span>/<span class="kbd">Space</span> xem ảnh lớn &nbsp; <span class="kbd">Z</span> phóng 100% (kiểm tra độ nét) &nbsp; <span class="kbd">F</span> tên người<br>
+   <span class="kbd">Enter</span>/<span class="kbd">Space</span> xem ảnh lớn &nbsp; Lăn chuột phóng to, giữ chuột phải kéo ảnh, <span class="kbd">Z</span> phóng nhanh (kiểm tra độ nét) &nbsp; <span class="kbd">F</span> tên người<br>
    <span class="kbd">0–5</span> số sao &nbsp; <span class="kbd">X</span> loại / bỏ loại &nbsp; <span class="kbd">6</span> đỏ <span class="kbd">7</span> vàng <span class="kbd">8</span> xanh lá <span class="kbd">9</span> xanh dương <span class="kbd">-</span> bỏ nhãn<br>
    <span class="kbd">Ctrl+Z</span> hoàn tác</div>
    <div class="hint" style="margin-top:10px">Ứng dụng không bao giờ xoá hay di chuyển file gốc. “Loại” chỉ là một dấu trong cơ sở dữ liệu; hãy xuất ảnh để lấy bộ ảnh đã chọn.</div>
