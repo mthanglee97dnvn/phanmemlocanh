@@ -1,5 +1,6 @@
 """Thư viện ảnh: quét thư mục, phân tích song song, gom người, nhóm ảnh trùng, cờ cảnh báo, xuất ảnh."""
 from __future__ import annotations
+import hashlib
 
 import json
 import os
@@ -21,6 +22,7 @@ from .db import DB, HOME
 from .online import Online
 
 THUMBS = HOME / "thumbs"
+COVERS = HOME / "covers"   # ảnh bìa catalog: giữ qua các lần mở app, khác với THUMBS
 FACES = HOME / "faces"
 PREVIEWS = HOME / "prev"   # ảnh 1600px đã giải mã sẵn: xem nhanh + phân tích không phải đọc lại RAW từ thẻ nhớ
 IO_WORKERS = 4             # số luồng đọc file (thẻ nhớ/USB: 4 là hợp lý)
@@ -154,10 +156,76 @@ class Library:
             self._thread.join(timeout=30)
         self._cancel = threading.Event()
         self.root = root
+        self._catalog_seed()
+        self.db.x("INSERT INTO catalog(root,recursive,opened) VALUES(?,?,?) "
+                  "ON CONFLICT(root) DO UPDATE SET recursive=excluded.recursive, opened=excluded.opened",
+                  (root, int(bool(recursive)), time.time()))
         self.status = dict(state="scanning", total=0, done=0, thumbs=0, quick=0, errors=0, root=root, message="Đang liệt kê file…", timing={})
         self._slock = threading.Lock()
         self._thread = threading.Thread(target=self._scan, args=(root, recursive, self._cancel), daemon=True)
         self._thread.start()
+
+    # ------------------------------------------------------------------ catalog thư mục
+    # Mỗi lần mở app, reset_cache xoá kết quả phân tích và thumbnail của phiên trước, chỉ giữ ảnh đã chấm.
+    # Vì vậy số liệu và ảnh bìa được lưu riêng trong bảng catalog và thư mục COVERS.
+    @staticmethod
+    def _cover_name(root: str, i: int) -> str:
+        return f"{hashlib.sha1(root.encode('utf-8', 'replace')).hexdigest()[:16]}_{i}.jpg"
+
+    def _catalog_seed(self):
+        """Lần đầu dùng catalog: đưa các thư mục có ảnh đã chấm vào, chỉ làm một lần
+        để thư mục người dùng đã gỡ không tự quay lại."""
+        if self.db.one("SELECT 1 FROM meta WHERE k='catalog_seeded'"):
+            return
+        self.db.many("INSERT OR IGNORE INTO catalog(root,recursive,opened) VALUES(?,1,0)",
+                     [(r["dir"],) for r in self.db.q("SELECT DISTINCT dir FROM photos WHERE dir IS NOT NULL")])
+        self.db.x("INSERT OR REPLACE INTO meta(k,v) VALUES('catalog_seeded','1')")
+
+    def _catalog_update(self, root: str):
+        """Gọi khi đọc xong thư mục: lưu số liệu và chép 4 ảnh đẹp nhất làm ảnh bìa."""
+        s = self.db.one("SELECT COUNT(*) n, SUM(size) size, MIN(NULLIF(taken,0)) t0, MAX(NULLIF(taken,0)) t1 "
+                        "FROM photos JOIN cur ON cur.id=photos.id")
+        top = self.db.q("SELECT photos.id FROM photos JOIN cur ON cur.id=photos.id WHERE ready=1 "
+                        "ORDER BY rating<0, best DESC, score DESC, photos.id LIMIT 4")
+        COVERS.mkdir(parents=True, exist_ok=True)
+        names = []
+        for r in top:
+            name = self._cover_name(root, len(names))
+            try:
+                shutil.copyfile(THUMBS / f"{r['id']}.jpg", COVERS / name)
+                names.append(name)
+            except OSError:
+                pass
+        self.db.x("UPDATE catalog SET n=?, size=?, t0=?, t1=?, covers=? WHERE root=?",
+                  (s["n"], s["size"] or 0, s["t0"] or 0, s["t1"] or 0, json.dumps(names), root))
+
+    def catalog(self):
+        self._catalog_seed()
+        marks = self.db.q("SELECT dir, SUM(rating>0) stars, SUM(rating=-1) rej FROM photos GROUP BY dir")
+
+        def inside(d, root, rec):
+            if d == root:
+                return True
+            return bool(rec) and bool(d) and d.startswith(root.rstrip("\\/") + os.sep)
+
+        out = []
+        for c in self.db.q("SELECT * FROM catalog"):
+            root, rec = c["root"], c["recursive"]
+            hit = [m for m in marks if inside(m["dir"], root, rec)]
+            out.append(dict(root=root, name=os.path.basename(root.rstrip("\\/")) or root, recursive=bool(rec), opened=c["opened"],
+                            n=c["n"], size=c["size"], t0=c["t0"], t1=c["t1"], ver=int(c["opened"] or 0),
+                            stars=sum(m["stars"] or 0 for m in hit), rej=sum(m["rej"] or 0 for m in hit),
+                            covers=json.loads(c["covers"] or "[]"),
+                            missing=not root.startswith("\\\\") and not os.path.isdir(root)))  # không dò ổ mạng: có thể treo lâu
+        return out
+
+    def catalog_remove(self, root: str):
+        self.db.x("DELETE FROM catalog WHERE root=?", (root,))
+        for i in range(4):
+            try:
+                (COVERS / self._cover_name(root, i)).unlink()
+            except OSError:
+                pass
 
     def _list_files(self, root: str, recursive: bool):
         """Liệt kê ảnh kèm (đường dẫn, mtime, dung lượng). Dùng scandir: trên Windows thông tin này đi kèm
@@ -290,6 +358,10 @@ class Library:
         self.status.update(message="Đang gom khuôn mặt theo người…")
         self.cluster()
         self.regroup()
+        try:
+            self._catalog_update(root)
+        except Exception as e:  # noqa: BLE001  catalog lỗi không được làm hỏng phiên lọc
+            print("catalog:", e, file=sys.stderr)
         self.status.update(state="done", message="Hoàn tất")
 
     def _prepare_one(self, pid: int, path: str):
@@ -560,23 +632,29 @@ class Library:
     # ------------------------------------------------------------------ nhật ký tự động lọc
     # Lưu trong CSDL nên vẫn hoàn tác được sau khi tắt app. Tự động lọc chỉ chạm ảnh chưa chấm sao,
     # nên hoàn tác là đưa ảnh về 0; ảnh đã được chấm lại sau đó thì giữ nguyên.
-    def _with_rating(self, ids, rating: int):
-        ids, out = [int(i) for i in ids], []
-        for k in range(0, len(ids), 500):
-            part = ids[k:k + 500]
+    # Lưu theo đường dẫn vì mỗi lần mở app, id của ảnh được đánh lại (xem reset_cache).
+    def _rated(self, col: str, vals, rating: int):
+        vals, out = list(vals), []
+        for k in range(0, len(vals), 500):
+            part = vals[k:k + 500]
             marks = ",".join("?" * len(part))
-            out += [r["id"] for r in self.db.q(f"SELECT id FROM photos WHERE rating=? AND id IN ({marks})", [rating, *part])]
+            out += self.db.q(f"SELECT id,path FROM photos WHERE rating=? AND {col} IN ({marks})", [rating, *part])
         return out
+
+    @staticmethod
+    def _log_paths(raw: str):
+        return [p for p in json.loads(raw) if isinstance(p, str)]
 
     def _root(self) -> str:
         return self.status.get("root", "") or ""
 
     def cull_apply(self, ids):
-        hit = self._with_rating(ids, 0)
+        hit = self._rated("id", [int(i) for i in ids], 0)
         if not hit:
             return dict(id=0, n=0)
-        self.db.many("UPDATE photos SET rating=-1 WHERE id=?", [(i,) for i in hit])
-        cur = self.db.x("INSERT INTO cull_log(root,time,ids) VALUES(?,?,?)", (self._root(), time.time(), json.dumps(hit)))
+        self.db.many("UPDATE photos SET rating=-1 WHERE id=?", [(r["id"],) for r in hit])
+        cur = self.db.x("INSERT INTO cull_log(root,time,ids) VALUES(?,?,?)",
+                        (self._root(), time.time(), json.dumps([r["path"] for r in hit])))
         batch = cur.lastrowid
         self.db.x("DELETE FROM cull_log WHERE root=? AND id NOT IN (SELECT id FROM cull_log WHERE root=? ORDER BY id DESC LIMIT 20)",
                   (self._root(), self._root()))
@@ -584,19 +662,18 @@ class Library:
 
     def cull_last(self):
         for row in self.db.q("SELECT id,time,ids FROM cull_log WHERE root=? ORDER BY id DESC", (self._root(),)):
-            left = self._with_rating(json.loads(row["ids"]), -1)
+            left = self._rated("path", self._log_paths(row["ids"]), -1)
             if left:
                 return dict(id=row["id"], n=len(left), time=row["time"])
             self.db.x("DELETE FROM cull_log WHERE id=?", (row["id"],))
         return dict(id=0, n=0)
 
     def cull_undo(self, batch=None):
-        last = self.cull_last()
-        target = int(batch) if batch else last["id"]
+        target = int(batch) if batch else self.cull_last()["id"]
         row = self.db.one("SELECT ids FROM cull_log WHERE id=?", (target,))
         if not row:
             return dict(ids=[], n=0)
-        left = self._with_rating(json.loads(row["ids"]), -1)
+        left = [r["id"] for r in self._rated("path", self._log_paths(row["ids"]), -1)]
         self.db.many("UPDATE photos SET rating=0 WHERE id=?", [(i,) for i in left])
         self.db.x("DELETE FROM cull_log WHERE id=?", (target,))
         return dict(ids=left, n=len(left))

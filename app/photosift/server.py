@@ -20,7 +20,7 @@ import cv2
 
 from . import models
 from .analyzer import ALL_EXT, _jpg, load_bgr, read_meta
-from .library import FACES, PREVIEWS, THUMBS, Library
+from .library import COVERS, FACES, PREVIEWS, THUMBS, Library
 from .license import License
 
 WEB = Path(__file__).parent / "web"
@@ -318,6 +318,8 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                         return self._json(dict(idle=round(idle, 1), license=False))
                     return self._json(dict(lib.status, eyes=lib.an.has_eyes, settings=lib.settings,
                                            online=lib.online.ok, idle=round(idle, 1), os=os.name, plat=sys.platform))
+                if u.path == "/api/catalog":
+                    return self._json(lib.catalog())
                 if u.path == "/api/cull/last":
                     return self._json(lib.cull_last())
                 if u.path == "/api/export/status":
@@ -361,6 +363,12 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                     if not data:
                         return self._send(404, b"", "text/plain")
                     return self._send(200, data, "image/jpeg", {"Cache-Control": "max-age=3600"})
+                if u.path.startswith("/cover/"):
+                    name = os.path.basename(u.path)
+                    f = COVERS / name
+                    if not name.endswith(".jpg") or not f.exists():
+                        return self._send(404, b"", "text/plain")
+                    return self._send(200, f.read_bytes(), "image/jpeg", {"Cache-Control": "max-age=86400"})
                 if u.path.startswith("/thumb/") or u.path.startswith("/face/"):
                     base = THUMBS if u.path.startswith("/thumb/") else FACES
                     name = os.path.basename(u.path)
@@ -396,6 +404,9 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                     if not os.path.isdir(path):
                         return self._json(dict(error="Không phải thư mục"), 400)
                     lib.open_folder(path, bool(b.get("recursive", True)))
+                    return self._json(dict(ok=True))
+                if u.path == "/api/catalog/remove":
+                    lib.catalog_remove(str(b["root"]))
                     return self._json(dict(ok=True))
                 if u.path == "/api/cull/apply":
                     return self._json(lib.cull_apply(b["ids"]))

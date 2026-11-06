@@ -70,6 +70,48 @@ input[type=range]{accent-color:var(--acc)}input[type=checkbox]{accent-color:var(
 .cell.rej .xmark{display:flex}
 .nface{position:absolute;right:6px;bottom:5px;font-size:10px;background:rgba(4,14,30,.7);padding:2px 7px;border-radius:999px}
 #status{display:flex;gap:16px;padding:7px 18px;color:var(--mut);font-size:12px;border-radius:999px}
+body.cat #app{visibility:hidden}
+#catalog{display:none;position:fixed;inset:0;z-index:5;flex-direction:column;gap:12px;padding:14px 18px}
+body.cat #catalog{display:flex}
+#catalog .chead{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 16px;background:var(--panel);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
+#catalog h2{font-size:16px;margin:0 8px 0 4px}
+#catalog .chead .sp{flex:1}
+#catQ{width:190px}
+.cview{display:flex;gap:2px;padding:2px;border:1px solid var(--line);border-radius:999px;background:var(--field)}
+.cview button{border:0;background:none;padding:4px 11px;color:var(--mut)}
+.cview button[aria-pressed=true]{background:var(--panel2);color:var(--tx)}
+#catBody{flex:1;min-height:0;overflow:auto;padding:2px 4px 8px}
+.cgrid{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(var(--cw),1fr))}
+.cgrid.lg{--cw:340px}.cgrid.md{--cw:230px}.cgrid.sm{--cw:138px;gap:10px}
+.ccard{position:relative;display:block;width:100%;text-align:left;padding:0;overflow:hidden;color:inherit;font:inherit;background:var(--panel);border:1px solid var(--line);border-radius:calc(var(--r)*.7);cursor:pointer}
+.ccard:hover{border-color:var(--acc);transform:none}
+.ccard.cur{border-color:var(--acc2)}.ccard.gone .cov{opacity:.35}
+.cov{display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:1fr;gap:2px;aspect-ratio:3/2;background:var(--inset);overflow:hidden}
+.cov.n1{grid-template-columns:1fr}.cov.n2 img,.cov.n3 img:first-child{grid-row:span 2}
+.cgrid.sm .cov{grid-template-columns:1fr;aspect-ratio:1}.cgrid.sm .cov img:not(:first-child){display:none}.cgrid.sm .cov img{grid-row:auto}
+.cov img{width:100%;height:100%;min-height:0;object-fit:cover;display:block}
+.cov .none{grid-column:1/-1;display:flex;align-items:center;justify-content:center;font-size:30px;color:var(--mut)}
+.cinf{padding:9px 12px 11px;min-width:0}
+.cgrid.sm .cinf{padding:6px 8px 7px}
+.cinf b{display:block;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cgrid.sm .cinf b{font-size:12px}
+.cinf span{display:block;color:var(--mut);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cgrid:not(.lg) .cinf .cpath,.cgrid.sm .cinf .cdate{display:none}
+.cbadge{position:absolute;top:8px;left:8px;padding:1px 9px;border-radius:999px;background:rgba(4,14,30,.82);font-size:11px;color:#fff}
+.cbadge.warn{background:var(--red)}
+.cdel{position:absolute;top:6px;right:6px;width:26px;height:26px;padding:0;border-radius:50%;background:rgba(4,14,30,.82);color:#fff;font-size:12px;opacity:0}
+.ccard:hover .cdel,.ccard:focus-within .cdel,tr:hover .cdel{opacity:1}
+.ctable{width:100%;border-collapse:collapse;background:var(--panel);border-radius:calc(var(--r)*.5);overflow:hidden}
+.ctable th{position:sticky;top:0;text-align:left;font-weight:600;color:var(--mut);padding:8px 10px;background:var(--modal);cursor:pointer;white-space:nowrap}
+.ctable th.num,.ctable td.num{text-align:right}
+.ctable td{padding:6px 10px;border-top:1px solid var(--line);white-space:nowrap}
+.ctable tbody tr{cursor:pointer}.ctable tbody tr:hover{background:var(--panel2)}
+.ctable tr.cur td:first-child{box-shadow:inset 3px 0 0 var(--acc2)}
+.ctable .cn{display:flex;align-items:center;gap:9px;min-width:0}
+.ctable .cn img,.ctable .cn i{width:44px;height:32px;object-fit:cover;border-radius:4px;background:var(--inset);flex:none}
+.ctable .cp{max-width:300px;overflow:hidden;text-overflow:ellipsis;color:var(--mut)}
+.ctable .cdel{position:static;opacity:0;background:var(--panel2);color:var(--tx)}
+.cnone{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--mut);text-align:center}
 #empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;height:100%;color:var(--mut);text-align:center}
 #empty h2{color:var(--tx);margin:0;font-size:22px}
 .back{position:fixed;inset:0;background:rgba(2,10,24,.55);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:50}
@@ -119,7 +161,7 @@ canvas.hist{width:100%;height:120px;display:block;border-radius:10px;background:
 #vwrap #vmask{position:absolute;left:0;top:0;width:100%;height:100%;max-width:none;max-height:none;pointer-events:none;display:none;cursor:default}
 </style>
 </head>
-<body>
+<body class="cat">
 <div id="deco" aria-hidden="true">
 <svg width="0" height="0" style="position:absolute"><defs>
  <linearGradient id="cT" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c9f4ff"/><stop offset="1" stop-color="#52c9ff"/></linearGradient>
@@ -139,9 +181,22 @@ canvas.hist{width:100%;height:120px;display:block;border-radius:10px;background:
  <svg class="cb" viewBox="0 0 100 115" style="left:36%;bottom:-70px;width:150px"><use href="#cube"/></svg>
  <svg class="cb" viewBox="0 0 100 115" style="right:-24px;bottom:-30px;width:240px;transform:rotate(-8deg)"><use href="#cube"/></svg>
 </div>
+<div id="catalog">
+  <div class="chead">
+    <h2>Catalog thư mục</h2>
+    <button id="catBack" hidden>← Về thư mục đang mở</button>
+    <span class="sp"></span>
+    <input type="text" id="catQ" placeholder="Tìm thư mục…" aria-label="Tìm thư mục">
+    <select id="catSort" aria-label="Sắp xếp"><option value="opened">Mở gần nhất</option><option value="name">Tên thư mục</option><option value="t1">Ngày chụp mới nhất</option><option value="n">Nhiều ảnh nhất</option><option value="size">Dung lượng lớn nhất</option></select>
+    <div class="cview" id="catView" role="group" aria-label="Chế độ xem"><button data-v="lg">Lớn</button><button data-v="md">Vừa</button><button data-v="sm">Nhỏ</button><button data-v="det">Chi tiết</button></div>
+    <button class="pri" id="catAdd">＋ Thêm thư mục</button>
+  </div>
+  <div id="catBody"></div>
+</div>
 <div id="app">
   <div class="bar">
     <img class="logo" src="/logo.png" alt="MTHANGLEE STUDIO">
+    <button id="bCat" title="Xem các thư mục đã lọc">📚 Catalog</button>
     <button id="bOpen" class="pri">📁 Mở thư mục</button>
     <label class="hint"><input type="checkbox" id="cRec" checked> gồm thư mục con</label>
     <span class="sp"></span>
@@ -565,6 +620,7 @@ function move(delta, shift){
   setCur(S.view[ix].id,{extend:shift});
 }
 document.addEventListener('keydown', e=>{
+  if(document.body.classList.contains('cat')){ if(e.key==='Escape'&&!document.querySelector('.back')&&S.status.root) hideCatalog(); return; }
   if(['INPUT','SELECT','TEXTAREA'].includes(document.activeElement.tagName) || document.querySelector('.back')) return;
   const k=e.key, mod=e.ctrlKey||e.metaKey;
   if(mod && k.toLowerCase()==='a'){ e.preventDefault(); S.sel=new Set(S.view.map(p=>p.id)); S.view.forEach(p=>decorate(p.id)); renderStatus(); return; }
@@ -588,10 +644,51 @@ document.addEventListener('keydown', e=>{
 });
 
 /* ---------- chọn thư mục ---------- */
+async function openFolder(p,recursive){
+  await api('/api/open',{path:p,recursive}); $('#cRec').checked=recursive; hideCatalog();
+  S.person=null; S.photos=[]; S.by=new Map(); S.view=[]; S.undo=[]; $('#bUndo').disabled=true; poll(true);
+}
+/* ---------- catalog: các thư mục đã lọc ---------- */
+const lsGet=(k,d)=>{ try{ return localStorage.getItem(k)||d; }catch(e){ return d; } }, lsSet=(k,v)=>{ try{ localStorage.setItem(k,v); }catch(e){} };
+const Cat={list:[],view:lsGet('ps.catView','md'),sort:lsGet('ps.catSort','opened')};
+const catDate=t=>t?new Date(t*1000).toLocaleDateString('vi-VN'):'—';
+const catSize=b=>b>=1e9?(b/1e9).toFixed(1).replace('.',',')+' GB':b?Math.round(b/1e6)+' MB':'—';
+const catRange=c=>{ const a=catDate(c.t0),b=catDate(c.t1); return a===b?a:a+' – '+b; };
+async function showCatalog(){ document.body.classList.add('cat'); $('#catBack').hidden=!S.status.root; $('#catSort').value=Cat.sort;
+  try{ Cat.list=await api('/api/catalog'); }catch(e){ toast(e.message,4000); } drawCatalog(); }
+function hideCatalog(){ document.body.classList.remove('cat'); }
+function drawCatalog(){
+  const q=$('#catQ').value.trim().toLowerCase(), l=Cat.list.filter(c=>c.root.toLowerCase().includes(q)), s=Cat.sort, box=$('#catBody');
+  l.sort((a,b)=>s==='name'?a.name.localeCompare(b.name,'vi',{numeric:true}):((b[s]||0)-(a[s]||0))||a.name.localeCompare(b.name,'vi',{numeric:true}));
+  $('#catView').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.v===Cat.view)));
+  const cur=S.status.root, cov=(c,n)=>`/cover/${n}?v=${c.ver}`, img=c=>c.covers.map(n=>`<img loading="lazy" src="${cov(c,n)}" alt="" onerror="this.remove()">`).join('');
+  const del=c=>`<button class="cdel" data-del="${esc(c.root)}" title="Gỡ khỏi catalog" aria-label="Gỡ ${esc(c.name)} khỏi catalog">✕</button>`;
+  const num=c=>c.n?fmt(c.n)+' ảnh':'Chưa đọc lại'; const stat=c=>`${num(c)} · ${fmt(c.stars)} ★ · ${fmt(c.rej)} ✕`;
+  if(!l.length){ box.innerHTML=`<div class="cnone">${Cat.list.length?'Không có thư mục nào khớp.':'<h2>Chưa có thư mục nào</h2><div>Bấm “Thêm thư mục” để chọn thư mục ảnh đầu tiên.</div>'}</div>`; return; }
+  if(Cat.view==='det'){
+    const th=(k,t,c='')=>`<th class="${c}" data-s="${k}">${t}</th>`;
+    box.innerHTML=`<table class="ctable"><thead><tr>${th('name','Thư mục')}<th>Đường dẫn</th>${th('n','Số ảnh','num')}<th class="num">★</th><th class="num">✕</th>${th('size','Dung lượng','num')}${th('t1','Ngày chụp')}${th('opened','Mở gần nhất')}<th>Trạng thái</th><th></th></tr></thead><tbody>`+
+      l.map(c=>`<tr data-root="${esc(c.root)}" tabindex="0" class="${c.root===cur?'cur':''}"><td><div class="cn">${c.covers[0]?`<img loading="lazy" src="${cov(c,c.covers[0])}" alt="">`:'<i></i>'}<b>${esc(c.name)}</b></div></td><td class="cp" title="${esc(c.root)}">${esc(c.root)}</td><td class="num">${c.n?fmt(c.n):'—'}</td><td class="num">${fmt(c.stars)}</td><td class="num">${fmt(c.rej)}</td><td class="num">${catSize(c.size)}</td><td>${catRange(c)}</td><td>${catDate(c.opened)}</td><td>${c.missing?'Không tìm thấy':(c.root===cur?'Đang mở':'Sẵn sàng')}</td><td>${del(c)}</td></tr>`).join('')+'</tbody></table>';
+  } else box.innerHTML=`<div class="cgrid ${Cat.view}">`+l.map(c=>`<div class="ccard ${c.root===cur?'cur':''} ${c.missing?'gone':''}" data-root="${esc(c.root)}" tabindex="0" role="button" title="${esc(c.root)}"><div class="cov n${c.covers.length}">${img(c)||'<span class="none">📁</span>'}</div>${c.missing?'<span class="cbadge warn">Không tìm thấy</span>':(c.root===cur?'<span class="cbadge">Đang mở</span>':'')}${del(c)}<div class="cinf"><b>${esc(c.name)}</b><span class="cpath">${esc(c.root)}</span><span>${stat(c)}</span><span class="cdate">${c.n?catRange(c)+' · '+catSize(c.size):'Mở lại để cập nhật'}</span></div></div>`).join('')+'</div>';
+}
+function catOpen(root){ const c=Cat.list.find(x=>x.root===root); if(!c) return;
+  if(c.root===S.status.root){ hideCatalog(); return; }
+  if(c.missing){ toast('Không tìm thấy thư mục này. Ổ đĩa có thể chưa được cắm hoặc thư mục đã đổi tên.',4500); return; }
+  openFolder(c.root,c.recursive).catch(e=>toast(e.message,4000)); }
+function catRemove(root){ const c=Cat.list.find(x=>x.root===root);
+  const m=modal(`<h3>Gỡ khỏi catalog?</h3><div class="hint" style="margin-bottom:10px"><b>${esc(c.name)}</b> chỉ bị gỡ khỏi danh sách này. Ảnh gốc, số sao và dấu ✕ vẫn giữ nguyên, mở lại thư mục là thấy.</div><div class="btns"><button onclick="this.closest('.back').remove()">Huỷ</button><button class="pri" id="cgo">Gỡ</button></div>`);
+  m.querySelector('#cgo').onclick=async()=>{ m.close(); await api('/api/catalog/remove',{root}); Cat.list=Cat.list.filter(x=>x.root!==root); drawCatalog(); }; }
+$('#catBody').onclick=e=>{ const d=e.target.closest('[data-del]'); if(d){ e.stopPropagation(); catRemove(d.dataset.del); return; }
+  const th=e.target.closest('th[data-s]'); if(th){ Cat.sort=th.dataset.s; lsSet('ps.catSort',Cat.sort); $('#catSort').value=Cat.sort; drawCatalog(); return; }
+  const r=e.target.closest('[data-root]'); if(r) catOpen(r.dataset.root); };
+$('#catBody').onkeydown=e=>{ if(e.key==='Enter'&&e.target.dataset.root) catOpen(e.target.dataset.root); };
+$('#catView').onclick=e=>{ const v=e.target.dataset.v; if(v){ Cat.view=v; lsSet('ps.catView',v); drawCatalog(); } };
+$('#catSort').onchange=e=>{ Cat.sort=e.target.value; lsSet('ps.catSort',Cat.sort); drawCatalog(); };
+$('#catQ').oninput=drawCatalog; $('#catAdd').onclick=()=>pickFolder(); $('#catBack').onclick=hideCatalog; $('#bCat').onclick=showCatalog;
 const mainDirNav={hist:[],idx:-1};  // nhớ qua các lần mở hộp chọn, để lùi được cả khi đã lỡ bấm "Chọn thư mục này"
 function pickFolder(start, onPick, title='Chọn thư mục'){
   const nav = onPick ? {hist:[],idx:-1} : mainDirNav;
-  onPick = onPick || (async p=>{ await api('/api/open',{path:p, recursive:$('#cRec').checked}); S.person=null; S.photos=[]; S.by=new Map(); S.view=[]; S.undo=[]; $('#bUndo').disabled=true; poll(true); });
+  onPick = onPick || (p=>openFolder(p,$('#cRec').checked));
   const m=modal(`<h3>${title}</h3><div class="row"><button id="dbk" title="Quay lại thư mục trước (Alt+←)" aria-label="Quay lại thư mục trước">←</button><button id="dfw" title="Đi tiếp (Alt+→)" aria-label="Đi tiếp">→</button><input type="text" id="dp" style="flex:1"><button id="dgo">Đi</button></div>
     <div class="row" id="dq" style="flex-wrap:wrap;margin:4px 0"></div>
     <div class="row" style="margin:4px 0"><button id="dlan" title="Chọn thư mục chia sẻ trên máy khác trong cùng mạng LAN">🖧 Mạng LAN</button><button id="dnew">➕ Tạo thư mục mới</button><input type="text" id="dnn" placeholder="Tên thư mục mới (ví dụ: Anh 5 sao)" style="flex:1;display:none"><button id="dmk" class="pri" style="display:none">Tạo</button></div>
@@ -789,6 +886,7 @@ async function poll(force){
   if(busy) return; busy=true;
   try{
     const st=await api('/api/status'); const was=S.status.state; S.status=st; S.settings=st.settings;
+    if(!S.catInit){ S.catInit=true; if(st.root) hideCatalog(); else showCatalog(); }
     const bar=$('#prog i');
     if(st.state==='scanning'){ clearTimeout(S.barT); S.barT=0; bar.style.width=st.total?(100*(st.done+st.thumbs)/(2*st.total))+'%':'0'; }
     else if(st.state==='done'&&was==='scanning'){ bar.style.width='100%'; S.barT=setTimeout(()=>{ S.barT=0; bar.style.width='0'; },1200); } // đầy thanh một lần rồi ẩn
