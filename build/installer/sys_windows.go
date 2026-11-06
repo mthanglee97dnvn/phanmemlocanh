@@ -186,6 +186,8 @@ func killWindow(c *exec.Cmd) {
 
 func cleanupProfile() {
 	c := exec.Command("cmd", "/c", "ping 127.0.0.1 -n 4 >nul & rmdir /s /q \""+filepath.Join(os.TempDir(), "mthanglee_setup_profile")+"\"")
-	c.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: 0x08000000 | 0x00000008}
+	// Chỉ dùng CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP. Thêm DETACHED_PROCESS thì Windows bỏ qua cờ ẩn,
+	// cmd không có console nên ping tự mở một cửa sổ riêng.
+	c.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: 0x08000000 | 0x00000200}
 	c.Start()
 }
