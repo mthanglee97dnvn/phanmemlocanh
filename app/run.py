@@ -3,6 +3,12 @@
 import argparse
 import sys
 
+for _s in (sys.stdout, sys.stderr):   # in chữ có dấu không được làm dừng máy chủ, kể cả khi Windows dùng bảng mã cũ
+    try:
+        _s.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:  # noqa: BLE001
+        pass
+
 if "--selftest" in sys.argv:   # kiểm tra nhanh gói đóng sẵn có đủ thư viện (dùng khi build)
     import cv2, numpy, PIL
     import photosift.server  # noqa: F401

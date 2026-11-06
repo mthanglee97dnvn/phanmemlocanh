@@ -2,10 +2,10 @@
 import os, sys, zipfile
 
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-core = os.path.join(root, "dist", "CullCollageCore")
+core = os.path.join(root, "dist", "PhotoSiftCore")
 out = os.path.join(root, "build", "installer", "payload", "app.zip")
-if not os.path.isfile(os.path.join(core, "CullCollageCore.exe")):
-    sys.exit("Không thấy dist/CullCollageCore/CullCollageCore.exe")
+if not os.path.isfile(os.path.join(core, "PhotoSiftCore.exe")):
+    sys.exit("Không thấy dist/PhotoSiftCore/PhotoSiftCore.exe")
 n = 0
 with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
     for base, _, files in os.walk(core):

@@ -78,6 +78,11 @@ def list_dir(path: str):
             drives = [f"{c}:\\" for i, c in enumerate(string.ascii_uppercase) if mask & (1 << i)]
         except Exception:  # noqa: BLE001
             drives = []
+    if sys.platform == "darwin":   # ổ ngoài, thẻ nhớ và thư mục mạng đã kết nối nằm trong /Volumes
+        try:
+            drives = [str(Path("/Volumes") / v) for v in sorted(os.listdir("/Volumes")) if not v.startswith(".")]
+        except OSError:
+            drives = []
     return dict(path=path, parent=parent if parent != path else "", dirs=dirs, images=n_img,
                 quick=[dict(name="Thư mục chính", path=str(home))] + quick, drives=drives)
 
@@ -162,6 +167,22 @@ def lan_scan():
         hosts.append(dict(name=nm, ip="" if ip.startswith("~") else ip, host=nm or ip))
     hosts.sort(key=lambda h: (h["name"] == "", h["name"] or h["ip"]))
     return dict(hosts=hosts, me=me)
+
+
+_SMB_RE = re.compile(r"^smb://[A-Za-z0-9][A-Za-z0-9._@:%-]*(/[\w .%-]*)?$")
+
+
+def lan_mount(url):
+    """macOS: nhờ Finder kết nối thư mục chia sẻ SMB (hiện hộp thoại hỏi tài khoản nếu cần). Sau đó nó nằm trong /Volumes."""
+    if sys.platform != "darwin":
+        return dict(error="Chỉ dùng trên macOS")
+    url = (url or "").strip()
+    if not url.lower().startswith("smb://"):
+        url = "smb://" + url.lstrip("/")
+    if not _SMB_RE.match(url):
+        return dict(error="Địa chỉ không hợp lệ. Ví dụ: smb://192.168.1.10/TenThuMuc")
+    rc, out = _run(["open", url], 10)
+    return dict(ok=rc == 0, error="" if rc == 0 else (out.strip() or "Không kết nối được"))
 
 
 def lan_shares(host):
@@ -296,7 +317,9 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                     if not lic.ok():
                         return self._json(dict(idle=round(idle, 1), license=False))
                     return self._json(dict(lib.status, eyes=lib.an.has_eyes, settings=lib.settings,
-                                           online=lib.online.ok, idle=round(idle, 1)))
+                                           online=lib.online.ok, idle=round(idle, 1), os=os.name, plat=sys.platform))
+                if u.path == "/api/export/status":
+                    return self._json(lib.export_status())
                 if u.path == "/api/photos":
                     return self._json(lib.photos())
                 if u.path == "/api/people":
@@ -381,6 +404,8 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                 if u.path == "/api/label":
                     lib.set_label(b["ids"], b["label"])
                     return self._json(dict(ok=True))
+                if u.path == "/api/lan/mount":
+                    return self._json(lan_mount(str(b.get("url", ""))))
                 if u.path == "/api/lan/connect":
                     return self._json(lan_connect(str(b.get("host", "")), str(b.get("user", "")), str(b.get("password", ""))))
                 if u.path == "/api/online":
@@ -421,8 +446,9 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                     os.makedirs(path, exist_ok=True)
                     return self._json(dict(ok=True, path=path))
                 if u.path == "/api/export":
-                    return self._json(lib.export(b["ids"], b["dest"], bool(b.get("by_person")),
-                                                 b.get("template") or "{name}", bool(b.get("xmp"))))
+                    r = lib.start_export(b["ids"], b["dest"], bool(b.get("by_person")),
+                                         b.get("template") or "{name}", bool(b.get("xmp")))
+                    return self._json(r, 409 if r.get("error") else 200)
                 if u.path == "/api/pick":   # chuyển ảnh đã lọc sang Dàn trang: giữ đường dẫn, không sao chép file
                     items = []
                     for pid in b["ids"]:
@@ -441,6 +467,21 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
     return H
 
 
+class _Srv(ThreadingHTTPServer):
+    """Windows: cho phép nhiều chương trình dùng chung một cổng (SO_REUSEADDR) khiến yêu cầu bị chuyển nhầm sang
+    chương trình khác. Dùng SO_EXCLUSIVEADDRUSE để cổng của ứng dụng luôn là của riêng nó."""
+    allow_reuse_address = os.name != "nt"
+    daemon_threads = True
+
+    def server_bind(self):
+        if os.name == "nt":
+            try:
+                self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)  # type: ignore[attr-defined]
+            except (AttributeError, OSError):
+                pass
+        super().server_bind()
+
+
 def serve(port: int = 8765, open_browser: bool = True, folder: str | None = None):
     missing = models.ensure_models()
     if missing:
@@ -450,10 +491,28 @@ def serve(port: int = 8765, open_browser: bool = True, folder: str | None = None
     lic = License()
     token = secrets.token_urlsafe(18)
     httpd = None
-    for p in range(port, port + 20):
+    import random
+    from .db import HOME as _H
+    # Cổng 8765 hay bị chương trình khác chiếm nên dùng cổng ngẫu nhiên, nhưng phải GIỮ NGUYÊN cổng đó
+    # giữa các lần mở: dự án Dàn trang lưu theo địa chỉ cổng, đổi cổng thì dự án sẽ như bị mất.
+    cands = random.sample(range(49200, 65000), 40) if port in (0, 8765) else list(range(port, port + 20))
+    port_file = _H / "port.txt"
+    default_port = port in (0, 8765)
+    if default_port:
         try:
-            httpd = ThreadingHTTPServer(("127.0.0.1", p), make_handler(lib, token, p, lic))
+            cands.insert(0, int(port_file.read_text().strip()))
+        except (OSError, ValueError):
+            pass
+    for p in cands:
+        try:
+            httpd = _Srv(("127.0.0.1", p), make_handler(lib, token, p, lic))
             port = p
+            if default_port:
+                try:
+                    _H.mkdir(parents=True, exist_ok=True)
+                    port_file.write_text(str(p))
+                except OSError:
+                    pass
             break
         except OSError:
             continue

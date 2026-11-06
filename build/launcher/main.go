@@ -77,7 +77,7 @@ func main() {
 		return
 	}
 
-	core := filepath.Join(dir, "core", "CullCollageCore.exe")
+	core := filepath.Join(dir, "core", "PhotoSiftCore.exe")
 	var cmd *exec.Cmd
 	if _, err := os.Stat(core); err == nil {
 		// Bản đóng gói sẵn: không dùng Python

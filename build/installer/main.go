@@ -360,7 +360,7 @@ func runInstall(dir string) string {
 	os.Remove(filepath.Join(modelsDir, "lbfmodel.yaml.skip"))
 
 	_, haveReady := os.Stat(ready)
-	bundled := zipHas(appZip, "core/CullCollageCore.exe") // gói đã chứa sẵn mọi thứ: không cần Python
+	bundled := zipHas(appZip, "core/PhotoSiftCore.exe") // gói đã chứa sẵn mọi thứ: không cần Python
 	needPy := haveReady != nil && !bundled
 
 	// ---- Bước 1: chép ứng dụng + tải song song
