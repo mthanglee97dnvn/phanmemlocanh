@@ -751,8 +751,10 @@ async function poll(force){
   if(busy) return; busy=true;
   try{
     const st=await api('/api/status'); const was=S.status.state; S.status=st; S.settings=st.settings;
-    $('#prog i').style.width = st.state==='scanning' && st.total ? (100*(st.done+st.thumbs)/(2*st.total))+'%' : (st.state==='done'?'100%':'0');
-    if(st.state==='done') setTimeout(()=>{ if(S.status.state==='done') $('#prog i').style.width='0'; },1200);
+    const bar=$('#prog i');
+    if(st.state==='scanning'){ clearTimeout(S.barT); S.barT=0; bar.style.width=st.total?(100*(st.done+st.thumbs)/(2*st.total))+'%':'0'; }
+    else if(st.state==='done'&&was==='scanning'){ bar.style.width='100%'; S.barT=setTimeout(()=>{ S.barT=0; bar.style.width='0'; },1200); } // đầy thanh một lần rồi ẩn
+    else if(!S.barT) bar.style.width='0';
     const key=st.done+':'+st.thumbs+':'+(st.quick||0)+':'+st.state+':'+st.online, now=Date.now();
     const fin = was==='scanning' && st.state!=='scanning';
     if(force || fin || (key!==S.lastKey && (st.state!=='scanning' || now-(S.lastLoad||0)>1500))){
