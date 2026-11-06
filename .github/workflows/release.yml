@@ -21,10 +21,10 @@ jobs:
 
       - name: Tạo bản phát hành
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           NOTES: ${{ github.event.workflow_run.head_commit.message }}
           TAG: v1.1.${{ github.event.workflow_run.run_number }}
         run: |
           exe=$(find out -name '*.exe' | head -1)
           test -n "$exe"
-          gh release create "$TAG" "$exe" --repo "${{ github.repository }}" --title "$TAG" --notes "$NOTES"
+          gh release create "$TAG" "$exe" --repo "${{ github.repository_owner }}/cullcollage-releases" --title "$TAG" --notes "$NOTES"
