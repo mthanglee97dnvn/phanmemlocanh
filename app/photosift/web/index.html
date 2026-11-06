@@ -761,8 +761,11 @@ function pickFolder(start, onPick, title='Chọn thư mục'){
     if(!moved&&!r.error&&r.path!==nav.hist[nav.idx]){ nav.hist.splice(nav.idx+1); nav.hist.push(r.path); nav.idx=nav.hist.length-1; }
     paintNav();
     m.querySelector('#di').textContent = r.error ? r.error : `${r.images} ảnh trong thư mục này • ${r.dirs.length} thư mục con`;
-    m.querySelector('#dq').innerHTML = [...(r.quick||[]),...(r.drives||[]).map(d=>({name:d.replace(/^.*\//,'')||d,path:d}))].map(q=>`<button data-p="${esc(q.path)}" style="padding:2px 8px">${esc(q.name)}</button>`).join('');
+    const gb=n=>n>=1e12?(n/1e12).toFixed(1).replace('.',',')+' TB':Math.round(n/1e9)+' GB', dl=r.drives||[], curDrv=dl.find(d=>r.path.toLowerCase().startsWith(d.path.toLowerCase()));
+    m.querySelector('#dq').innerHTML = (r.quick||[]).map(q=>`<button data-p="${esc(q.path)}" style="padding:2px 8px">${esc(q.name)}</button>`).join('') +
+      (dl.length?`<select id="ddrv" aria-label="Chọn ổ đĩa">${curDrv?'':'<option value="" selected disabled>Chọn ổ đĩa</option>'}${dl.map(d=>`<option value="${esc(d.path)}"${d===curDrv?' selected':''}>${esc([d.path,d.label,d.free?'còn '+gb(d.free):''].filter(Boolean).join(' · '))}</option>`).join('')}</select>`:'');
     m.querySelectorAll('#dq button').forEach(b=>b.onclick=()=>go(b.dataset.p));
+    { const ds=m.querySelector('#ddrv'); if(ds) ds.onchange=()=>go(ds.value); }
     const sep = r.path.includes('\\')?'\\':'/';
     const list=m.querySelector('#dl'); const isUnc=r.path.startsWith('\\\\');
     list.innerHTML = (r.parent?`<div data-p="${esc(r.parent)}">⬆ ..</div>`:(isUnc?`<div data-lan="1">⬆ Quay lại Mạng LAN</div>`:'')) + r.dirs.map(d=>`<div data-p="${esc(r.path.replace(/[\\/]$/,'')+sep+d)}">📁 ${esc(d)}</div>`).join('');

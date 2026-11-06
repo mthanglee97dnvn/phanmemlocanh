@@ -48,6 +48,45 @@ class _Preview:
         return v
 
 
+_drive_seen: dict[str, dict | None] = {}   # kết quả dò ổ gần nhất; None là ổ chưa sẵn sàng
+_drive_time = [0.0]
+
+
+def probe_drive(k32, root: str):
+    """Thông tin ổ nếu ổ đang có dữ liệu; None nếu là ổ trống, ví dụ khe đọc thẻ chưa cắm thẻ."""
+    import ctypes
+    free, total = ctypes.c_ulonglong(0), ctypes.c_ulonglong(0)
+    if not k32.GetDiskFreeSpaceExW(ctypes.c_wchar_p(root), ctypes.byref(free), ctypes.byref(total), None) or not total.value:
+        return None
+    name = ctypes.create_unicode_buffer(261)
+    k32.GetVolumeInformationW(ctypes.c_wchar_p(root), name, 261, None, None, None, None, 0)
+    return dict(path=root, label=name.value, free=free.value)
+
+
+def list_drives(k32, wait: float = 1.2):
+    """Các ổ đang dùng được. Dò song song và có giới hạn thời gian vì ổ mạng mất kết nối có thể treo rất lâu;
+    ổ trả lời muộn sẽ xuất hiện ở lần xem sau."""
+    k32.SetErrorMode(1)   # không để Windows hiện hộp thoại "chưa có đĩa"
+    mask = k32.GetLogicalDrives()
+    roots = [f"{c}:\\" for i, c in enumerate(string.ascii_uppercase) if mask & (1 << i)]
+
+    def run(root):
+        try:
+            _drive_seen[root] = probe_drive(k32, root)
+        except Exception:  # noqa: BLE001  lỗi lạ thì vẫn hiện ổ, để không mất lối vào ổ đó
+            _drive_seen[root] = dict(path=root, label="", free=0)
+
+    if time.time() - _drive_time[0] > 5:   # bấm qua các thư mục liên tiếp không phải dò lại
+        _drive_time[0] = time.time()
+        ts = [threading.Thread(target=run, args=(r,), daemon=True) for r in roots]
+        for t in ts:
+            t.start()
+        end = time.time() + wait
+        for t in ts:
+            t.join(max(0.0, end - time.time()))
+    return [_drive_seen[r] for r in roots if _drive_seen.get(r)]
+
+
 def list_dir(path: str):
     path = os.path.abspath(os.path.expanduser(path or "~"))
     dirs, n_img = [], 0
@@ -72,15 +111,15 @@ def list_dir(path: str):
             quick.append(dict(name=nm, path=str(home / nm)))
     drives = []
     if os.name == "nt":
-        try:   # GetLogicalDrives chỉ đọc bảng ổ đĩa của hệ thống, không chạm vào ổ mạng (os.path.exists có thể treo hàng chục giây)
+        try:
             import ctypes
-            mask = ctypes.windll.kernel32.GetLogicalDrives()
-            drives = [f"{c}:\\" for i, c in enumerate(string.ascii_uppercase) if mask & (1 << i)]
+            drives = list_drives(ctypes.windll.kernel32)
         except Exception:  # noqa: BLE001
             drives = []
     if sys.platform == "darwin":   # ổ ngoài, thẻ nhớ và thư mục mạng đã kết nối nằm trong /Volumes
         try:
-            drives = [str(Path("/Volumes") / v) for v in sorted(os.listdir("/Volumes")) if not v.startswith(".")]
+            drives = [dict(path=str(Path("/Volumes") / v), label=v, free=0)
+                      for v in sorted(os.listdir("/Volumes")) if not v.startswith(".")]
         except OSError:
             drives = []
     return dict(path=path, parent=parent if parent != path else "", dirs=dirs, images=n_img,
