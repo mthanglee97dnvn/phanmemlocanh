@@ -144,6 +144,13 @@ body.dragging .gap.over{width:44px;background:var(--accent)}
 .f output{font:12px var(--mono);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 .f input[type=range]{width:100%;accent-color:var(--accent);margin:0}
 .f.two{grid-template-columns:82px minmax(0,1fr)}
+.dpiRow{display:flex;align-items:center;gap:8px;min-width:0}
+.dpiRow input[type=range]{flex:1;min-width:0}
+.f .dpiRow input[type=number]{width:64px;flex:none}
+.dpiPre{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 0 82px}
+.dpiPre button{background:var(--panel-2);border:1px solid var(--line);border-radius:3px;padding:3px 9px;color:inherit;font:inherit;font-size:12px;cursor:pointer}
+.dpiPre button[aria-pressed=true]{border-color:var(--accent);color:var(--accent)}
+.dpiInfo{color:var(--muted);font-size:13px;margin:6px 0 0}
 .f input[type=color]{width:100%;height:28px;padding:1px;background:var(--panel-2);border:1px solid var(--line);border-radius:3px}
 .f input[type=text],.f input[type=number],.f select,textarea{width:100%;min-width:0;background:var(--panel-2);border:1px solid var(--line);border-radius:3px;padding:4px 6px}
 textarea{resize:vertical;min-height:72px;margin-bottom:8px;display:block}
@@ -476,6 +483,10 @@ dialog h2{font:600 18px var(--display);margin:0 0 12px}
     <select id="expFmt"><option value="png">PNG, sắc nét nhất</option><option value="jpeg">JPG, dung lượng nhẹ</option></select></div>
   <div class="f two"><label for="expSize">Chiều rộng</label>
     <select id="expSize"><option value="1">1080 px, chuẩn Instagram</option><option value="1.3334">1440 px</option><option value="2">2160 px</option><option value="3.7037">4000 px, in album</option></select></div>
+  <div class="f two"><label for="expDpi">Độ phân giải</label>
+    <div class="dpiRow"><input type="range" id="expDpi" min="72" max="600" step="1" value="300" aria-label="Độ phân giải DPI"><input type="number" id="expDpiN" min="72" max="600" step="1" value="300" aria-label="Nhập số DPI"><span>dpi</span></div></div>
+  <div class="dpiPre" id="expDpiPre"><button type="button" data-d="72">72</button><button type="button" data-d="150">150</button><button type="button" data-d="240">240</button><button type="button" data-d="300">300</button></div>
+  <p class="dpiInfo" id="expDpiInfo"></p>
   <p style="color:var(--muted);font-size:13px;margin:8px 0 0">Bấm vào từng slide để tải riêng, hoặc tải tất cả trong một file ZIP theo đúng thứ tự đăng.</p>
   <div class="exp" id="expList"></div>
   <div class="dlgfoot">
@@ -1577,6 +1588,24 @@ async function saveFile(name,blob){
 }
 const safeName=()=>(doc.name||'bai-dang').replace(/[\\/:*?"<>|]+/g,'-').trim()||'bai-dang';
 const toBlob=(c,fmt)=>new Promise(r=>c.toBlob(r,'image/'+fmt,.94));
+/* DPI chỉ là thông tin ghi trong file: không đổi số pixel, bố cục hay vị trí ảnh */
+const ascii=t=>Uint8Array.from(t,c=>c.charCodeAt(0));
+function joinBytes(parts){const o=new Uint8Array(parts.reduce((n,p)=>n+p.length,0));let i=0;for(const p of parts){o.set(p,i);i+=p.length}return o}
+function pngDpi(u,dpi){const v=new DataView(u.buffer,u.byteOffset,u.byteLength),ppm=Math.round(dpi/.0254),c=new Uint8Array(21),d=new DataView(c.buffer);
+  d.setUint32(0,9);c.set(ascii('pHYs'),4);d.setUint32(8,ppm);d.setUint32(12,ppm);c[16]=1;
+  let crc=-1;for(let i=4;i<17;i++)crc=CRC[(crc^c[i])&255]^(crc>>>8);d.setUint32(17,(crc^-1)>>>0);
+  const end=33,parts=[u.subarray(0,end),c];let p=end,from=end;
+  while(p+8<=u.length){const n=v.getUint32(p),t=String.fromCharCode(u[p+4],u[p+5],u[p+6],u[p+7]);
+    if(t==='IDAT')break;if(t==='pHYs'){parts.push(u.subarray(from,p));from=p+12+n}p+=12+n}
+  parts.push(u.subarray(from));return joinBytes(parts)}
+function jpegDpi(u,dpi){const app0=new Uint8Array(18),a=new DataView(app0.buffer);a.setUint16(0,0xFFE0);a.setUint16(2,16);app0.set(ascii('JFIF\0'),4);app0[9]=1;app0[10]=1;app0[11]=1;a.setUint16(12,dpi);a.setUint16(14,dpi);
+  const ex=new Uint8Array(76),e=new DataView(ex.buffer),T=10;e.setUint16(0,0xFFE1);e.setUint16(2,74);ex.set(ascii('Exif\0\0'),4);ex.set(ascii('II*\0'),T);e.setUint32(T+4,8,true);e.setUint16(T+8,3,true);
+  [[0x11A,5,1,50],[0x11B,5,1,58],[0x128,3,1,2]].forEach(([tag,ty,n,val],i)=>{const o=T+10+i*12;e.setUint16(o,tag,true);e.setUint16(o+2,ty,true);e.setUint32(o+4,n,true);e.setUint32(o+8,val,true)});
+  for(const o of[T+50,T+58]){e.setUint32(o,dpi,true);e.setUint32(o+4,1,true)}
+  let p=2;const isApp=(m,sig)=>u[p]===255&&u[p+1]===m&&String.fromCharCode(...u.subarray(p+4,p+4+sig.length))===sig;
+  if(isApp(0xE0,'JFIF'))p+=2+(u[p+2]<<8|u[p+3]);if(isApp(0xE1,'Exif'))p+=2+(u[p+2]<<8|u[p+3]);
+  return joinBytes([u.subarray(0,2),app0,ex,u.subarray(p)])}
+async function setDpi(blob,dpi){const u=new Uint8Array(await blob.arrayBuffer());return new Blob([blob.type==='image/png'?pngDpi(u,dpi):jpegDpi(u,dpi)],{type:blob.type})}
 
 /* store-only ZIP: PNG and JPG are already compressed */
 const CRC=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
@@ -1728,11 +1757,16 @@ function ask(title,body,yes){return new Promise(ok=>{const d=$('#confirmDlg');$(
 let toastT;function toast(m){const t=$('#toast');t.textContent=m;try{t.hidePopover()}catch(e){}try{t.showPopover()}catch(e){}clearTimeout(toastT);toastT=setTimeout(()=>{try{t.hidePopover()}catch(e){}},3200)}
 function openExport(){const l=$('#expList');l.replaceChildren();if(firstEmpty())toast('Còn khung ảnh trống. Khung trống sẽ không xuất hiện trong ảnh.');
   for(let i=0;i<doc.slides;i++){const c=renderSlide(i,.16);l.append(el('button',{title:`Tải slide ${i+1}`,'aria-label':`Tải slide ${i+1}`,onclick:()=>exportOne(i)},c,el('b',{textContent:i+1})))}
-  $('#exportDlg').showModal()}
+  paintDpi();$('#exportDlg').showModal()}
 const fmtOf=()=>$('#expFmt').value,extOf=f=>f==='png'?'png':'jpg',scaleOf=()=>+$('#expSize').value;
 const fileName=(i,f)=>`${safeName()}_${String(i+1).padStart(2,'0')}.${extOf(f)}`;
 const slideIds=i=>[...doc.items.filter(t=>t.type==='photo'&&t.src&&aabb(t).x<(i+1)*W&&aabb(t).x2>i*W).map(t=>t.src),...(doc.bg.type==='image'&&doc.bg.src?[doc.bg.src]:[])];
-const exportBlob=(i,s,f)=>withFull(slideIds(i),()=>toBlob(renderSlide(i,s,true,true),f));
+const dpiOf=()=>Math.min(600,Math.max(72,Math.round(+$('#expDpi').value)||300));
+function paintDpi(){const d=dpiOf(),s=scaleOf(),w=Math.round(W*s),h=Math.round(doc.h*s),cm=n=>(n/d*2.54).toFixed(1).replace('.',',');
+  $('#expDpiN').value=d;$('#expDpiPre').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(+b.dataset.d===d)));
+  $('#expDpiInfo').textContent=`Ảnh vẫn là ${w} × ${h} px, bố cục giữ nguyên. Khi in ở ${d} dpi: ${cm(w)} × ${cm(h)} cm.`}
+function pickDpi(v){$('#expDpi').value=Math.min(600,Math.max(72,Math.round(+v)||300));try{localStorage.setItem('vuot.dpi',String(dpiOf()))}catch(e){}paintDpi()}
+const exportBlob=(i,s,f)=>withFull(slideIds(i),async()=>setDpi(await toBlob(renderSlide(i,s,true,true),f),dpiOf()));
 async function exportOne(i){const f=fmtOf(),b=await exportBlob(i,scaleOf(),f);if(await saveFile(fileName(i,f),b))toast(`Đã tải slide ${i+1}`)}
 async function exportZip(){const f=fmtOf(),s=scaleOf(),files=[],btnZ=$('#expZip');btnZ.disabled=true;btnZ.textContent='Đang tạo…';
   try{for(let i=0;i<doc.slides;i++){btnZ.textContent=`Đang tạo ${i+1}/${doc.slides}…`;files.push({name:fileName(i,f),blob:await exportBlob(i,s,f)})}
@@ -1757,6 +1791,9 @@ $('#ratio').onchange=e=>setRatio(e.target.value);
 $('#binAdd').onclick=()=>pickFiles();$('#binAuto').onclick=autoFlow;$('#binFilter').onchange=$('#binSort').onchange=renderBin;
 $('#binSize').oninput=e=>{$('#binGrid').style.setProperty('--tile',e.target.value+'px')};
 $('#binToggle').onclick=e=>{const g=$('#binGrid');g.hidden=!g.hidden;e.currentTarget.textContent=g.hidden?'▴':'▾';e.currentTarget.setAttribute('aria-label',g.hidden?'Mở khay ảnh':'Thu gọn khay ảnh')};
+try{const d=localStorage.getItem('vuot.dpi');if(d)$('#expDpi').value=d}catch(e){}
+$('#expDpi').oninput=e=>pickDpi(e.target.value);$('#expDpiN').onchange=e=>pickDpi(e.target.value);$('#expSize').onchange=paintDpi;
+$('#expDpiPre').onclick=e=>{if(e.target.dataset.d)pickDpi(e.target.dataset.d)};
 $('#btnExport').onclick=openExport;$('#expClose').onclick=()=>$('#exportDlg').close();$('#expZip').onclick=exportZip;
 $('#btnPreview').onclick=openPreview;$('#pvClose').onclick=()=>$('#previewDlg').close();$('#pvPrev').onclick=()=>pvStep(-1);$('#pvNext').onclick=()=>pvStep(1);
 $('#previewDlg').addEventListener('keydown',e=>{if(e.key==='ArrowRight')pvStep(1);if(e.key==='ArrowLeft')pvStep(-1)});
