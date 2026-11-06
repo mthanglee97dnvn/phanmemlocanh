@@ -25,6 +25,7 @@ from .library import FACES, PREVIEWS, THUMBS, Library
 WEB = Path(__file__).parent / "web"
 LAST_SEEN = [time.time()]   # lần cuối giao diện hỏi trạng thái (để tự thoát khi đóng trình duyệt)
 IDLE_EXIT_S = 240
+WEB_SAFE = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
 
 
 class _Preview:
@@ -75,11 +76,6 @@ def list_dir(path: str):
             mask = ctypes.windll.kernel32.GetLogicalDrives()
             drives = [f"{c}:\\" for i, c in enumerate(string.ascii_uppercase) if mask & (1 << i)]
         except Exception:  # noqa: BLE001
-            drives = []
-    if sys.platform == "darwin":   # ổ ngoài, thẻ nhớ và thư mục mạng đã kết nối nằm trong /Volumes
-        try:
-            drives = [str(Path("/Volumes") / v) for v in sorted(os.listdir("/Volumes")) if not v.startswith(".")]
-        except OSError:
             drives = []
     return dict(path=path, parent=parent if parent != path else "", dirs=dirs, images=n_img,
                 quick=[dict(name="Thư mục chính", path=str(home))] + quick, drives=drives)
@@ -167,22 +163,6 @@ def lan_scan():
     return dict(hosts=hosts, me=me)
 
 
-_SMB_RE = re.compile(r"^smb://[A-Za-z0-9][A-Za-z0-9._@:%-]*(/[\w .%-]*)?$")
-
-
-def lan_mount(url):
-    """macOS: nhờ Finder kết nối thư mục chia sẻ SMB (hiện hộp thoại hỏi tài khoản nếu cần). Sau đó nó nằm trong /Volumes."""
-    if sys.platform != "darwin":
-        return dict(error="Chỉ dùng trên macOS")
-    url = (url or "").strip()
-    if not url.lower().startswith("smb://"):
-        url = "smb://" + url.lstrip("/")
-    if not _SMB_RE.match(url):
-        return dict(error="Địa chỉ không hợp lệ. Ví dụ: smb://192.168.1.10/TenThuMuc")
-    rc, out = _run(["open", url], 10)
-    return dict(ok=rc == 0, error="" if rc == 0 else (out.strip() or "Không kết nối được"))
-
-
 def lan_shares(host):
     if not _HOST_RE.match(host or ""):
         return dict(error="Tên máy / địa chỉ IP không hợp lệ")
@@ -230,7 +210,7 @@ def lan_connect(host, user, password):
 
 
 def make_handler(lib: Library, token: str, port: int):
-    previews = _Preview()
+    previews = _Preview(32)
     allowed_hosts = {f"127.0.0.1:{port}", f"localhost:{port}"}
 
     class H(BaseHTTPRequestHandler):
@@ -274,7 +254,7 @@ def make_handler(lib: Library, token: str, port: int):
                     if self.headers.get("Host", "") not in allowed_hosts:
                         return self._send(403, b"forbidden", "text/plain")
                     if q.get("t") == token or self._authed():
-                        html = (WEB / "index.html").read_bytes()
+                        html = (WEB / "shell.html").read_bytes()   # khung hai chế độ: Lọc ảnh + Dàn trang
                         return self._send(200, html, "text/html; charset=utf-8",
                                           {"Set-Cookie": f"ps={token}; HttpOnly; SameSite=Strict; Path=/",
                                            "Cache-Control": "no-store"})
@@ -282,15 +262,33 @@ def make_handler(lib: Library, token: str, port: int):
                 if not self._authed():
                     return self._send(403, b"forbidden", "text/plain")
 
+                if u.path in ("/filter", "/layout"):
+                    name = "index.html" if u.path == "/filter" else "layout.html"
+                    return self._send(200, (WEB / name).read_bytes(), "text/html; charset=utf-8", {"Cache-Control": "no-store"})
+                if u.path == "/api/file":
+                    p = os.path.abspath(q.get("path", ""))
+                    ext = Path(p).suffix.lower()
+                    if ext not in ALL_EXT or not os.path.isfile(p):   # chỉ phục vụ file ảnh
+                        return self._send(404, b"", "text/plain")
+                    side = int(q.get("s", 0))
+                    if not side and ext in WEB_SAFE:   # ảnh gốc nguyên vẹn cho khâu xuất
+                        return self._send(200, Path(p).read_bytes(), WEB_SAFE[ext], {"Cache-Control": "max-age=3600"})
+
+                    def make_file():
+                        ow, oh, _ = read_meta(p)
+                        img = load_bgr(p, side, (ow, oh))
+                        return _jpg(img, 92) if img is not None else b""
+                    data = previews.get(("f", p, side), make_file)
+                    if not data:
+                        return self._send(404, b"", "text/plain")
+                    return self._send(200, data, "image/jpeg", {"Cache-Control": "max-age=3600"})
                 if u.path in ("/logo.png", "/favicon.png"):
                     return self._send(200, (WEB / u.path[1:]).read_bytes(), "image/png", {"Cache-Control": "max-age=86400"})
                 if u.path == "/api/status":
                     idle = time.time() - LAST_SEEN[0]
                     LAST_SEEN[0] = time.time()
                     return self._json(dict(lib.status, eyes=lib.an.has_eyes, settings=lib.settings,
-                                           online=lib.online.ok, idle=round(idle, 1), os=os.name, plat=sys.platform))
-                if u.path == "/api/export/status":
-                    return self._json(lib.export_status())
+                                           online=lib.online.ok, idle=round(idle, 1)))
                 if u.path == "/api/photos":
                     return self._json(lib.photos())
                 if u.path == "/api/people":
@@ -368,8 +366,6 @@ def make_handler(lib: Library, token: str, port: int):
                 if u.path == "/api/label":
                     lib.set_label(b["ids"], b["label"])
                     return self._json(dict(ok=True))
-                if u.path == "/api/lan/mount":
-                    return self._json(lan_mount(str(b.get("url", ""))))
                 if u.path == "/api/lan/connect":
                     return self._json(lan_connect(str(b.get("host", "")), str(b.get("user", "")), str(b.get("password", ""))))
                 if u.path == "/api/online":
@@ -410,9 +406,15 @@ def make_handler(lib: Library, token: str, port: int):
                     os.makedirs(path, exist_ok=True)
                     return self._json(dict(ok=True, path=path))
                 if u.path == "/api/export":
-                    r = lib.start_export(b["ids"], b["dest"], bool(b.get("by_person")),
-                                         b.get("template") or "{name}", bool(b.get("xmp")))
-                    return self._json(r, 409 if r.get("error") else 200)
+                    return self._json(lib.export(b["ids"], b["dest"], bool(b.get("by_person")),
+                                                 b.get("template") or "{name}", bool(b.get("xmp"))))
+                if u.path == "/api/pick":   # chuyển ảnh đã lọc sang Dàn trang: giữ đường dẫn, không sao chép file
+                    items = []
+                    for pid in b["ids"]:
+                        r = lib.db.one("SELECT path,w,h FROM photos WHERE id=?", (int(pid),))
+                        if r:
+                            items.append(dict(path=r["path"], name=os.path.basename(r["path"]), w=r["w"], h=r["h"]))
+                    return self._json(dict(items=items))
                 if u.path == "/api/xmp":
                     return self._json(dict(written=lib.write_xmp(b["ids"])))
                 return self._send(404, b"not found", "text/plain")
@@ -424,21 +426,6 @@ def make_handler(lib: Library, token: str, port: int):
     return H
 
 
-class _Srv(ThreadingHTTPServer):
-    """Windows: cho phép nhiều chương trình dùng chung một cổng (SO_REUSEADDR) khiến yêu cầu bị chuyển nhầm sang
-    chương trình khác. Dùng SO_EXCLUSIVEADDRUSE để cổng của PhotoSift luôn là của riêng nó."""
-    allow_reuse_address = os.name != "nt"
-    daemon_threads = True
-
-    def server_bind(self):
-        if os.name == "nt":
-            try:
-                self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)  # type: ignore[attr-defined]
-            except (AttributeError, OSError):
-                pass
-        super().server_bind()
-
-
 def serve(port: int = 8765, open_browser: bool = True, folder: str | None = None):
     missing = models.ensure_models()
     if missing:
@@ -447,12 +434,9 @@ def serve(port: int = 8765, open_browser: bool = True, folder: str | None = None
     lib = Library()
     token = secrets.token_urlsafe(18)
     httpd = None
-    import random
-    # Cổng mặc định 8765 hay bị chương trình khác chiếm → dùng cổng ngẫu nhiên (bộ khởi chạy đọc running.json nên không cần cố định)
-    cands = random.sample(range(49200, 65000), 40) if port in (0, 8765) else list(range(port, port + 20))
-    for p in cands:
+    for p in range(port, port + 20):
         try:
-            httpd = _Srv(("127.0.0.1", p), make_handler(lib, token, p))
+            httpd = ThreadingHTTPServer(("127.0.0.1", p), make_handler(lib, token, p))
             port = p
             break
         except OSError:

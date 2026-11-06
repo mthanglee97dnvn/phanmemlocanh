@@ -154,6 +154,7 @@ canvas.hist{width:100%;height:120px;display:block;border-radius:10px;background:
     <button id="bCull">✨ Tự động lọc</button>
     <button id="bUndo" disabled>↶ Hoàn tác</button>
     <button id="bExport">📤 Xuất ảnh</button>
+    <button id="bLayout" class="pri" title="Gửi ảnh đã lọc sang Dàn trang" hidden>🧩 Dàn trang</button>
     <button id="bInfo" title="Bật/tắt khung thông số ảnh">ℹ️</button>
     <button id="bTheme" title="Đổi giao diện: Kính / Tối trung tính (xem màu ảnh chuẩn)">🎨</button>
     <button id="bHelp">?</button>
@@ -258,7 +259,7 @@ function renderGrid(){
   const wrap=$('#gridwrap');
   if(!S.photos.length){
     cells.clear(); sigs.clear();
-    wrap.innerHTML = `<div id="empty"><h2>${S.status.state==='scanning'?'Đang đọc ảnh…':(S.status.state==='error'?'Không mở được thư mục':'Chưa có ảnh nào')}</h2>${S.status.state==='error'?`<div style="color:#ffb3b3;max-width:520px;margin:0 auto 10px;word-break:break-word">${esc(S.status.message||'')}</div>`:''}${S.status.state==='done'&&S.status.root&&!S.photos.length?`<div style="color:#ffd9a0;margin-bottom:8px">Thư mục «${esc(S.status.root)}» không có ảnh nào (JPG/PNG/RAW/HEIC).</div>`:''}<div>Mở một thư mục ảnh để bắt đầu.<br>PhotoSift sẽ tự phát hiện ảnh mờ, tối, nhắm mắt, trùng lặp<br>và nhóm ảnh theo từng người.</div><button class="pri" onclick="pickFolder()">📁 Mở thư mục</button></div>`;
+    wrap.innerHTML = `<div id="empty"><h2>${S.status.state==='scanning'?'Đang đọc ảnh…':'Chưa có ảnh nào'}</h2><div>Mở một thư mục ảnh để bắt đầu.<br>PhotoSift sẽ tự phát hiện ảnh mờ, tối, nhắm mắt, trùng lặp<br>và nhóm ảnh theo từng người.</div><button class="pri" onclick="pickFolder()">📁 Mở thư mục</button></div>`;
     renderStatus(); return;
   }
   if(!$('#grid')){ cells.clear(); sigs.clear(); wrap.innerHTML='<div id="grid"></div>'; }
@@ -398,33 +399,13 @@ function openViewer(){ if(S.cur===null) return; S.viewer=true; S.zoom=false; $('
 function toggleStrip(){ stripOn=!stripOn; try{ localStorage.setItem('ps_strip',stripOn?'1':'0'); }catch(e){} renderStrip(true); if(S.viewer) showViewer(); toast(stripOn?'Bật dải thumbnail':'Tắt dải thumbnail (phím T để bật lại)'); }
 function closeViewer(){ S.viewer=false; updateMask(); $('#viewer').classList.remove('on'); if(S.cur!==null){ const d=cells.get(S.cur); d&&d.scrollIntoView({block:'nearest'}); } }
 let vTok=0;
-const VPRE=new Map();
 async function showViewer(){
   const p=S.by.get(S.cur); if(!p){ closeViewer(); return; }
   const tok=++vTok; const img=$('#vimg'); $('#vstage').classList.toggle('zoom',S.zoom);
   const src = S.zoom ? `/api/preview?id=${p.id}&s=0` : `/api/preview?id=${p.id}&s=2000`;
-  if(img.dataset.src!==src){
-    img.dataset.src=src;
-    const thumb=`/thumb/${p.id}.jpg?v=${p.tv}`;
-    const fit=(w,h)=>{ // giữ khung ảnh đúng cỡ cuối cùng ngay cả khi mới hiện thumbnail nhỏ → không bị "nhảy"/bóng ma
-      if(S.zoom||!w||!h){ img.style.width=img.style.height=''; return; }
-      const mw=window.innerWidth-290, mh=window.innerHeight-(stripOn?116:0), k=Math.min(mw/w,mh/h);
-      img.style.width=Math.round(w*k)+'px'; img.style.height=Math.round(h*k)+'px'; };
-    const apply=(im,u,clear)=>{ // chỉ đổi ảnh khi ảnh mới đã giải mã xong và khung đã đúng cỡ → không còn khung hình lẫn ảnh cũ
-      const go=()=>{ if(tok!==vTok||img.dataset.src!==src) return; fit(im.naturalWidth,im.naturalHeight); img.src=u;
-        if(clear) setTimeout(()=>{ if(img.dataset.src===src) img.style.width=img.style.height=''; },80); };
-      (im.decode?im.decode().then(go,go):go()); };
-    const done=VPRE.get(src);
-    if(done&&done.complete&&done.naturalWidth){ apply(done,src,true); }   // đã nạp trước: hiện ngay, không qua thumbnail
-    else{
-      const t=new Image(); t.onload=()=>{ if(!big.complete||!big.naturalWidth) apply(t,thumb,false); }; t.src=thumb;
-      const big=new Image(); VPRE.set(src,big);
-      big.onload=()=>apply(big,src,true);
-      big.src=src;
-    }
-  }
+  if(img.dataset.src!==src){ img.dataset.src=src; img.src=`/thumb/${p.id}.jpg?v=${p.tv}`; const big=new Image(); big.onload=()=>{ if(tok===vTok && img.dataset.src===src) img.src=src; }; big.src=src; }
   const ix=S.view.findIndex(x=>x.id===p.id);
-  for(const o of [S.view[ix+1],S.view[ix-1],S.view[ix+2]]) if(o){ const u=`/api/preview?id=${o.id}&s=2000`; if(!VPRE.has(u)){ const pre=new Image(); VPRE.set(u,pre); pre.src=u; if(VPRE.size>12){ VPRE.delete(VPRE.keys().next().value); } } }
+  for(const o of [S.view[ix+1],S.view[ix-1]]) if(o){ const pre=new Image(); pre.src=`/api/preview?id=${o.id}&s=2000`; }
   renderInfo(p, ix); loadBoxes(p, tok); updateMask(); renderStrip(true);
 }
 $('#vimg').addEventListener('click', e=>{
@@ -575,7 +556,7 @@ function pickFolder(start, onPick, title='Chọn thư mục'){
     const r=await api('/api/ls?path='+encodeURIComponent(path||'')); if(my!==seq) return;  // bỏ kết quả cũ đến muộn
     m.querySelector('#dp').value=r.path; curPath=r.path;
     m.querySelector('#di').textContent = r.error ? r.error : `${r.images} ảnh trong thư mục này • ${r.dirs.length} thư mục con`;
-    m.querySelector('#dq').innerHTML = [...(r.quick||[]),...(r.drives||[]).map(d=>({name:d.replace(/^.*\//,'')||d,path:d}))].map(q=>`<button data-p="${esc(q.path)}" style="padding:2px 8px">${esc(q.name)}</button>`).join('');
+    m.querySelector('#dq').innerHTML = [...(r.quick||[]),...(r.drives||[]).map(d=>({name:d,path:d}))].map(q=>`<button data-p="${esc(q.path)}" style="padding:2px 8px">${esc(q.name)}</button>`).join('');
     m.querySelectorAll('#dq button').forEach(b=>b.onclick=()=>go(b.dataset.p));
     const sep = r.path.includes('\\')?'\\':'/';
     const list=m.querySelector('#dl'); const isUnc=r.path.startsWith('\\\\');
@@ -611,11 +592,7 @@ function pickFolder(start, onPick, title='Chọn thư mục'){
           : '<div class="hint" style="padding:8px">Không thấy máy nào bật chia sẻ file. Hãy gõ thẳng đường dẫn dạng \\\\192.168.1.20\\Anh vào ô trên.</div>';
         res.querySelectorAll('[data-h]').forEach(x=>x.onclick=()=>lanShares(x.dataset.h)); }catch(e){ res.textContent=e.message; } };
     box.querySelector('#lscan').click(); };
-  if(S.status.plat==='darwin'){ const b=m.querySelector('#dlan'); b.textContent='🖧 Kết nối máy khác (SMB)'; b.title='Kết nối thư mục chia sẻ trên máy khác trong mạng LAN';
-    b.onclick=()=>{ const box=lanBox(); m.querySelector('#dp').value=''; m.querySelector('#di').textContent='Mạng LAN trên Mac: nhập địa chỉ rồi bấm Kết nối; thư mục sẽ xuất hiện trong mục «Volumes».';
-      box.innerHTML=`<div style="padding:10px;cursor:default"><div class="hint" style="margin-bottom:6px">Nhập địa chỉ máy chia sẻ, ví dụ <b>smb://192.168.1.10/TenThuMuc</b> (hoặc smb://TEN-MAY). Mac sẽ hỏi tài khoản nếu cần.</div><div class="row"><input type="text" id="smbu" placeholder="smb://192.168.1.10/TenThuMuc" style="flex:1"><button class="pri" id="smbg">Kết nối</button></div><div id="smbm" class="hint" style="margin-top:6px"></div></div>`;
-      box.querySelector('#smbg').onclick=async()=>{ const msg=box.querySelector('#smbm'); msg.textContent='Đang kết nối…'; try{ const r=await api('/api/lan/mount',{url:box.querySelector('#smbu').value}); if(r.error){ msg.textContent=r.error; return; } msg.textContent='Đã gửi yêu cầu. Nhập tài khoản trong hộp thoại của Mac nếu có; xong bấm «Volumes» ở trên để chọn thư mục.'; }catch(e){ msg.textContent=e.message; } }; };
-  } else m.querySelector('#dlan').onclick=lanHome;
+  m.querySelector('#dlan').onclick=lanHome;
   const goInput=()=>{ const v=m.querySelector('#dp').value; const h=uncHost(v); if(h) lanShares(h); else go(v); };
   m.querySelector('#dgo').onclick=goInput;
   const nn=m.querySelector('#dnn'), mk=m.querySelector('#dmk');
@@ -675,26 +652,37 @@ $('#bExport').onclick=()=>{
     const sc=m.querySelector('#xs').value; let list;
     if(sc==='sel') list=targetsForExport(); else if(sc==='view') list=S.view.map(p=>p.id); else if(sc==='keep') list=S.photos.filter(p=>p.rating>=0).map(p=>p.id); else if(sc==='r5') list=S.photos.filter(p=>p.rating===5).map(p=>p.id); else list=S.photos.filter(p=>p.rating>=3).map(p=>p.id);
     const dest=m.querySelector('#xd').value.trim(); if(!dest){ toast('Chưa chọn thư mục đích'); return; } if(!list.length){ toast('Không có ảnh để xuất'); return; }
-    m.querySelector('#xgo').disabled=true;
-    const xr=m.querySelector('#xr'); const fmt=n=>n.toLocaleString('vi-VN');
-    xr.innerHTML=`<div class="xprog" style="height:14px;border-radius:8px;background:rgba(255,255,255,.12);overflow:hidden;margin:6px 0 4px"><i id="xbar" style="display:block;height:100%;width:0;background:linear-gradient(90deg,#f5a623,#ffd27a);transition:width .25s"></i></div><div id="xtx" style="color:var(--tx)">Đang chuẩn bị…</div>`;
-    const bar=xr.querySelector('#xbar'), tx=xr.querySelector('#xtx');
-    try{
-      await api('/api/export',{ids:list,dest,by_person:m.querySelector('#xp').checked,template:m.querySelector('#xt').value,xmp:m.querySelector('#xx').checked});
-      let st;
-      for(;;){
-        st=await api('/api/export/status'); const tot=st.total||list.length, pct=tot?Math.min(100,Math.round(100*st.done/tot)):0;
-        bar.style.width=pct+'%';
-        tx.innerHTML=`<b>${pct}%</b> &nbsp;•&nbsp; đã xuất <b>${fmt(st.done)}</b> / ${fmt(tot)} ảnh`+(st.state==='running'&&st.cur?` &nbsp;•&nbsp; <span class="hint">${esc(st.cur)}</span>`:'');
-        if(st.state!=='running') break;
-        if(!document.body.contains(m)) return;
-        await new Promise(r=>setTimeout(r,300));
-      }
-      if(st.state==='error') throw new Error(st.message||'Lỗi khi xuất');
-      bar.style.width='100%';
-      tx.innerHTML=`<span class="ok"><b>Hoàn tất 100%</b> — đã xuất ${fmt(st.done)}/${fmt(st.total)} ảnh (${fmt(st.copied)} file).</span>`+(st.n_errors?` <span class="warn">${st.n_errors} lỗi: ${esc((st.errors||[]).join('; '))}</span>`:'');
-    }catch(err){ xr.innerHTML=`<span class="warn">${esc(err.message)}</span>`; }
+    m.querySelector('#xgo').disabled=true; m.querySelector('#xr').textContent='Đang sao chép…';
+    try{ const r=await api('/api/export',{ids:list,dest,by_person:m.querySelector('#xp').checked,template:m.querySelector('#xt').value,xmp:m.querySelector('#xx').checked});
+      m.querySelector('#xr').innerHTML=`<span class="ok">Đã chép ${r.copied} file.</span>`+(r.n_errors?` <span class="warn">${r.n_errors} lỗi: ${esc(r.errors.join('; '))}</span>`:''); }
+    catch(err){ m.querySelector('#xr').innerHTML=`<span class="warn">${esc(err.message)}</span>`; }
     m.querySelector('#xgo').disabled=false;
+  };
+};
+/* Gửi ảnh đã lọc sang chế độ Dàn trang */
+if(window.parent!==window && window.parent.PS) $('#bLayout').hidden=false;
+addEventListener('keydown',e=>{ if((e.ctrlKey||e.metaKey)&&(e.key==='1'||e.key==='2')&&window.parent.PS){ e.preventDefault(); window.parent.PS.show(e.key==='1'?'filter':'layout'); } });
+$('#bLayout').onclick=async()=>{
+  const L=window.parent.PS&&window.parent.PS.layout(); if(!L){ toast('Dàn trang đang khởi động, thử lại sau giây lát'); return; }
+  const st=await L.state(); const inView=S.view.filter(p=>p.rating!==-1);
+  const stars=n=>inView.filter(p=>p.rating>=n).length; const folder=(S.photos[0]&&S.photos[0].dir||'').split(/[\\/]/).filter(Boolean).pop()||'Album';
+  const m=modal(`<h3>Gửi sang Dàn trang</h3>
+   <div class="row"><label>Ảnh cần gửi</label><select id="ls" style="flex:1"><option value="sel">Đang chọn (${S.sel.size||(S.cur!==null?1:0)})</option><option value="view">Tất cả ảnh đang hiển thị, trừ ảnh loại (${inView.length})</option><option value="s1">Từ 1 sao (${stars(1)})</option><option value="s3">Từ 3 sao (${stars(3)})</option><option value="s5">5 sao (${stars(5)})</option></select></div>
+   <div class="row"><label>Đưa vào</label><select id="ld" style="flex:1"><option value="new">Dự án mới</option>${st.open?`<option value="cur">Dự án đang mở: ${esc(st.name)}</option>`:''}</select></div>
+   <div class="row" id="lnr"><label>Tên dự án</label><input type="text" id="ln" style="flex:1"></div>
+   <label class="hint" style="display:block;margin:8px 0"><input type="checkbox" id="lf" checked> Tự dàn trang luôn</label>
+   <div class="btns"><button onclick="this.closest('.back').remove()">Hủy</button><button class="pri" id="lgo">Gửi ảnh</button></div>`);
+  m.querySelector('#ln').value=folder;
+  m.querySelector('#ld').onchange=e=>{ m.querySelector('#lnr').style.display=e.target.value==='new'?'':'none'; };
+  m.querySelector('#lgo').onclick=async()=>{
+    const v=m.querySelector('#ls').value; let list;
+    if(v==='sel') list=(S.sel.size?S.view.filter(p=>S.sel.has(p.id)):S.view.filter(p=>p.id===S.cur)).filter(p=>p.rating!==-1);
+    else if(v==='view') list=inView; else list=inView.filter(p=>p.rating>=+v.slice(1));
+    if(!list.length){ toast('Chưa có ảnh nào phù hợp để gửi'); return; }
+    const btn=m.querySelector('#lgo'); btn.disabled=true; btn.textContent='Đang gửi…';
+    try{ const r=await api('/api/pick',{ids:list.map(p=>p.id)}); window.parent.PS.show('layout');
+      await L.add(r.items,{mode:m.querySelector('#ld').value==='cur'?'current':'new',name:m.querySelector('#ln').value.trim()||folder,flow:m.querySelector('#lf').checked}); m.remove(); }
+    catch(e){ toast('Chưa gửi được ảnh: '+e.message,4000); btn.disabled=false; btn.textContent='Gửi ảnh'; }
   };
 };
 function targetsForExport(){ return S.sel.size?[...S.sel]:(S.cur!==null?[S.cur]:[]); }

@@ -26,6 +26,9 @@ Lần chạy đầu sẽ tự tải model còn thiếu (`python -m photosift.mod
 
 Phím tắt: `← → ↑ ↓` di chuyển · `Enter` xem lớn · `0-5` sao · `X` loại · `6-9` nhãn màu · `F` khung mặt · `Ctrl+A` chọn hết. Bấm `?` trong ứng dụng.
 
+## Dàn trang ngay trong app
+Thanh trên cùng có hai chế độ: **Lọc ảnh** (`Ctrl+1`) và **Dàn trang** (`Ctrl+2`). Lọc xong, bấm **🧩 Dàn trang** để gửi ảnh đang chọn hoặc ảnh theo số sao sang dự án layout. Ảnh chỉ được liên kết theo đường dẫn, không sao chép; khâu xuất đọc lại file gốc. Dự án layout tự lưu trong dữ liệu trình duyệt của cửa sổ app. Nếu đổi tên, di chuyển file gốc hoặc rút ổ đĩa, ảnh vẫn hiện bằng bản xem trước nhưng xuất ra sẽ kém nét cho tới khi file trở lại đúng chỗ. Nút **Sao lưu** đóng gói kèm ảnh để chuyển máy.
+
 ## Tốc độ khi đọc RAW từ thẻ nhớ
 - Chỉ đọc vài KB cấu trúc file + đúng đoạn ảnh JPEG xem trước (khoảng 1–3 MB), **không đọc cả file RAW** (hàng chục MB).
 - Hai pha: thumbnail hiện ngay khi đọc xong từng ảnh; việc phân tích (mờ, khuôn mặt…) chạy nền song song, tính trên ảnh cache trong ổ máy.
@@ -45,4 +48,4 @@ Không bao giờ xoá hoặc di chuyển file gốc. “Loại” chỉ là mộ
 - Ảnh RAW dùng ảnh xem trước JPEG nhúng trong file để phân tích cho nhanh.
 
 ## Cấu trúc
-`run.py` khởi động · `photosift/analyzer.py` phân tích ảnh · `library.py` quét/gom người/nhóm trùng/xuất · `server.py` API cục bộ · `web/index.html` giao diện
+`run.py` khởi động · `photosift/analyzer.py` phân tích ảnh · `library.py` quét/gom người/nhóm trùng/xuất · `server.py` API cục bộ · `web/shell.html` khung hai chế độ · `web/index.html` Lọc ảnh · `web/layout.html` Dàn trang
