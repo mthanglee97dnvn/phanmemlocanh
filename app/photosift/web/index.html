@@ -140,9 +140,11 @@ html[data-theme=neutral] #viewer{background:#0b0c0e}
 .sc .rt{position:absolute;top:2px;left:4px;font-size:10px;color:#ffca28;text-shadow:0 0 3px #000;letter-spacing:-1px}
 .sc .lb{position:absolute;top:4px;right:4px;width:9px;height:9px;border-radius:50%;box-shadow:0 0 0 1px rgba(0,0,0,.5)}
 .sc.rej img{opacity:.3}.sc.rej:after{content:'✕';position:absolute;left:0;right:0;top:22px;text-align:center;color:#ff6b6b;font-size:26px;line-height:1}
-.fbox{position:absolute;border:2px solid var(--acc2);border-radius:6px;pointer-events:none}
-.fbox span{position:absolute;top:100%;left:0;font-size:11px;background:var(--acc2);color:#04121f;padding:0 6px;line-height:1.6;white-space:nowrap;border-radius:0 0 6px 6px}
-.fbox.shut{border-color:#ba68c8}.fbox.shut span{background:#ba68c8}
+.fbox{position:absolute;transform:translate(-50%,-100%);pointer-events:none;font-size:11px;line-height:1.6;white-space:nowrap;padding:0 7px;border-radius:999px;background:rgba(4,14,30,.72);color:#fff}
+.fbox.shut{background:#ba68c8}
+#vbadge{position:fixed;z-index:1;display:flex;flex-direction:column;align-items:flex-start;gap:4px;pointer-events:none}
+#vbadge .chip{font-size:12px;padding:3px 11px}
+#vbadge .chip.topdup{background:#c9921a;color:#1c1204}
 #vinfo{background:var(--panel);-webkit-backdrop-filter:var(--blur);backdrop-filter:var(--blur);border-left:1px solid var(--line);padding:16px;overflow:auto;line-height:1.6}
 #vinfo h4{margin:0 0 4px;word-break:break-all}.kv{display:flex;justify-content:space-between;color:var(--mut)}.kv b{color:var(--tx);font-weight:500}
 #vinfo .st{font-size:24px;color:#ffca28;cursor:pointer;letter-spacing:2px;margin:10px 0}
@@ -233,6 +235,7 @@ canvas.hist{width:100%;height:120px;display:block;border-radius:10px;background:
   <div id="vstage"><div id="vwrap"><img id="vimg" alt=""><img id="vmask" alt=""><div id="vfaces"></div></div></div>
   <div id="vinfo"></div>
   <div id="strip"><div id="stripin"></div></div>
+  <div id="vbadge"></div>
 </div>
 <div id="toast"></div>
 
@@ -508,7 +511,7 @@ async function showViewer(){
   }
   const ix=S.view.findIndex(x=>x.id===p.id);
   for(const o of [S.view[ix+1],S.view[ix-1],S.view[ix+2]]) if(o){ const u=`/api/preview?id=${o.id}&s=2000`; if(!VPRE.has(u)){ const pre=new Image(); VPRE.set(u,pre); pre.src=u; if(VPRE.size>12){ VPRE.delete(VPRE.keys().next().value); } } }
-  renderInfo(p, ix); loadBoxes(p, tok); updateMask(); renderStrip(true);
+  renderInfo(p, ix); renderBadge(p); loadBoxes(p, tok); updateMask(); renderStrip(true);
 }
 $('#vimg').addEventListener('click', e=>{
   const img=e.target; const r=img.getBoundingClientRect(); const fx=(e.clientX-r.left)/r.width, fy=(e.clientY-r.top)/r.height;
@@ -520,7 +523,22 @@ async function loadBoxes(p, tok){
   const box=$('#vfaces'); box.innerHTML=''; if(!S.boxes||!p.nf) return;
   const fs=await api('/api/faces?id='+p.id); if(tok!==vTok) return;
   box.innerHTML = fs.map(f=>{ const shut = f.ear>=0 && f.ear<S.settings.ear;
-    return `<div class="fbox ${shut?'shut':''}" style="left:${f.x*100}%;top:${f.y*100}%;width:${f.w*100}%;height:${f.h*100}%"><span>${f.person?esc(pname(f.person)):'?'}${f.ear>=0?` • mắt ${f.ear}`:''}</span></div>`; }).join('');
+    if(!f.person) return '';
+    const top=Math.max(f.y-f.h*.38,.04);  // đỉnh đầu nằm cao hơn khung mặt khoảng 1/3 chiều cao mặt
+    return `<div class="fbox ${shut?'shut':''}" style="left:${(f.x+f.w/2)*100}%;top:${top*100}%">${esc(pname(f.person))}</div>`; }).join('');
+}
+/* nhãn Trùng / Ảnh tốt nhất: đặt ngay bên phải ảnh; ảnh chiếm hết chiều ngang thì nằm trong góc ảnh */
+function placeBadge(){
+  const b=$('#vbadge'), st=$('#vstage').getBoundingClientRect(), im=$('#vimg').getBoundingClientRect(), gap=12;
+  if(!b.children.length) return;
+  const right=Math.min(im.right,st.right), top=Math.max(im.top,st.top)+gap, w=b.offsetWidth;
+  b.style.left=(st.right-right>=w+gap*2?right+gap:right-w-gap)+'px'; b.style.top=top+'px';
+}
+new ResizeObserver(placeBadge).observe($('#vimg'));
+addEventListener('resize',placeBadge);
+function renderBadge(p){
+  $('#vbadge').innerHTML=(p.grp&&p.best?'<span class="chip topdup">★ Ảnh tốt nhất</span>':'')+(p.flags.includes('dup')?`<span class="chip dup">${FLAG.dup}</span>`:'');
+  placeBadge();
 }
 function renderInfo(p, ix){
   const d = p.taken ? new Date(p.taken*1000).toLocaleString('vi-VN') : '—';
@@ -531,12 +549,12 @@ function renderInfo(p, ix){
    <div class="kv">Điểm chất lượng<b>${p.score}</b></div><div class="kv">Kích thước<b>${p.w}×${p.h}</b></div><div class="kv">Chụp lúc<b>${d}</b></div>
    <div class="kv">Độ nét (toàn ảnh)<b>${p.sharp}</b></div><div class="kv">Độ nét (mặt)<b>${p.nf?p.fsharp:'—'}</b></div>
    <div class="kv">Độ sáng TB<b>${(p.lum*100).toFixed(0)}%</b></div><div class="kv">Độ mở mắt (EAR)<b>${p.ear>=0?p.ear:'—'}</b></div>
-   <div style="margin:10px 0">${p.an===false?'<span class="hint">Đang phân tích…</span>':''}${p.flags.map(f=>`<span class="chip ${f}" style="margin-right:4px">${FLAG[f]}</span>`).join('')||'<span class="ok">Không có cảnh báo</span>'}</div>
+   <div style="margin:10px 0">${p.an===false?'<span class="hint">Đang phân tích…</span>':''}${p.flags.filter(f=>f!=='dup').map(f=>`<span class="chip ${f}" style="margin-right:4px">${FLAG[f]}</span>`).join('')||(p.flags.length?'':'<span class="ok">Không có cảnh báo</span>')}</div>
    ${p.grp?`<div class="hint">Nhóm trùng #${p.grp} ${p.best?'— <b class="ok">bản tốt nhất</b>':''}</div>`:''}
    <div style="margin:8px 0">${p.people.map(i=>`<span class="chip" style="background:var(--sel);margin-right:4px">${esc(pname(i))}</span>`).join('')}</div>
    <hr style="border-color:var(--line)"><button id="vdiag" style="margin-bottom:8px">🔧 Chẩn đoán file</button><div class="hint">
    <span class="kbd">←</span><span class="kbd">→</span> chuyển ảnh &nbsp; <span class="kbd">0-5</span> sao &nbsp; <span class="kbd">X</span> loại<br>
-   <span class="kbd">6-9</span> nhãn màu &nbsp; <span class="kbd">F</span> khung mặt &nbsp; <span class="kbd">Z</span> phóng 100%<br><span class="kbd">H</span> vùng cháy/tối &nbsp; <span class="kbd">T</span> bật/tắt dải thumbnail &nbsp; <span class="kbd">Esc</span> đóng</div>`;
+   <span class="kbd">6-9</span> nhãn màu &nbsp; <span class="kbd">F</span> tên người &nbsp; <span class="kbd">Z</span> phóng 100%<br><span class="kbd">H</span> vùng cháy/tối &nbsp; <span class="kbd">T</span> bật/tắt dải thumbnail &nbsp; <span class="kbd">Esc</span> đóng</div>`;
   $('#vstars').onclick=e=>{ const r=e.target.dataset.r; if(r!==undefined) rate([p.id], +r===p.rating?0:+r); };
   fillSections('#vsec', p.id, 'v');
   $('#vdiag').onclick=async()=>{ const r=await api('/api/diag?id='+p.id); const m=modal(`<h3>Chẩn đoán file</h3><pre id="dt" style="white-space:pre-wrap;word-break:break-all;font-size:11px;max-height:55vh;overflow:auto;background:#101114;padding:10px;border-radius:8px"></pre><div class="btns"><button id="dc">Sao chép</button><button class="pri" onclick="this.closest('.back').remove()">Đóng</button></div>`); m.querySelector('#dt').textContent=r.text; m.querySelector('#dc').onclick=()=>{ navigator.clipboard.writeText(r.text); toast('Đã sao chép'); }; };
@@ -873,7 +891,7 @@ function targetsForExport(){ return S.sel.size?[...S.sel]:(S.cur!==null?[S.cur]:
 function showHelp(){
   modal(`<h3>Phím tắt</h3><div style="line-height:2">
    <span class="kbd">← → ↑ ↓</span> di chuyển (giữ <span class="kbd">Shift</span> để chọn dải) &nbsp; <span class="kbd">Ctrl+A</span> chọn tất cả<br>
-   <span class="kbd">Enter</span>/<span class="kbd">Space</span> xem ảnh lớn &nbsp; <span class="kbd">Z</span> phóng 100% (kiểm tra độ nét) &nbsp; <span class="kbd">F</span> khung khuôn mặt<br>
+   <span class="kbd">Enter</span>/<span class="kbd">Space</span> xem ảnh lớn &nbsp; <span class="kbd">Z</span> phóng 100% (kiểm tra độ nét) &nbsp; <span class="kbd">F</span> tên người<br>
    <span class="kbd">0–5</span> số sao &nbsp; <span class="kbd">X</span> loại / bỏ loại &nbsp; <span class="kbd">6</span> đỏ <span class="kbd">7</span> vàng <span class="kbd">8</span> xanh lá <span class="kbd">9</span> xanh dương <span class="kbd">-</span> bỏ nhãn<br>
    <span class="kbd">Ctrl+Z</span> hoàn tác</div>
    <div class="hint" style="margin-top:10px">Ứng dụng không bao giờ xoá hay di chuyển file gốc. “Loại” chỉ là một dấu trong cơ sở dữ liệu; hãy xuất ảnh để lấy bộ ảnh đã chọn.</div>
