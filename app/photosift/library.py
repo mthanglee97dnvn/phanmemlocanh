@@ -30,7 +30,8 @@ IO_WORKERS = 4             # số luồng đọc file (thẻ nhớ/USB: 4 là h�
 LABELS = {"", "red", "yellow", "green", "blue", "purple"}
 XMP_LABEL = {"red": "Red", "yellow": "Yellow", "green": "Green", "blue": "Blue", "purple": "Purple"}
 
-CACHE_VERSION = 3  # tăng khi đổi cách đọc/xoay ảnh → tự đọc lại toàn bộ (giữ sao, nhãn và tên người)
+CACHE_VERSION = 4  # 4: thêm hướng mặt (quay ngang / nhìn máy).
+# tăng khi đổi cách đọc/xoay ảnh → tự đọc lại toàn bộ (giữ sao, nhãn và tên người)
 
 DEFAULT_SETTINGS = dict(
     cache_gb=20,         # giới hạn bộ nhớ đệm; vượt quá thì dọn thư mục lâu chưa mở
@@ -456,8 +457,9 @@ class Library:
                 (r["sharp"], r["fsharp"], r["lum"], r["lo"], r["hi"], r["dhash"], r["nfaces"], r["ear_min"], pid))
             for fc in r["faces"]:
                 cur = self.db.con.execute(
-                    "INSERT INTO faces(photo_id,fx,fy,fw,fh,det,px,ear,emb) VALUES(?,?,?,?,?,?,?,?,?)",
-                    (pid, fc["fx"], fc["fy"], fc["fw"], fc["fh"], fc["det"], fc["px"], fc["ear"], fc["emb"]))
+                    "INSERT INTO faces(photo_id,fx,fy,fw,fh,det,px,ear,emb,yaw,vert) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                    (pid, fc["fx"], fc["fy"], fc["fw"], fc["fh"], fc["det"], fc["px"], fc["ear"], fc["emb"],
+                     fc.get("yaw", -1.0), fc.get("vert", -1.0)))
                 if fc["crop"]:
                     crops.append((cur.lastrowid, fc["crop"]))
             self.db.con.commit()
@@ -561,7 +563,7 @@ class Library:
             return
         ref_g, ref_f = self._ref(rows)
         S = self.settings
-        score = {}
+        score, raw = {}, {}
         for r in rows:
             sh = min(1.0, self._sharp_val(r, ref_g, ref_f) / 1.3) ** 0.8
             clip = min(1.0, ((r["lo"] or 0) + (r["hi"] or 0)) / 0.25)
@@ -569,7 +571,7 @@ class Library:
             s = 100 * (0.65 * sh + 0.2 * (1 - clip) + 0.15 * (1 - dev))
             if 0 <= r["ear_min"] < S["ear"]:
                 s *= 0.6
-            score[r["id"]] = round(s, 1)
+            score[r["id"]] = raw[r["id"]] = round(s, 1)
         groups, cur = [], [rows[0]]
         for prev, r in zip(rows, rows[1:]):
             close = abs((r["taken"] or 0) - (prev["taken"] or 0)) <= S["dup_seconds"]
@@ -580,16 +582,96 @@ class Library:
                 groups.append(cur)
                 cur = [r]
         groups.append(cur)
+        away = self._away(groups)
         upd, gid = [], 0
         for g in groups:
+            for r in g:   # người quay mặt đi: trừ điểm theo tỉ lệ số người trong khung
+                a, n = away.get(r["id"], (0, 0))
+                if a and n >= 2:
+                    score[r["id"]] = round(score[r["id"]] * (1 - min(0.4, 0.5 * a / n)), 1)
             if len(g) < 2:
-                upd.append((0, 0, score[g[0]["id"]], g[0]["id"]))
+                upd.append((0, 0, score[g[0]["id"]], away.get(g[0]["id"], (0, 0))[0], g[0]["id"]))
                 continue
             gid += 1
-            top = max(g, key=lambda r: score[r["id"]])["id"]
+            # ảnh tốt nhất: trong các ảnh đủ nét (>= 85% ảnh cao điểm nhất), ưu tiên ít người quay mặt nhất, rồi mới tới điểm
+            raw_top = max(raw[r["id"]] for r in g)
+            cand = [r for r in g if raw[r["id"]] >= 0.85 * raw_top]
+            top = min(cand, key=lambda r: (away.get(r["id"], (0, 0))[0], -score[r["id"]]))["id"]
             for r in g:
-                upd.append((gid, 1 if r["id"] == top else 0, score[r["id"]], r["id"]))
-        self.db.many("UPDATE photos SET grp=?, best=?, score=? WHERE id=?", upd)
+                upd.append((gid, 1 if r["id"] == top else 0, score[r["id"]], away.get(r["id"], (0, 0))[0], r["id"]))
+        self.db.many("UPDATE photos SET grp=?, best=?, score=?, away=? WHERE id=?", upd)
+
+    # ------------------------------------------------------------------ hướng mặt
+    AWAY_YAW = 0.32    # mũi lệch khỏi giữa hai mắt quá mức này (theo khoảng cách hai mắt) = quay ngang rõ
+    AWAY_VERT = 1.6    # mắt→miệng / khoảng hai mắt vượt mức này = mặt nghiêng hẳn (gần như chụp nghiêng)
+    AWAY_REL = 0.20    # trong nhóm ảnh trùng: cùng một người mà lệch hơn lần nhìn thẳng nhất mức này
+    AWAY_REL_VERT = 0.6   # cao vì tay che miệng (trẻ con mút tay) làm lệch điểm miệng
+
+    def _away(self, groups):
+        """Số người không nhìn máy trong từng ảnh: {photo_id: (số người quay đi, số người trong khung)}.
+        Với nhóm ảnh trùng, so từng người với chính họ ở các ảnh khác trong nhóm (đỡ nhầm với gương mặt nghiêng tự nhiên),
+        và tính cả người có mặt ở phần lớn các ảnh khác nhưng không thấy mặt ở ảnh này."""
+        ids = [r["id"] for g in groups for r in g]
+        if not ids:
+            return {}
+        size = {r["id"]: (r["w"] or 1, r["h"] or 1) for g in groups for r in g}
+        faces: dict[int, list] = {}
+        for i in range(0, len(ids), 900):
+            part = ids[i:i + 900]
+            for f in self.db.q(f"SELECT photo_id,fx,fy,fw,fh,yaw,vert,person_id FROM faces WHERE photo_id IN ({','.join('?' * len(part))})", part):
+                faces.setdefault(f["photo_id"], []).append(f)
+        out = {}
+
+        def known(f):   # vert < 0 = chưa đo (ảnh phân tích từ bản cũ); yaw có thể âm khi mặt quay hẳn
+            return f["yaw"] is not None and f["vert"] is not None and f["vert"] >= 0
+
+        def turned_abs(f):
+            return known(f) and (abs(f["yaw"] - 0.5) > self.AWAY_YAW or f["vert"] > self.AWAY_VERT)
+
+        for g in groups:
+            if len(g) < 2:
+                fs = faces.get(g[0]["id"], [])
+                out[g[0]["id"]] = (sum(1 for f in fs if turned_abs(f)), len(fs))
+                continue
+            # ghép cùng một người giữa các ảnh: ưu tiên mã người, không có thì theo vị trí tâm mặt
+            tracks: list[dict] = []
+            for r in g:
+                W, H = size[r["id"]]
+                for f in faces.get(r["id"], []):
+                    cx, cy, fw = (f["fx"] + f["fw"] / 2) * W, (f["fy"] + f["fh"] / 2) * H, f["fw"] * W
+                    hit = None
+                    for t in tracks:
+                        if r["id"] in t["m"]:
+                            continue
+                        if f["person_id"] and f["person_id"] == t["pid"]:
+                            hit = t
+                            break
+                        if hit is None and abs(cx - t["cx"]) < 0.6 * max(fw, t["fw"]) and abs(cy - t["cy"]) < 0.6 * max(fw, t["fw"]):
+                            hit = t
+                    if hit is None:
+                        hit = dict(m={}, pid=f["person_id"], cx=cx, cy=cy, fw=fw)
+                        tracks.append(hit)
+                    hit["m"][r["id"]] = f
+            for t in tracks:
+                ok = [f for f in t["m"].values() if known(f)]
+                t["dev"] = min((abs(f["yaw"] - 0.5) for f in ok), default=0.0)
+                t["vert"] = min(((f["vert"] or 0) for f in ok), default=0.0)
+            for r in g:
+                n_away, seen = 0, 0
+                for t in tracks:
+                    f = t["m"].get(r["id"])
+                    if f is None:
+                        # người này có mặt ở phần lớn các ảnh khác trong nhóm mà ở đây không thấy mặt
+                        if len(t["m"]) >= 2 and len(t["m"]) >= 0.6 * (len(g) - 1):
+                            n_away += 1
+                            seen += 1
+                        continue
+                    seen += 1
+                    if turned_abs(f) or (known(f) and len(t["m"]) >= 2 and (
+                            abs(f["yaw"] - 0.5) - t["dev"] > self.AWAY_REL or (f["vert"] or 0) - t["vert"] > self.AWAY_REL_VERT)):
+                        n_away += 1
+                out[r["id"]] = (n_away, seen)
+        return out
 
     # ------------------------------------------------------------------ danh sách + cờ
     def photos(self):
@@ -623,6 +705,8 @@ class Library:
                     flags.append("bright")
                 if 0 <= r["ear_min"] < S["ear"]:
                     flags.append("eyes")
+                if (r["away"] or 0) > 0 and (r["nfaces"] or 0) >= 2:
+                    flags.append("away")
             if r["grp"] and not r["best"]:
                 flags.append("dup")
             out.append(dict(
@@ -630,7 +714,7 @@ class Library:
                 taken=r["taken"], sharp=round(r["sharp"] or 0, 1), fsharp=round(r["fsharp"] or 0, 1),
                 lum=round(r["lum"] or 0, 3), nf=r["nfaces"], ear=round(r["ear_min"], 3),
                 rating=r["rating"], label=r["label"], grp=r["grp"], best=r["best"], score=r["score"],
-                people=pmap.get(r["id"], []), flags=flags, an=True, tv=r["tv"]))
+                away=r["away"] or 0, people=pmap.get(r["id"], []), flags=flags, an=True, tv=r["tv"]))
         return out
 
     def faces_of(self, photo_id: int):

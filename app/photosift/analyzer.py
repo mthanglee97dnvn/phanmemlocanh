@@ -483,6 +483,20 @@ def hamming(a: str, b: str) -> int:
     return bin(int(a, 16) ^ int(b, 16)).count("1")
 
 
+def head_pose(r) -> tuple[float, float]:
+    """Hướng mặt từ 5 điểm mốc của YuNet (mắt phải, mắt trái, mũi, hai khoé miệng).
+    yaw: vị trí mũi dọc theo trục hai mắt (0,5 = nhìn thẳng; lệch xa 0,5 = quay ngang).
+    vert: khoảng mắt→miệng chia khoảng cách hai mắt (mặt nghiêng hẳn thì hai mắt sát nhau nên số này tăng vọt)."""
+    er, el, no = np.asarray(r[4:6], float), np.asarray(r[6:8], float), np.asarray(r[8:10], float)
+    mo = (np.asarray(r[10:12], float) + np.asarray(r[12:14], float)) / 2
+    span = float(np.linalg.norm(el - er))
+    if span < 1e-6:
+        return -1.0, -1.0
+    yaw = float(np.dot(no - er, (el - er) / span) / span)
+    vert = float(np.linalg.norm(mo - (er + el) / 2) / span)
+    return yaw, vert
+
+
 def eye_aspect_ratio(p6: np.ndarray) -> float:
     """EAR từ 6 điểm mốc của một mắt (kiểu 68 điểm dlib/LBF)."""
     d = lambda i, j: float(np.linalg.norm(p6[i] - p6[j]))  # noqa: E731
@@ -638,6 +652,7 @@ class Analyzer:
                     span = abs(ex_l - ex_r)
                     if span > 1e-6 and not (0.3 <= abs(nx - ex_r) / span <= 0.7):
                         ear = -1.0
+                yaw, vert = head_pose(r)
                 x0, y0, fw, fh = rc
                 side = int(max(fw, fh) * 1.5)
                 cx, cy = x0 + fw // 2, y0 + fh // 2
@@ -647,7 +662,7 @@ class Analyzer:
                 fsh = lap_var(cv2.resize(gcrop, (96, 96), interpolation=cv2.INTER_AREA)) if gcrop.size else 0.0
                 faces.append(dict(
                     fx=x0 / w, fy=y0 / h, fw=fw / w, fh=fh / h, det=float(r[14]),
-                    px=px, ear=float(ear), sharp=fsh,
+                    px=px, ear=float(ear), sharp=fsh, yaw=yaw, vert=vert,
                     emb=emb.tobytes() if emb is not None else b"", crop=_jpg(cv2.resize(crop, (112, 112), interpolation=cv2.INTER_AREA), 88) if crop.size else b"",
                 ))
 

@@ -64,7 +64,7 @@ input[type=range]{accent-color:var(--acc)}input[type=checkbox]{accent-color:var(
 .stars{position:absolute;left:10px;bottom:5px;color:#ffca28;text-shadow:0 1px 3px #000;font-size:13px;letter-spacing:1px}
 .flags{position:absolute;right:5px;top:5px;display:flex;flex-direction:column;gap:3px;align-items:flex-end}
 .chip{font-size:10px;font-weight:600;padding:2px 7px;border-radius:999px;background:rgba(4,14,30,.72);color:#fff}
-.chip.blur{background:#d9661a}.chip.dark{background:#4b647a}.chip.bright{background:#b8a01f}.chip.eyes{background:#8a47b0}.chip.dup{background:#0c9585}
+.chip.blur{background:#d9661a}.chip.dark{background:#4b647a}.chip.bright{background:#b8a01f}.chip.eyes{background:#8a47b0}.chip.away{background:#7A4A9E}.chip.dup{background:#0c9585}
 .xmark{position:absolute;inset:0;display:none;align-items:center;justify-content:center;font-size:52px;color:var(--red);font-weight:700;pointer-events:none}
 .cell.rej .xmark{display:flex}
 .nface{position:absolute;right:6px;bottom:5px;font-size:10px;background:rgba(4,14,30,.7);padding:2px 7px;border-radius:999px}
@@ -347,11 +347,11 @@ details.adv{margin:6px 0;border-top:1px solid var(--line);padding-top:6px}detail
 "use strict";
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const FLAG = {blur:'Mờ', dark:'Tối', bright:'Sáng quá', eyes:'Nhắm mắt?', dup:'Trùng'};
+const FLAG = {blur:'Mờ', dark:'Tối', bright:'Sáng quá', eyes:'Nhắm mắt?', away:'Quay mặt?', dup:'Trùng'};
 const LABELS = ['red','yellow','green','blue','purple'];
 const LABEL_NAME = {red:'Đỏ',yellow:'Vàng',green:'Xanh lá',blue:'Xanh dương',purple:'Tím'};
 const FILTERS = [['all','Tất cả'],['unrated','Chưa chấm'],['r1','★ 1+'],['r2','★★ 2+'],['r3','★★★ 3+'],['r4','★★★★ 4+'],['r5','★★★★★ 5'],
-  ['rej','✕ Đã loại'],['norej','Không bị loại'],['issues','⚠ Có vấn đề (mọi loại)'],['blur','Mờ'],['dark','Tối'],['bright','Sáng quá'],['eyes','Nhắm mắt?'],['dup','Trùng lặp (bản kém hơn)'],
+  ['rej','✕ Đã loại'],['norej','Không bị loại'],['issues','⚠ Có vấn đề (mọi loại)'],['blur','Mờ'],['dark','Tối'],['bright','Sáng quá'],['eyes','Nhắm mắt?'],['away','Có người quay mặt'],['dup','Trùng lặp (bản kém hơn)'],
   ['best','Tốt nhất trong nhóm trùng'],['face','Có khuôn mặt'],['noface','Không có khuôn mặt'],['raw','Chỉ file RAW (ARW, CR2, NEF…)'],['jpg','Chỉ JPG / ảnh thường']];
 const RAWRE=/\.(arw|srf|sr2|cr2|cr3|nef|nrw|dng|orf|raf|rw2|pef|srw|3fr|erf|kdc|mrw|x3f)$/i;
 const S = {photos:[], by:new Map(), view:[], people:[], sel:new Set(), cur:null, anchor:null, filter:'all', sort:'name', person:null,
@@ -406,7 +406,7 @@ function matchFilter(p){
     case 'issues': return p.flags.length>0;
     case 'raw': return RAWRE.test(p.name); case 'jpg': return !RAWRE.test(p.name);
     case 'best': return p.grp>0 && p.best; case 'face': return p.nf>0; case 'noface': return p.nf===0;
-    case 'blur': case 'dark': case 'bright': case 'eyes': case 'dup': return p.flags.includes(f);
+    case 'blur': case 'dark': case 'bright': case 'eyes': case 'away': case 'dup': return p.flags.includes(f);
     default: if(f[0]==='r') return p.rating>=+f.slice(1); return true;
   }
 }
@@ -424,9 +424,10 @@ function applyView(){
 const cells = new Map();
 function capChips(h){ const t=document.createElement('div'); t.innerHTML=h; const k=[...t.children]; if(k.length<=2) return h;
   const rest=k.slice(2).map(e=>e.textContent).join(', '); return k.slice(0,2).map(e=>e.outerHTML).join('')+`<span class="chip more" title="${esc(rest)}">+${k.length-2}</span>`; }
+function bestWhy(p){ return p.nf>=2 ? (p.away?`${p.away} người chưa nhìn máy, nhưng là ảnh khá nhất trong nhóm`:`Mọi người đều nhìn máy, ảnh nét nhất trong nhóm`) : 'Ảnh nét và đủ sáng nhất trong nhóm'; }
 function cellHTML(p){
   const flags = p.an===false ? '<span class="chip" style="opacity:.7">…</span>' : p.flags.filter(f=>f!=='dup').map(f=>`<span class="chip ${f}">${FLAG[f]}</span>`).join('');
-  const grp = p.grp ? (p.best?`<span class="chip topdup" title="Ảnh tốt nhất trong nhóm ảnh trùng ${p.grp}">★ Tốt nhất · ${p.grp}</span>`:`<span class="chip dup" title="Ảnh trùng, thuộc nhóm ${p.grp}">Trùng · ${p.grp}</span>`) : '';
+  const grp = p.grp ? (p.best?`<span class="chip topdup" title="Ảnh tốt nhất trong nhóm ảnh trùng ${p.grp}: ${bestWhy(p)}">★ Tốt nhất · ${p.grp}</span>`:`<span class="chip dup" title="Ảnh trùng, thuộc nhóm ${p.grp}">Trùng · ${p.grp}</span>`) : '';
   return `<div class="im"><img loading="lazy" src="/thumb/${p.id}.jpg?v=${p.tv}" alt=""><div class="lab ${p.label?'l-'+p.label:''}"></div>
     <div class="flags">${capChips(grp+flags)}</div><div class="xmark">✕</div>
     <div class="stars">${p.rating>0?'★'.repeat(p.rating):''}</div>${p.nf?`<span class="nface">${p.nf} mặt</span>`:''}</div>
@@ -676,7 +677,7 @@ function placeBadge(){
 new ResizeObserver(placeBadge).observe($('#vimg'));
 addEventListener('resize',placeBadge);
 function renderBadge(p){
-  $('#vbadge').innerHTML=(p.grp&&p.best?'<span class="chip topdup">★ Ảnh tốt nhất</span>':'')+(p.flags.includes('dup')?`<span class="chip dup">${FLAG.dup}</span>`:'');
+  $('#vbadge').innerHTML=(p.grp&&p.best?`<span class="chip topdup" title="${bestWhy(p)}">★ Ảnh tốt nhất</span>`:'')+(p.flags.includes('dup')?`<span class="chip dup">${FLAG.dup}</span>`:'');
   placeBadge();
 }
 function renderInfo(p, ix){

@@ -43,7 +43,9 @@ class DB:
                 self.con.execute("UPDATE photos SET ready=1 WHERE analyzed=1 AND err IS NULL")
             except sqlite3.OperationalError:
                 pass
-            for ddl in ("ALTER TABLE photos ADD COLUMN tv INTEGER DEFAULT 0", "ALTER TABLE people ADD COLUMN cent BLOB"):
+            for ddl in ("ALTER TABLE photos ADD COLUMN tv INTEGER DEFAULT 0", "ALTER TABLE people ADD COLUMN cent BLOB",
+                        "ALTER TABLE photos ADD COLUMN away INTEGER DEFAULT 0",
+                        "ALTER TABLE faces ADD COLUMN yaw REAL DEFAULT -1", "ALTER TABLE faces ADD COLUMN vert REAL DEFAULT -1"):
                 try:
                     self.con.execute(ddl)
                 except sqlite3.OperationalError:
