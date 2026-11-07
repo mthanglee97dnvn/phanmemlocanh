@@ -17,7 +17,7 @@ from xml.sax.saxutils import escape
 import cv2
 import numpy as np
 
-from .analyzer import ALL_EXT, RAW_EXT, Analyzer, diag_raw, hamming, read_exif
+from .analyzer import ALL_EXT, ANALYSIS_SIDE, RAW_EXT, Analyzer, diag_raw, hamming, read_exif
 from .errors import friendly
 from .db import DB, HOME
 from .online import Online
@@ -441,6 +441,10 @@ class Library:
             img = cv2.imdecode(np.fromfile(str(f), dtype=np.uint8), cv2.IMREAD_COLOR) if f.exists() else None
         if img is None:
             raise ValueError("thiếu ảnh cache")
+        h, w = img.shape[:2]
+        if max(h, w) > ANALYSIS_SIDE:   # ảnh cache có thể lớn hơn cỡ phân tích (giữ nguyên JPEG nhúng để xem cho nét)
+            k = ANALYSIS_SIDE / max(h, w)
+            img = cv2.resize(img, (max(1, round(w * k)), max(1, round(h * k))), interpolation=cv2.INTER_AREA)
         r = self.an.analyze_image(img, row["w"], row["h"])
         crops = []
         with self.db.lock:

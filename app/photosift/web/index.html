@@ -621,7 +621,22 @@ $('#vbGrid').onclick=()=>closeViewer();
 $('#vbCat').onclick=()=>{ closeViewer(); showCatalog(); };
 function closeViewer(){ S.viewer=false; updateMask(); $('#viewer').classList.remove('on'); if(S.cur!==null){ const d=cells.get(S.cur); d&&d.scrollIntoView({block:'nearest'}); } }
 let vTok=0;
-const VPRE=new Map();
+const VPRE=new Map(), VHQ=new Map();
+/* Ảnh cache (JPEG nhúng ~1600px) hiện ngay; sau đó nạp bản đúng số điểm ảnh của màn hình rồi thay vào cho nét. */
+const RAWX=/\.(arw|cr2|cr3|nef|nrw|dng|raf|orf|rw2|pef|srw|x3f|3fr|iiq|rwl|erf|kdc|mrw|mef|mos|sr2|srf)$/i;
+function hqSide(w,h,raw){
+  const mw=window.innerWidth-290, mh=window.innerHeight-(stripOn?116:0), k=Math.min(mw/w,mh/h);
+  const need=Math.max(w,h)*k*(window.devicePixelRatio||1), side=Math.min(4096,Math.ceil(need/256)*256);
+  if(need>Math.max(w,h)*1.04) return side;                   // màn hình nhiều điểm ảnh hơn ảnh cache
+  return (raw&&Math.max(w,h)<2000&&need>=900) ? side : 0; }  // RAW chỉ có JPEG nhúng nhỏ, nén mạnh: lấy bản giải mã thật
+function hqImg(id,side){ const u=`/api/preview?id=${id}&s=${side}&hq=1`; let h=VHQ.get(u);
+  if(!h){ h=new Image(); h.src=u; VHQ.set(u,h); if(VHQ.size>8) VHQ.delete(VHQ.keys().next().value); } return [u,h]; }
+function upgradeHQ(id,im,tok,src,ix){
+  const p=S.by.get(id), side=hqSide(im.naturalWidth,im.naturalHeight,!!(p&&RAWX.test(p.name))); if(!side) return;
+  const img=$('#vimg'), [u,h]=hqImg(id,side);
+  const sw=()=>{ if(tok!==vTok||img.dataset.src!==src||S.zoom||!h.naturalWidth) return; img.src=u;
+    const nx=S.view[ix+1]; if(nx) hqImg(nx.id,side); };   // xong ảnh đang xem mới nạp trước ảnh kế, để không tranh băng thông
+  if(h.complete&&h.naturalWidth) sw(); else h.addEventListener('load',()=>(h.decode?h.decode().then(sw,sw):sw()),{once:true}); }
 async function showViewer(){
   const p=S.by.get(S.cur); if(!p){ closeViewer(); return; }
   const tok=++vTok; const img=$('#vimg'); $('#vstage').classList.toggle('zoom',S.zoom); if(S.zoom) sizeZoom();
@@ -636,6 +651,7 @@ async function showViewer(){
       img.style.width=Math.round(w*k)+'px'; img.style.height=Math.round(h*k)+'px'; };
     const apply=(im,u,clear)=>{ // chỉ đổi ảnh khi ảnh mới đã giải mã xong và khung đã đúng cỡ → không còn khung hình lẫn ảnh cũ
       const go=()=>{ if(tok!==vTok||img.dataset.src!==src) return; fit(im.naturalWidth,im.naturalHeight); img.src=u;
+        if(u===src&&!Z.hi&&!S.zoom) upgradeHQ(p.id,im,tok,src,S.view.findIndex(x=>x.id===p.id));
         if(clear) setTimeout(()=>{ if(img.dataset.src===src&&!S.zoom) img.style.width=img.style.height=''; },80); };
       (im.decode?im.decode().then(go,go):go()); };
     const done=VPRE.get(src);

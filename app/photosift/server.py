@@ -22,7 +22,7 @@ from . import models
 from .update import Updater
 from . import fonts
 from .errors import friendly
-from .analyzer import ALL_EXT, _jpg, load_bgr, read_meta
+from .analyzer import ALL_EXT, _jpg, load_bgr, load_view, read_meta
 from .library import COVERS, FACES, PREVIEWS, THUMBS, Library
 from .license import License
 
@@ -35,7 +35,7 @@ WEB_SAFE = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".
 class _Preview:
     """LRU nhỏ cho ảnh xem trước."""
     def __init__(self, n=16):
-        self.n, self.d, self.lock = n, {}, threading.Lock()
+        self.n, self.d, self.lock, self.busy = n, {}, threading.Lock(), {}
 
     def get(self, key, fn):
         with self.lock:
@@ -43,11 +43,17 @@ class _Preview:
                 v = self.d.pop(key)
                 self.d[key] = v
                 return v
-        v = fn()
-        with self.lock:
-            self.d[key] = v
-            while len(self.d) > self.n:
-                self.d.pop(next(iter(self.d)))
+            kl = self.busy.setdefault(key, threading.Lock())
+        with kl:   # cùng một ảnh được xin 2 lần (nạp trước + đang xem): chỉ tạo 1 lần, lần sau chờ dùng chung
+            with self.lock:
+                if key in self.d:
+                    return self.d[key]
+            v = fn()
+            with self.lock:
+                self.d[key] = v
+                self.busy.pop(key, None)
+                while len(self.d) > self.n:
+                    self.d.pop(next(iter(self.d)))
         return v
 
 
@@ -407,6 +413,14 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                     p = lib.path_of(pid)
                     if not p:
                         return self._send(404, b"", "text/plain")
+                    if q.get("hq") == "1" and side:   # bản nét đúng cỡ màn hình (RAW: giải mã thật khi JPEG nhúng nhỏ)
+                        def make_view():
+                            img = load_view(p, side)
+                            return _jpg(img, 92) if img is not None else b""
+                        data = previews.get((pid, "v", side), make_view)
+                        if not data:
+                            return self._send(404, b"", "text/plain")
+                        return self._send(200, data, "image/jpeg", {"Cache-Control": "max-age=3600"})
 
                     cached = PREVIEWS / f"{pid}.jpg"
                     if side and cached.exists():  # ảnh 1600px đã giải mã sẵn trên ổ máy: không đụng tới thẻ nhớ

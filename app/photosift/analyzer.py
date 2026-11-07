@@ -20,6 +20,7 @@ IMG_EXT = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".webp", ".bmp", ".heic", "
 ALL_EXT = RAW_EXT | IMG_EXT
 
 ANALYSIS_SIDE = 1600   # cạnh dài tối đa khi phân tích
+PREV_KEEP = 2048       # ảnh cache để xem: giữ nguyên cỡ nếu cạnh dài không quá mức này
 SHARP_SIDE = 1024      # cạnh dài khi đo độ nét
 DETECT_SIDE = 960         # cạnh dài ảnh dùng để tìm mặt; 960px vẫn thấy mặt từ khoảng 36px trên ảnh 1616px
 FACE_REF_SIDE = 1280      # MIN_FACE_PX và EAR_MIN_FACE_PX tính theo cỡ ảnh này
@@ -461,6 +462,62 @@ def load_bgr(path: str, max_side: int = 0, size_hint: tuple[int, int] | None = N
     return img
 
 
+VIEW_MAX = 4096   # cạnh dài tối đa của ảnh hiển thị nét trong trình xem
+RAW_EMB_OK = 2000  # JPEG nhúng trong RAW từ cỡ này trở lên (Canon/Nikon thường nhúng cỡ gốc) thì dùng luôn, khỏi giải mã
+_raw_gate = threading.BoundedSemaphore(2)   # giải mã RAW tốn RAM: tối đa 2 ảnh cùng lúc
+
+
+def _match_tone(src, ref):
+    """Khớp tông màu ảnh giải mã từ RAW theo JPEG nhúng (ảnh máy ảnh đã xử lý màu),
+    để khi đổi sang bản nét hơn ảnh không bị nhảy màu / độ sáng."""
+    small = cv2.resize(src, (ref.shape[1], ref.shape[0]), interpolation=cv2.INTER_AREA)
+    out = np.empty_like(src)
+    for c in range(3):
+        hs = np.bincount(small[..., c].ravel(), minlength=256).cumsum().astype(np.float64)
+        hr = np.bincount(ref[..., c].ravel(), minlength=256).cumsum().astype(np.float64)
+        lut = np.clip(np.searchsorted(hr / hr[-1], hs / hs[-1]), 0, 255).astype(np.uint8)
+        out[..., c] = cv2.LUT(src[..., c], lut)
+    return out
+
+
+def load_view(path: str, side: int):
+    """Ảnh nét cho trình xem, cạnh dài khoảng side px (đúng số điểm ảnh thật của màn hình).
+    RAW: dùng JPEG nhúng nếu đủ lớn; không đủ (vd. Sony chỉ nhúng 1616px) thì giải mã RAW ở nửa độ phân giải
+    rồi khớp màu theo JPEG nhúng. Ảnh thường: đọc file gốc."""
+    side = max(800, min(VIEW_MAX, int(side)))
+    ext = Path(path).suffix.lower()
+    if ext in RAW_EXT:
+        emb = None
+        try:
+            emb, _ = read_raw_preview(path)
+        except Exception:  # noqa: BLE001
+            emb = None
+        img = emb
+        # JPEG nhúng nhỏ (Sony chỉ có 1616px, nén mạnh) → giải mã RAW thật cho nét, kể cả khi màn hình không lớn hơn mấy
+        if emb is None or max(emb.shape[:2]) < max(side * 0.95, RAW_EMB_OK):
+            try:
+                import rawpy
+                with _raw_gate, rawpy.imread(path) as raw:
+                    rgb = raw.postprocess(half_size=True, use_camera_wb=True, output_bps=8)   # đã xoay đúng chiều
+                dec = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+                if emb is not None and max(dec.shape[:2]) > max(emb.shape[:2]):
+                    img = _match_tone(dec, emb)
+                elif emb is None:
+                    img = dec
+            except Exception:  # noqa: BLE001  không có rawpy / RAW lạ: giữ JPEG nhúng
+                pass
+    else:
+        ow, oh, _ = read_meta(path)
+        img = load_bgr(path, side, (ow, oh))
+    if img is None:
+        return None
+    h, w = img.shape[:2]
+    s = side / max(h, w)
+    if s < 0.97:   # chỉ thu nhỏ khi chênh đáng kể: thu nhỏ 1–3% cũng làm mềm cả ảnh
+        img = cv2.resize(img, (max(1, round(w * s)), max(1, round(h * s))), interpolation=cv2.INTER_AREA)
+    return img
+
+
 def _jpg(img, q=85) -> bytes:
     ok, buf = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, q])
     return buf.tobytes() if ok else b""
@@ -575,13 +632,16 @@ class Analyzer:
         h, w = img.shape[:2]
         if not ow:  # RAW: kích thước theo ảnh xem trước
             ow, oh = w, h
+        # ảnh cache để xem: giữ nguyên JPEG nhúng nếu không quá lớn (RAW Sony 1616px → không thu về 1600, vì thu nhỏ 1% cũng làm mềm ảnh)
+        view = img if max(h, w) <= PREV_KEEP else cv2.resize(
+            img, (max(1, round(w * PREV_KEEP / max(h, w))), max(1, round(h * PREV_KEEP / max(h, w)))), interpolation=cv2.INTER_AREA)
         s = ANALYSIS_SIDE / max(h, w)
         if s < 1:
             img = cv2.resize(img, (max(1, round(w * s)), max(1, round(h * s))), interpolation=cv2.INTER_AREA)
             h, w = img.shape[:2]
         th = THUMB_SIDE / max(h, w)
         thumb = cv2.resize(img, (max(1, round(w * th)), max(1, round(h * th))), interpolation=cv2.INTER_AREA) if th < 1 else img
-        return dict(img=img, w=ow, h=oh, taken=taken, thumb=_jpg(thumb, 85), prev=_jpg(img, 88))
+        return dict(img=img, w=ow, h=oh, taken=taken, thumb=_jpg(thumb, 85), prev=_jpg(view, 92))
 
     def quick_thumb(self, path: str):
         """Giai đoạn A: thumbnail gần như tức thì từ JPEG nhỏ nhất trong file RAW (đọc ~10 KB)."""
