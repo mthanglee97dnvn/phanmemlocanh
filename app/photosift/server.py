@@ -22,7 +22,7 @@ from . import models
 from .update import Updater
 from . import fonts
 from .errors import friendly
-from .analyzer import ALL_EXT, _jpg, load_bgr, load_view, read_meta
+from .analyzer import ALL_EXT, _jpg, load_bgr, read_meta
 from .library import COVERS, FACES, PREVIEWS, THUMBS, Library
 from .license import License
 
@@ -413,11 +413,8 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                     p = lib.path_of(pid)
                     if not p:
                         return self._send(404, b"", "text/plain")
-                    if q.get("hq") == "1" and side:   # bản nét đúng cỡ màn hình (RAW: giải mã thật khi JPEG nhúng nhỏ)
-                        def make_view():
-                            img = load_view(p, side)
-                            return _jpg(img, 92) if img is not None else b""
-                        data = previews.get((pid, "v", side), make_view)
+                    if q.get("hq") == "1" and side:   # bản nét đúng cỡ màn hình, dựng sẵn ở nền (RAW: giải mã thật)
+                        data = lib.view_get(pid, side)
                         if not data:
                             return self._send(404, b"", "text/plain")
                         return self._send(200, data, "image/jpeg", {"Cache-Control": "max-age=3600"})
@@ -492,6 +489,9 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                     return self._json(lib.cull_undo(b.get("id")))
                 if u.path == "/api/cull/clear":
                     lib.cull_clear()
+                    return self._json(dict(ok=True))
+                if u.path == "/api/view/ahead":   # trình xem báo các ảnh sắp xem để dựng ảnh nét trước
+                    lib.view_focus([int(i) for i in (b.get("ids") or [])[:24]], int(b.get("s") or 0))
                     return self._json(dict(ok=True))
                 if u.path == "/api/rate":
                     if "pairs" in b:

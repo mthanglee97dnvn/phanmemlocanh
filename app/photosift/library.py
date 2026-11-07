@@ -17,7 +17,7 @@ from xml.sax.saxutils import escape
 import cv2
 import numpy as np
 
-from .analyzer import ALL_EXT, ANALYSIS_SIDE, RAW_EXT, Analyzer, diag_raw, hamming, read_exif
+from .analyzer import ALL_EXT, ANALYSIS_SIDE, RAW_EXT, Analyzer, _jpg, diag_raw, hamming, load_view, read_exif
 from .errors import friendly
 from .db import DB, HOME
 from .online import Online
@@ -25,6 +25,7 @@ from .online import Online
 THUMBS = HOME / "thumbs"
 COVERS = HOME / "covers"   # ảnh bìa catalog: giữ qua các lần mở app, khác với THUMBS
 FACES = HOME / "faces"
+VIEWS = HOME / "view"      # ảnh nét đúng cỡ màn hình cho trình xem (RAW đã giải mã), dựng sẵn ở nền
 PREVIEWS = HOME / "prev"   # ảnh 1600px đã giải mã sẵn: xem nhanh + phân tích không phải đọc lại RAW từ thẻ nhớ
 IO_WORKERS = 4             # số luồng đọc file (thẻ nhớ/USB: 4 là hợp lý)
 LABELS = {"", "red", "yellow", "green", "blue", "purple"}
@@ -69,6 +70,7 @@ class Library:
         THUMBS.mkdir(parents=True, exist_ok=True)
         FACES.mkdir(parents=True, exist_ok=True)
         PREVIEWS.mkdir(parents=True, exist_ok=True)
+        VIEWS.mkdir(parents=True, exist_ok=True)
         self.db = db or DB()
         self.an = Analyzer()
         self.online = Online()      # bắt đầu kiểm tra mạng trong serve()
@@ -83,12 +85,20 @@ class Library:
         self.status = dict(state="idle", total=0, done=0, thumbs=0, errors=0, root="", message="", timing={})
         self._cancel = threading.Event()
         self._thread: threading.Thread | None = None
+        # dựng ảnh nét cho trình xem: hàng đợi ưu tiên (ảnh đang xem + vài ảnh kế) và hàng đợi nền (cả thư mục)
+        self._vcv = threading.Condition()
+        self._vq: list[tuple[int, int]] = []
+        self._vlow: list[tuple[int, int]] = []
+        self._vbusy: set[tuple[int, int]] = set()
+        self._vside = int(self.settings.get("view_side") or 0)
+        for _ in range(2):
+            threading.Thread(target=self._view_worker, daemon=True).start()
 
     # ------------------------------------------------------------------ bộ nhớ đệm
     # Thumbnail, ảnh xem trước và kết quả phân tích được giữ giữa các lần mở app để mở lại thư mục là có ngay.
     def cache_info(self):
         total = 0
-        for d in (THUMBS, FACES, PREVIEWS):
+        for d in (THUMBS, FACES, PREVIEWS, VIEWS):
             try:
                 with os.scandir(d) as it:
                     total += sum(e.stat().st_size for e in it if e.is_file())
@@ -122,6 +132,8 @@ class Library:
                 for i in part:
                     drop(THUMBS / f"{i}.jpg")
                     drop(PREVIEWS / f"{i}.jpg")
+                    for f in VIEWS.glob(f"{i}_*.jpg"):
+                        drop(f)
             c.execute("DELETE FROM people WHERE name='' AND id NOT IN (SELECT person_id FROM faces WHERE person_id IS NOT NULL)")
             c.commit()
         return freed
@@ -423,10 +435,16 @@ class Library:
         except Exception as e:  # noqa: BLE001  catalog lỗi không được làm hỏng phiên lọc
             print("catalog:", e, file=sys.stderr)
         self.status.update(state="done", message="Hoàn tất")
+        self.view_all()
 
     def _prepare_one(self, pid: int, path: str):
         """Pha 1: đọc ảnh xem trước, ghi thumbnail + ảnh cache, đánh dấu ready (hiện được ngay trên lưới)."""
         r = self.an.prepare(path)
+        for f in VIEWS.glob(f"{pid}_*.jpg"):   # đọc lại ảnh (file đổi / cache cũ) thì bản nét cũ không còn đúng
+            try:
+                f.unlink()
+            except OSError:
+                pass
         (THUMBS / f"{pid}.jpg").write_bytes(r["thumb"])
         (PREVIEWS / f"{pid}.jpg").write_bytes(r["prev"])
         taken = r["taken"] or os.path.getmtime(path)
@@ -847,6 +865,92 @@ class Library:
         if label not in LABELS:
             raise ValueError("nhãn không hợp lệ")
         self.db.many("UPDATE photos SET label=? WHERE id=?", [(label, int(i)) for i in ids])
+
+    # ------------------------------------------------------------------ ảnh nét cho trình xem
+    @staticmethod
+    def view_file(pid: int, side: int):
+        return VIEWS / f"{pid}_{side}.jpg"
+
+    def _view_build(self, pid: int, side: int):
+        f = self.view_file(pid, side)
+        if f.exists():
+            return
+        p = self.path_of(pid)
+        img = load_view(p, side) if p else None
+        data = _jpg(img, 90) if img is not None else b""
+        if data:
+            tmp = f.with_suffix(".tmp")
+            tmp.write_bytes(data)
+            os.replace(tmp, f)
+
+    def _view_worker(self):
+        while True:
+            with self._vcv:
+                while True:
+                    job = next((j for j in self._vq if j not in self._vbusy), None)
+                    if job is None and self.status.get("state") != "running":   # đang phân tích thì nhường CPU
+                        job = next((j for j in self._vlow if j not in self._vbusy), None)
+                    if job:
+                        break
+                    self._vcv.wait(2)
+                for q in (self._vq, self._vlow):
+                    if job in q:
+                        q.remove(job)
+                self._vbusy.add(job)
+            try:
+                self._view_build(*job)
+            except Exception as e:  # noqa: BLE001
+                print("view:", e, file=sys.stderr)
+            finally:
+                with self._vcv:
+                    self._vbusy.discard(job)
+                    self._vcv.notify_all()
+
+    def view_focus(self, ids, side: int):
+        """Trình xem báo ảnh đang xem + các ảnh sắp xem: dựng trước theo đúng thứ tự này (bỏ hàng đợi cũ)."""
+        side = int(side)
+        if side <= 0:
+            return
+        if side != self._vside:
+            self._vside = side
+            self.settings["view_side"] = side
+            try:
+                self._sfile.write_text(json.dumps(self.settings))
+            except OSError:
+                pass
+        with self._vcv:
+            self._vq = [(int(i), side) for i in ids if not self.view_file(int(i), side).exists()]
+            self._vcv.notify_all()
+
+    def view_all(self):
+        """Sau khi phân tích xong: dựng dần ảnh nét cho cả thư mục ở nền (theo cỡ màn hình lần trước)."""
+        side = self._vside
+        if side <= 0:
+            return
+        rows = self.db.q("SELECT p.id FROM photos p JOIN cur ON cur.id=p.id WHERE p.ready=1 ORDER BY p.path")
+        with self._vcv:
+            self._vlow = [(r["id"], side) for r in rows if not self.view_file(r["id"], side).exists()]
+            self._vcv.notify_all()
+
+    def view_get(self, pid: int, side: int, timeout: float = 12.0):
+        """Ảnh nét đã dựng; chưa có thì xếp lên đầu hàng đợi và chờ."""
+        f = self.view_file(pid, side)
+        if not f.exists():
+            job = (pid, side)
+            end = time.time() + timeout
+            with self._vcv:
+                if job in self._vq:
+                    self._vq.remove(job)
+                self._vq.insert(0, job)
+                self._vcv.notify_all()
+                while not f.exists() and time.time() < end:
+                    if job not in self._vq and job not in self._vbusy and not f.exists():
+                        break   # đã dựng nhưng lỗi
+                    self._vcv.wait(0.5)
+        try:
+            return f.read_bytes()
+        except OSError:
+            return None
 
     def path_of(self, pid: int):
         r = self.db.one("SELECT path FROM photos WHERE id=?", (pid,))
