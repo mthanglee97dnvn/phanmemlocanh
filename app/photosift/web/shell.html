@@ -100,6 +100,7 @@ window.PS={
   layout(){return l.contentWindow.vuotBridge||null}};
 a.onclick=()=>PS.show('filter');b.onclick=()=>PS.show('layout');
 addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&(e.key==='1'||e.key==='2')){e.preventDefault();PS.show(e.key==='1'?'filter':'layout')}});
+addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&!e.altKey&&e.key.toLowerCase()==='y'){e.preventDefault();const f=document.querySelector('iframe[src="/filter"]');if(f&&f.offsetParent!==null&&!document.querySelector('dialog[open]')){try{f.contentWindow.openExportKey()}catch(_){}}}});
 const $=i=>document.getElementById(i),post=(u,b)=>fetch(u,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(b||{})}).then(r=>r.json());
 async function lic(){let s;try{s=await fetch('/api/license').then(r=>r.json())}catch(e){return}if(!s.ok){location.reload();return}
   const t=$('tLic'),low=!s.permanent&&s.days_left<=14;t.textContent=s.permanent?'Bản quyền vĩnh viễn':`Còn ${s.days_left} ngày`;t.classList.toggle('warn',low);

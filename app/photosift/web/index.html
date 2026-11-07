@@ -318,7 +318,7 @@ details.adv{margin:6px 0;border-top:1px solid var(--line);padding-top:6px}detail
       <option value="score">Điểm chất lượng (cao trước)</option><option value="sharp">Độ nét (cao trước)</option>
     </select></div>
     <span class="sp"></span>
-    <div class="grp"><button id="bCull" aria-label="Tự động lọc"><svg class="ic" aria-hidden="true"><use href="#i-funnel"/></svg><span class="lbl">Tự động lọc</span></button><button id="bUndo" aria-label="Hoàn tác" disabled><svg class="ic" aria-hidden="true"><use href="#i-undo"/></svg><span class="lbl">Hoàn tác</span></button><button id="bUnrej" title="Khôi phục ảnh đã bị đánh dấu loại" hidden></button><button id="bExport" aria-label="Xuất ảnh"><svg class="ic" aria-hidden="true"><use href="#i-export"/></svg><span class="lbl">Xuất ảnh</span></button><button id="bLayout" aria-label="Gửi ảnh sang Dàn trang" class="pri" title="Gửi ảnh đã lọc sang Dàn trang" hidden><svg class="ic" aria-hidden="true"><use href="#i-layout"/></svg><span class="lbl">Dàn trang</span></button></div>
+    <div class="grp"><button id="bCull" aria-label="Tự động lọc"><svg class="ic" aria-hidden="true"><use href="#i-funnel"/></svg><span class="lbl">Tự động lọc</span></button><button id="bUndo" aria-label="Hoàn tác" disabled><svg class="ic" aria-hidden="true"><use href="#i-undo"/></svg><span class="lbl">Hoàn tác</span></button><button id="bUnrej" title="Khôi phục ảnh đã bị đánh dấu loại" hidden></button><button id="bExport" aria-label="Xuất ảnh" aria-keyshortcuts="Control+Y" title="Xuất ảnh (Ctrl+Y)"><svg class="ic" aria-hidden="true"><use href="#i-export"/></svg><span class="lbl">Xuất ảnh</span></button><button id="bLayout" aria-label="Gửi ảnh sang Dàn trang" class="pri" title="Gửi ảnh đã lọc sang Dàn trang" hidden><svg class="ic" aria-hidden="true"><use href="#i-layout"/></svg><span class="lbl">Dàn trang</span></button></div>
     <div class="grp util"><button id="bInfo" title="Bật/tắt khung thông số ảnh" aria-label="Bật/tắt khung thông số ảnh"><svg class="ic" aria-hidden="true"><use href="#i-info"/></svg></button><button id="bTheme" title="Đổi giao diện: Kính / Tối trung tính (xem màu ảnh chuẩn)" aria-label="Đổi giao diện"><svg class="ic" aria-hidden="true"><use href="#i-theme"/></svg></button><button id="bHelp" title="Phím tắt và trợ giúp" aria-label="Phím tắt và trợ giúp"><svg class="ic" aria-hidden="true"><use href="#i-help"/></svg></button></div>
   </div>
   <div id="prog"><i></i></div>
@@ -784,6 +784,7 @@ function move(delta, shift){
 }
 document.addEventListener('keydown', e=>{
   if(document.body.classList.contains('cat')){ if(e.key==='Escape'&&!document.querySelector('.back')&&S.status.root) hideCatalog(); return; }
+  if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&!e.altKey&&e.key.toLowerCase()==='y'){ e.preventDefault(); if(!document.querySelector('.back')) openExportKey(); return; }
   if(['INPUT','SELECT','TEXTAREA'].includes(document.activeElement.tagName) || document.querySelector('.back')) return;
   const k=e.key, mod=e.ctrlKey||e.metaKey;
   if(mod && k.toLowerCase()==='a'){ e.preventDefault(); S.sel=new Set(S.view.map(p=>p.id)); S.view.forEach(p=>decorate(p.id)); renderStatus(); return; }
@@ -980,6 +981,8 @@ $('#bCull').onclick=()=>{
 /* ---------- xuất ---------- */
 function paintAdvInit(){ paintAdv(); $('#sAdv').onclick=()=>{ S.adv=!S.adv; try{ localStorage.setItem('ps_adv',S.adv?'1':'0'); }catch(e){} paintAdv(); }; }
 paintAdvInit();
+function openExportKey(){ const b=$('#bExport'); if(b&&!b.disabled&&b.offsetParent!==null) b.click(); }
+window.openExportKey=openExportKey;
 $('#bExport').onclick=()=>{
   const m=modal(`<h3>Xuất ảnh</h3><div class="hint" style="margin:-6px 0 10px">Sao chép ảnh đã chọn sang thư mục đích. Ảnh gốc giữ nguyên.</div>
    <div class="row"><label for="xs">Ảnh cần xuất</label><select id="xs" style="flex:1"><option value="sel">Đang chọn (${S.sel.size||(S.cur!==null?1:0)})</option><option value="view">Tất cả ảnh đang hiển thị (${S.view.length})</option><option value="keep">Tất cả trừ ảnh bị loại (${S.photos.filter(p=>p.rating>=0).length})</option><option value="r5">★★★★★ 5 sao (${S.photos.filter(p=>p.rating===5).length})</option><option value="r3">★ 3 sao trở lên (${S.photos.filter(p=>p.rating>=3).length})</option></select></div>
@@ -1058,7 +1061,7 @@ function showHelp(){
    <span class="kbd">Esc</span> quay lại một bước &nbsp; <span class="kbd">H</span> vùng cháy/mất chi tiết &nbsp; <span class="kbd">T</span> dải ảnh &nbsp; <span class="kbd">Ctrl+1</span>/<span class="kbd">Ctrl+2</span> Lọc ảnh/Dàn trang<br>
    <span class="kbd">Enter</span>/<span class="kbd">Space</span> xem ảnh lớn &nbsp; Lăn chuột phóng to, giữ chuột phải kéo ảnh, <span class="kbd">Z</span> phóng nhanh (kiểm tra độ nét) &nbsp; <span class="kbd">F</span> tên người<br>
    <span class="kbd">0–5</span> số sao &nbsp; <span class="kbd">X</span> loại / khôi phục &nbsp; <span class="kbd">6</span> đỏ <span class="kbd">7</span> vàng <span class="kbd">8</span> xanh lá <span class="kbd">9</span> xanh dương <span class="kbd">-</span> bỏ nhãn<br>
-   <span class="kbd">Ctrl+Z</span> hoàn tác</div>
+   <span class="kbd">Ctrl+Z</span> hoàn tác &nbsp; <span class="kbd">Ctrl+Y</span> xuất ảnh</div>
    <div class="hint" style="margin-top:10px">Ứng dụng không bao giờ xóa hay di chuyển file gốc. “Loại” chỉ là một dấu trong cơ sở dữ liệu; hãy xuất ảnh để lấy bộ ảnh đã chọn.</div>
    <div class="btns"><button class="pri" onclick="this.closest('.back').remove()">Đóng</button></div>`);
 }
