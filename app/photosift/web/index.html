@@ -128,7 +128,7 @@ body.cat #catalog{display:flex}
 #vstage{position:relative;overflow:auto;display:flex;grid-row:1;grid-column:1;min-height:0}
 #vinfo{grid-row:1;grid-column:2;min-height:0}
 #vwrap{position:relative;margin:auto;line-height:0}
-#vwrap img{display:block;max-width:calc(100vw - 290px);max-height:calc(100vh - var(--strip));cursor:zoom-in}
+#vwrap img{display:block;cursor:zoom-in}
 #vstage.zoom #vwrap img{max-width:none;max-height:none;cursor:zoom-out}
 #vstage{scrollbar-width:none}#vstage::-webkit-scrollbar{display:none}
 #vstage.pan,#vstage.pan #vwrap img{cursor:grabbing}
@@ -662,7 +662,16 @@ const Z={k:1,hi:false,max:8,hiFrom:1.6,click:2.5};
 function zoomBase(p){ const st=$('#vstage'), w=p.w||1, h=p.h||1, f=Math.min(st.clientWidth/w,st.clientHeight/h); return [w*f,h*f]; }
 function sizeZoom(){ const p=S.by.get(S.cur), img=$('#vimg'); if(!p) return; const [w,h]=zoomBase(p); img.style.width=Math.round(w*Z.k)+'px'; img.style.height=Math.round(h*Z.k)+'px'; }
 function paintZoom(){ const l=$('#vzoom'); l.hidden=!S.zoom; l.textContent=Math.round(Z.k*100)+'%'; }
-function resetZoom(){ Z.k=1; Z.hi=false; S.zoom=false; const img=$('#vimg'); img.style.width=img.style.height=''; paintZoom(); }
+function resetZoom(){ Z.k=1; Z.hi=false; S.zoom=false; fitView(); paintZoom(); }
+/* Ảnh trong trình xem luôn được đặt đúng cỡ "vừa khung" theo tỉ lệ ảnh — dù đang hiện thumbnail, ảnh xem trước hay bản nét —
+   nên chuyển ảnh không còn bị phóng to / thu nhỏ (trước đây ảnh nhỏ hơn khung hiện theo cỡ thật rồi mới giãn ra). */
+function fitView(w,h){
+  const img=$('#vimg'), p=S.by.get(S.cur); if(S.zoom) return;
+  if(!w||!h){ w=img.naturalWidth; h=img.naturalHeight; }   // gọi lại khi đổi cỡ cửa sổ: theo ảnh đang hiện
+  if(!w||!h){ return; }
+  const st=$('#vstage'), mw=st.clientWidth||window.innerWidth-290, mh=st.clientHeight||window.innerHeight-(stripOn?116:0), k=Math.min(mw/w,mh/h);
+  img.style.width=Math.round(w*k)+'px'; img.style.height=Math.round(h*k)+'px'; }
+addEventListener('resize',()=>{ if(S.viewer&&!S.zoom) fitView(); });
 function zoomTo(k,cx,cy){
   const st=$('#vstage'), img=$('#vimg'), sr=st.getBoundingClientRect(), r=img.getBoundingClientRect();
   const fx=Math.min(1,Math.max(0,(cx-r.left)/r.width)), fy=Math.min(1,Math.max(0,(cy-r.top)/r.height)), was=S.zoom, wasHi=Z.hi;
@@ -718,17 +727,14 @@ async function showViewer(){
     const thumb=`/thumb/${p.id}.jpg?v=${p.tv}`;
     const fit=(w,h)=>{ // giữ khung ảnh đúng cỡ cuối cùng ngay cả khi mới hiện thumbnail nhỏ → không bị "nhảy"/bóng ma
       if(S.zoom){ sizeZoom(); return; }
-      if(!w||!h){ img.style.width=img.style.height=''; return; }
-      const mw=window.innerWidth-290, mh=window.innerHeight-(stripOn?116:0), k=Math.min(mw/w,mh/h);
-      img.style.width=Math.round(w*k)+'px'; img.style.height=Math.round(h*k)+'px'; };
+      fitView(w,h); };
     const apply=(im,u,clear)=>{ // chỉ đổi ảnh khi ảnh mới đã giải mã xong và khung đã đúng cỡ → không còn khung hình lẫn ảnh cũ
       const go=()=>{ if(tok!==vTok||img.dataset.src!==src) return; fit(im.naturalWidth,im.naturalHeight); img.src=u;
         if(u===src&&!Z.hi&&!S.zoom) upgradeHQ(p,tok,src);
-        if(clear) setTimeout(()=>{ if(img.dataset.src===src&&!S.zoom) img.style.width=img.style.height=''; },80); };
+      };
       (im.decode?im.decode().then(go,go):go()); };
     const done=VPRE.get(src), hq=!Z.hi&&!S.zoom&&needHQ(p)?VHQ.get(hqUrl(p.id)):null;
-    if(hq){ const go=()=>{ if(tok!==vTok||img.dataset.src!==src) return; fit(hq.naturalWidth,hq.naturalHeight); img.src=hq.src;
-        setTimeout(()=>{ if(img.dataset.src===src&&!S.zoom) img.style.width=img.style.height=''; },80); }; go(); prefetchHQ(); }   // đã có bản nét: hiện luôn
+    if(hq){ const go=()=>{ if(tok!==vTok||img.dataset.src!==src) return; fit(hq.naturalWidth,hq.naturalHeight); img.src=hq.src; }; go(); prefetchHQ(); }   // đã có bản nét: hiện luôn
     else if(done&&done.complete&&done.naturalWidth){ apply(done,src,true); }   // đã nạp trước: hiện ngay, không qua thumbnail
     else{
       const t=new Image(); t.onload=()=>{ if(!big.complete||!big.naturalWidth) apply(t,thumb,false); }; t.src=thumb;
