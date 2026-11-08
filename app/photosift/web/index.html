@@ -328,7 +328,7 @@ details.adv{margin:6px 0;border-top:1px solid var(--line);padding-top:6px}detail
     <div class="grp"><button id="bCat" aria-label="Catalog" title="Xem các thư mục đã lọc"><svg class="ic" aria-hidden="true"><use href="#i-lib"/></svg><span class="lbl">Catalog</span></button><button id="bOpen" aria-label="Mở thư mục"><svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg><span class="lbl">Mở thư mục</span></button><label class="hint"><input type="checkbox" id="cRec" checked> gồm thư mục con</label></div>
     <div class="grp"><select id="fFilter" title="Lọc" aria-label="Lọc ảnh"></select><select id="fSort" title="Sắp xếp" aria-label="Sắp xếp">
       <option value="name">Tên file</option><option value="time">Thời gian chụp</option>
-      <option value="score">Điểm chất lượng (cao trước)</option><option value="sharp">Độ nét (cao trước)</option>
+      <option value="score">Điểm chất lượng (cao trước)</option><option value="sharp">Độ nét (cao trước)</option><option value="smile">Nụ cười (tươi nhất trước)</option>
     </select></div>
     <span class="sp"></span>
     <div class="grp"><button id="bCull" aria-label="Tự động lọc"><svg class="ic" aria-hidden="true"><use href="#i-funnel"/></svg><span class="lbl">Tự động lọc</span></button><button id="bUndo" aria-label="Hoàn tác" disabled><svg class="ic" aria-hidden="true"><use href="#i-undo"/></svg><span class="lbl">Hoàn tác</span></button><button id="bUnrej" title="Khôi phục ảnh đã bị đánh dấu loại" hidden></button><button id="bExport" aria-label="Xuất ảnh" aria-keyshortcuts="Control+Y" title="Xuất ảnh (Ctrl+Y)"><svg class="ic" aria-hidden="true"><use href="#i-export"/></svg><span class="lbl">Xuất ảnh</span></button><button id="bLayout" aria-label="Gửi ảnh sang Dàn trang" class="pri" title="Gửi ảnh đã lọc sang Dàn trang" hidden><svg class="ic" aria-hidden="true"><use href="#i-layout"/></svg><span class="lbl">Dàn trang</span></button></div>
@@ -361,11 +361,12 @@ details.adv{margin:6px 0;border-top:1px solid var(--line);padding-top:6px}detail
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const FLAG = {blur:'Mờ', dark:'Tối', bright:'Sáng quá', eyes:'Nhắm mắt?', away:'Quay mặt?', dup:'Trùng'};
+const SMILE_ON=0.6;   // điểm cười cả ảnh (0..1, trung bình theo cỡ mặt) từ mức này = "có nụ cười"
 const LABEL_VI={red:'đỏ',yellow:'vàng',green:'xanh lá',blue:'xanh dương',purple:'tím'};
 const LABELS = ['red','yellow','green','blue','purple'];
 const LABEL_NAME = {red:'Đỏ',yellow:'Vàng',green:'Xanh lá',blue:'Xanh dương',purple:'Tím'};
 const FILTERS = [['all','Tất cả'],['unrated','Chưa chấm'],['r1','★ 1+'],['r2','★★ 2+'],['r3','★★★ 3+'],['r4','★★★★ 4+'],['r5','★★★★★ 5'],
-  ['rej','✕ Đã loại'],['norej','Không bị loại'],['issues','⚠ Có vấn đề (mọi loại)'],['blur','Mờ'],['dark','Tối'],['bright','Sáng quá'],['eyes','Nhắm mắt?'],['away','Có người quay mặt'],['dup','Trùng lặp (bản kém hơn)'],
+  ['rej','✕ Đã loại'],['norej','Không bị loại'],['issues','⚠ Có vấn đề (mọi loại)'],['blur','Mờ'],['dark','Tối'],['bright','Sáng quá'],['eyes','Nhắm mắt?'],['away','Có người quay mặt'],['smile','Có nụ cười'],['dup','Trùng lặp (bản kém hơn)'],
   ['best','Tốt nhất trong nhóm trùng'],['face','Có khuôn mặt'],['noface','Không có khuôn mặt'],['raw','Chỉ file RAW (ARW, CR2, NEF…)'],['jpg','Chỉ JPG / ảnh thường']];
 const RAWRE=/\.(arw|srf|sr2|cr2|cr3|nef|nrw|dng|orf|raf|rw2|pef|srw|3fr|erf|kdc|mrw|x3f)$/i;
 const S = {photos:[], viewFull:[], keep:new Set(), open:new Set(), stack:(()=>{ try{ return localStorage.getItem('ps_stack2')==='1'; }catch(e){ return false; } })(),   /* mặc định: ảnh trùng để riêng từng ô */ by:new Map(), view:[], people:[], sel:new Set(), cur:null, anchor:null, filter:'all', sort:'name', person:null,
@@ -428,6 +429,7 @@ function matchFilter(p){
     case 'raw': return RAWRE.test(p.name); case 'jpg': return !RAWRE.test(p.name);
     case 'best': return p.grp>0 && p.best; case 'face': return p.nf>0; case 'noface': return p.nf===0;
     case 'pv': return !!(S.pv&&S.pv.has(p.id));
+    case 'smile': return (p.smile??-1)>=SMILE_ON;
     case 'blur': case 'dark': case 'bright': case 'eyes': case 'away': case 'dup': return p.flags.includes(f);
     default: if(f[0]==='r') return p.rating>=+f.slice(1); return true;
   }
@@ -436,7 +438,7 @@ function applyView(){
   let v = S.photos.filter(p=>(S.keep.has(p.id)||matchFilter(p)) && (S.person===null || p.people.includes(S.person)));
   const cmp = {name:(a,b)=>a.dir.localeCompare(b.dir)||a.name.localeCompare(b.name,undefined,{numeric:true}),
                time:(a,b)=>(a.taken||0)-(b.taken||0)||a.name.localeCompare(b.name),
-               score:(a,b)=>b.score-a.score, sharp:(a,b)=>(b.nf?b.fsharp:b.sharp)-(a.nf?a.fsharp:a.sharp)}[S.sort];
+               score:(a,b)=>b.score-a.score, sharp:(a,b)=>(b.nf?b.fsharp:b.sharp)-(a.nf?a.fsharp:a.sharp), smile:(a,b)=>((b.smile??-1)-(a.smile??-1))||(b.score-a.score)}[S.sort];
   v.sort(cmp); S.viewFull=v; S.view=stackView(v);   // viewFull: mọi ảnh khớp bộ lọc, kể cả ảnh nằm trong chồng
   if(S.cur===null || !v.some(p=>p.id===S.cur)) S.cur = v.length ? v[0].id : null;
   renderGrid(); scheduleInfo();
@@ -815,7 +817,7 @@ function renderInfo(p, ix){
    <div style="margin-bottom:10px" role="group" aria-label="Nhãn màu">${LABELS.map(l=>`<button class="lbtn l-${l} ${p.label===l?'on':''}" data-l="${l}" title="${LABEL_NAME[l]}" aria-label="Nhãn ${LABEL_NAME[l]}" aria-pressed="${p.label===l}"></button>`).join('')}<button class="lclr" data-l="">Bỏ nhãn</button></div>
    <div class="kv">Điểm chất lượng<b>${p.score}</b></div><div class="kv">Kích thước<b>${p.w}×${p.h}</b></div><div class="kv">Chụp lúc<b>${d}</b></div>
    <div class="kv">Độ nét (toàn ảnh)<b>${p.sharp}</b></div><div class="kv">Độ nét (mặt)<b>${p.nf?p.fsharp:'—'}</b></div>
-   <div class="kv">Độ sáng TB<b>${(p.lum*100).toFixed(0)}%</b></div><div class="kv">Độ mở mắt<b>${p.ear>=0?p.ear:'—'}</b></div>
+   <div class="kv">Độ sáng TB<b>${(p.lum*100).toFixed(0)}%</b></div><div class="kv">Độ mở mắt<b>${p.ear>=0?p.ear:'—'}</b></div><div class="kv">Nụ cười<b>${(p.smile??-1)>=0?Math.round(p.smile*100)+'%':'—'}</b></div>
    <div style="margin:10px 0">${p.an===false?'<span class="hint">Đang phân tích…</span>':''}${p.flags.filter(f=>f!=='dup').map(f=>`<span class="chip ${f}" style="margin-right:4px">${FLAG[f]}</span>`).join('')||(p.flags.length?'':'<span class="ok">Không có cảnh báo</span>')}</div>
    ${p.grp?`<div class="hint">Nhóm trùng #${p.grp} ${p.best?'— <b class="ok">bản tốt nhất</b>':''}</div>`:''}
    <div style="margin:8px 0">${p.people.map(i=>`<span class="chip" style="background:var(--sel);margin-right:4px">${esc(pname(i))}</span>`).join('')}</div>

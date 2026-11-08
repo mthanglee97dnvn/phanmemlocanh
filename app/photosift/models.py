@@ -23,6 +23,10 @@ MODELS = [
     ("lbfmodel.yaml",
      "https://raw.githubusercontent.com/kurnianggoro/GSOC2017/master/data/lbfmodel.yaml",
      False),
+    # Tuỳ chọn: nhận diện biểu cảm (FER+, 8 cảm xúc) — dùng để lọc / sắp xếp ảnh có nụ cười
+    ("ferplus.onnx",
+     "https://media.githubusercontent.com/media/onnx/models/main/validated/vision/body_analysis/emotion_ferplus/model/emotion-ferplus-8.onnx",
+     False),
 ]
 
 

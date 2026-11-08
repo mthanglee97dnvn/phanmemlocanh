@@ -457,6 +457,7 @@ class Library:
         self.status.update(message="Đang gom khuôn mặt theo người…")
         self.cluster()
         self.regroup()
+        self._smile_backfill(cancel)
         try:
             self._catalog_update(root)
             self.trim_cache()
@@ -464,6 +465,42 @@ class Library:
             print("catalog:", e, file=sys.stderr)
         self.status.update(state="done", message="Hoàn tất")
         self.view_all()
+
+    def _smile_backfill(self, cancel):
+        """Ảnh đã phân tích từ bản cũ chưa có điểm nụ cười: đo bổ sung từ ảnh cache (không đọc lại file RAW)."""
+        if not self.an.has_smile:
+            return
+        rows = self.db.q("SELECT p.id FROM photos p JOIN cur ON cur.id=p.id WHERE p.analyzed=1 AND p.smile IS NULL")
+        todo = [r["id"] for r in rows if (PREVIEWS / f"{r['id']}.jpg").exists()]
+        if not todo:
+            return
+        self.status.update(message=f"Đang nhận diện nụ cười ({len(todo)} ảnh)…")
+
+        def one(pid):
+            if cancel.is_set():
+                return pid, None
+            img = cv2.imread(str(PREVIEWS / f"{pid}.jpg"))
+            if img is None:
+                return pid, -1.0
+            h, w = img.shape[:2]
+            if max(h, w) > ANALYSIS_SIDE:
+                k = ANALYSIS_SIDE / max(h, w)
+                img = cv2.resize(img, (max(1, round(w * k)), max(1, round(h * k))), interpolation=cv2.INTER_AREA)
+            try:
+                return pid, self.an.smile_only(img)
+            except Exception:  # noqa: BLE001
+                return pid, -1.0
+        n = os.cpu_count() or 4
+        done = []
+        with ThreadPoolExecutor(max_workers=n if n <= 8 else min(16, n - 1)) as ex:
+            for pid, sm in ex.map(one, todo):
+                if sm is not None:
+                    done.append((sm, pid))
+                if len(done) >= 200:
+                    self.db.many("UPDATE photos SET smile=? WHERE id=?", done)
+                    done = []
+        if done:
+            self.db.many("UPDATE photos SET smile=? WHERE id=?", done)
 
     def _prepare_one(self, pid: int, path: str):
         """Pha 1: đọc ảnh xem trước, ghi thumbnail + ảnh cache, đánh dấu ready (hiện được ngay trên lưới)."""
@@ -503,13 +540,14 @@ class Library:
             self.db.con.execute("DELETE FROM faces WHERE photo_id=?", (pid,))
             self.db.con.execute(
                 """UPDATE photos SET sharp=?,fsharp=?,lum=?,lo=?,hi=?,dhash=?,
-                   nfaces=?,ear_min=?,analyzed=1,err=NULL WHERE id=?""",
-                (r["sharp"], r["fsharp"], r["lum"], r["lo"], r["hi"], r["dhash"], r["nfaces"], r["ear_min"], pid))
+                   nfaces=?,ear_min=?,smile=?,analyzed=1,err=NULL WHERE id=?""",
+                (r["sharp"], r["fsharp"], r["lum"], r["lo"], r["hi"], r["dhash"], r["nfaces"], r["ear_min"],
+                 r.get("smile", -1.0) if self.an.has_smile else None, pid))
             for fc in r["faces"]:
                 cur = self.db.con.execute(
-                    "INSERT INTO faces(photo_id,fx,fy,fw,fh,det,px,ear,emb,yaw,vert) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                    "INSERT INTO faces(photo_id,fx,fy,fw,fh,det,px,ear,emb,yaw,vert,smile) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                     (pid, fc["fx"], fc["fy"], fc["fw"], fc["fh"], fc["det"], fc["px"], fc["ear"], fc["emb"],
-                     fc.get("yaw", -1.0), fc.get("vert", -1.0)))
+                     fc.get("yaw", -1.0), fc.get("vert", -1.0), fc.get("smile", -1.0)))
                 if fc["crop"]:
                     crops.append((cur.lastrowid, fc["crop"]))
             self.db.con.commit()
@@ -743,7 +781,7 @@ class Library:
             if not r["analyzed"]:
                 out.append(dict(
                     id=r["id"], name=os.path.basename(r["path"]), dir=r["dir"], w=r["w"], h=r["h"], taken=r["taken"],
-                    sharp=0, fsharp=0, lum=0, nf=0, ear=-1, rating=r["rating"], label=r["label"], grp=0, best=0,
+                    smile=-1, sharp=0, fsharp=0, lum=0, nf=0, ear=-1, rating=r["rating"], label=r["label"], grp=0, best=0,
                     score=0, people=[], flags=[], an=False, tv=r["tv"]))
                 continue
             if self._sharp_val(r, ref_g, ref_f) < S["blur_ratio"]:
@@ -763,6 +801,7 @@ class Library:
                 id=r["id"], name=os.path.basename(r["path"]), dir=r["dir"], w=r["w"], h=r["h"],
                 taken=r["taken"], sharp=round(r["sharp"] or 0, 1), fsharp=round(r["fsharp"] or 0, 1),
                 lum=round(r["lum"] or 0, 3), nf=r["nfaces"], ear=round(r["ear_min"], 3),
+                smile=r["smile"] if r["smile"] is not None else -1,
                 rating=r["rating"], label=r["label"], grp=r["grp"], best=r["best"], score=r["score"],
                 away=r["away"] or 0, people=pmap.get(r["id"], []), flags=flags, an=True, tv=r["tv"]))
         return out
