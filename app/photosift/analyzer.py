@@ -468,16 +468,17 @@ _raw_gate = threading.BoundedSemaphore(2)   # giải mã RAW tốn RAM: tối đ
 
 
 def _match_tone(src, ref):
-    """Khớp tông màu ảnh giải mã từ RAW theo JPEG nhúng (ảnh máy ảnh đã xử lý màu),
-    để khi đổi sang bản nét hơn ảnh không bị nhảy màu / độ sáng."""
-    small = cv2.resize(src, (ref.shape[1], ref.shape[0]), interpolation=cv2.INTER_AREA)
-    out = np.empty_like(src)
-    for c in range(3):
-        hs = np.bincount(small[..., c].ravel(), minlength=256).cumsum().astype(np.float64)
-        hr = np.bincount(ref[..., c].ravel(), minlength=256).cumsum().astype(np.float64)
-        lut = np.clip(np.searchsorted(hr / hr[-1], hs / hs[-1]), 0, 255).astype(np.uint8)
-        out[..., c] = cv2.LUT(src[..., c], lut)
-    return out
+    """Giữ nguyên màu và tông của JPEG nhúng (màu máy ảnh), chỉ lấy thêm chi tiết nét từ ảnh giải mã RAW:
+    màu (Cr, Cb) và độ sáng tổng thể lấy từ ảnh máy ảnh phóng lên; phần chi tiết nhỏ lấy từ RAW.
+    (Khớp histogram từng kênh như trước không giữ được sắc độ: áo xanh, áo hồng bị đậm lên.)"""
+    H, W = src.shape[:2]
+    up = cv2.resize(ref, (W, H), interpolation=cv2.INTER_CUBIC)
+    yr = cv2.cvtColor(src, cv2.COLOR_BGR2YCrCb)[..., 0].astype(np.float32)
+    ye = cv2.cvtColor(up, cv2.COLOR_BGR2YCrCb)
+    sig = max(1.0, 0.8 * W / ref.shape[1])
+    y = cv2.GaussianBlur(ye[..., 0].astype(np.float32), (0, 0), sig) + (yr - cv2.GaussianBlur(yr, (0, 0), sig))
+    ye[..., 0] = np.clip(y, 0, 255).astype(np.uint8)
+    return cv2.cvtColor(ye, cv2.COLOR_YCrCb2BGR)
 
 
 def load_view(path: str, side: int):

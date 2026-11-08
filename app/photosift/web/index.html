@@ -688,7 +688,7 @@ function vSide(){ const [mw,mh]=vBox(); return Math.min(4096,Math.ceil(Math.max(
 function needHQ(p){   // ảnh cache có đủ nét cho khung xem không
   if(!p) return false; const raw=RAWX.test(p.name), W=p.w||1600, H=p.h||1067, L=Math.max(W,H);
   const cl=raw?Math.min(L,2048):Math.min(L,1600), [mw,mh]=vBox(), k=Math.min(mw/(W*cl/L),mh/(H*cl/L)), need=cl*k*(window.devicePixelRatio||1);
-  return need>cl*1.04 || (raw&&L<2000&&need>=900); }
+  return need>cl*1.04; }   // chỉ giải mã RAW khi màn hình thật sự cần nhiều điểm ảnh hơn ảnh nhúng (giữ đúng màu máy ảnh)
 const hqUrl=id=>`/api/preview?id=${id}&s=${vSide()}&hq=1`;
 let hqCtl=null, preCtl=null, aheadT=0, aheadKey='';
 function hqKeep(u,im){ VHQ.set(u,im); while(VHQ.size>8){ const [k,o]=VHQ.entries().next().value; VHQ.delete(k); try{ URL.revokeObjectURL(o.src); }catch(e){} } }
