@@ -91,8 +91,16 @@ class Library:
         self._vlow: list[tuple[int, int]] = []
         self._vbusy: set[tuple[int, int]] = set()
         self._vside = int(self.settings.get("view_side") or 0)
-        for _ in range(2):
-            threading.Thread(target=self._view_worker, daemon=True).start()
+        self._vsides = {self._vside} if self._vside else set()   # các cỡ ảnh nét đang có trên đĩa (khỏi quét cả thư mục mỗi ảnh)
+        try:
+            for e in os.scandir(VIEWS):
+                a = e.name.rsplit(".", 1)[0].split("_")
+                if len(a) == 2 and a[1].isdigit():
+                    self._vsides.add(int(a[1]))
+        except OSError:
+            pass
+        for k in range(2):
+            threading.Thread(target=self._view_worker, args=(k == 0,), daemon=True).start()
 
     # ------------------------------------------------------------------ bộ nhớ đệm
     # Thumbnail, ảnh xem trước và kết quả phân tích được giữ giữa các lần mở app để mở lại thư mục là có ngay.
@@ -213,6 +221,8 @@ class Library:
             self._thread.join(timeout=30)
         self._cancel = threading.Event()
         self.root = root
+        with self._vcv:   # bỏ hàng dựng ảnh nét của thư mục trước
+            self._vq, self._vlow = [], []
         self._catalog_seed()
         self.db.x("INSERT INTO catalog(root,recursive,opened) VALUES(?,?,?) "
                   "ON CONFLICT(root) DO UPDATE SET recursive=excluded.recursive, opened=excluded.opened",
@@ -346,7 +356,17 @@ class Library:
                            message=f"Đang đọc {len(todo)} ảnh mới…" if todo else "Đã có trong bộ nhớ đệm")
 
         t0 = time.time()
-        net = _is_network(root)   # ổ mạng: độ trễ cao → dùng nhiều luồng hơn để các lượt đọc chồng lên nhau
+        perf = dict(t=round(t0), root=root, total=len(ids), todo=len(todo), cached=sum(1 for t in todo if t[2]),
+                    cpu=os.cpu_count(), net=None, samples=[])
+        stop_perf = threading.Event()
+
+        def sampler():   # ghi tiến độ mỗi 10 giây để biết khâu nào chậm (đọc file hay phân tích)
+            while not stop_perf.wait(10):
+                st = self.status
+                perf["samples"].append([round(time.time() - t0), st.get("quick", 0), st.get("thumbs", 0), st.get("done", 0)])
+        threading.Thread(target=sampler, daemon=True).start()
+        net = _is_network(root)
+        perf["net"] = net   # ổ mạng: độ trễ cao → dùng nhiều luồng hơn để các lượt đọc chồng lên nhau
         io_n = IO_WORKERS * 4 if net else IO_WORKERS
         qa_n = 64 if net else IO_WORKERS * 2
         # Giai đoạn A: thumbnail gần như tức thì từ JPEG nhỏ trong file RAW (~10 KB/ảnh) → lưới ảnh hiện ngay
@@ -423,6 +443,14 @@ class Library:
         self.status.update(message="Đang phân tích chất lượng + khuôn mặt…")
         p2.shutdown(wait=True)
         self.status["timing"]["all_s"] = round(time.time() - t0, 1)
+        stop_perf.set()
+        perf.update(self.status["timing"], cancelled=cancel.is_set(), errors=self.status.get("errors", 0))
+        try:   # nhật ký tốc độ (chỉ số liệu thời gian, không có nội dung ảnh) — giữ 50 lần gần nhất
+            pf = HOME / "perf.log"
+            old = pf.read_text(encoding="utf-8").splitlines()[-49:] if pf.exists() else []
+            pf.write_text("\n".join(old + [json.dumps(perf, ensure_ascii=False)]) + "\n", encoding="utf-8")
+        except OSError:
+            pass
         if cancel.is_set():
             self.status.update(state="idle", message="Đã huỷ")
             return
@@ -440,9 +468,9 @@ class Library:
     def _prepare_one(self, pid: int, path: str):
         """Pha 1: đọc ảnh xem trước, ghi thumbnail + ảnh cache, đánh dấu ready (hiện được ngay trên lưới)."""
         r = self.an.prepare(path)
-        for f in VIEWS.glob(f"{pid}_*.jpg"):   # đọc lại ảnh (file đổi / cache cũ) thì bản nét cũ không còn đúng
+        for sd in list(self._vsides):   # đọc lại ảnh (file đổi / cache cũ) thì bản nét cũ không còn đúng
             try:
-                f.unlink()
+                (VIEWS / f"{pid}_{sd}.jpg").unlink()
             except OSError:
                 pass
         (THUMBS / f"{pid}.jpg").write_bytes(r["thumb"])
@@ -883,12 +911,13 @@ class Library:
             tmp.write_bytes(data)
             os.replace(tmp, f)
 
-    def _view_worker(self):
+    def _view_worker(self, bg: bool):
         while True:
             with self._vcv:
                 while True:
                     job = next((j for j in self._vq if j not in self._vbusy), None)
-                    if job is None and self.status.get("state") != "running":   # đang phân tích thì nhường CPU
+                    # hàng nền (cả thư mục): chỉ 1 luồng, và chỉ khi không phân tích — để không làm chậm phân tích ảnh
+                    if job is None and bg and self.status.get("state") not in ("scanning",):
                         job = next((j for j in self._vlow if j not in self._vbusy), None)
                     if job:
                         break
@@ -918,6 +947,7 @@ class Library:
                 self._sfile.write_text(json.dumps(self.settings))
             except OSError:
                 pass
+        self._vsides.add(side)
         with self._vcv:
             self._vq = [(int(i), side) for i in ids if not self.view_file(int(i), side).exists()]
             self._vcv.notify_all()
@@ -925,7 +955,8 @@ class Library:
     def view_all(self):
         """Sau khi phân tích xong: dựng dần ảnh nét cho cả thư mục ở nền (theo cỡ màn hình lần trước)."""
         side = self._vside
-        if side <= 0:
+        if side <= 0 or _is_network(self.status.get("root") or ""):
+            # ổ mạng / NAS: dựng cả thư mục nghĩa là kéo lại toàn bộ file RAW qua mạng (hàng trăm GB) → chỉ dựng quanh ảnh đang xem
             return
         rows = self.db.q("SELECT p.id FROM photos p JOIN cur ON cur.id=p.id WHERE p.ready=1 ORDER BY p.path")
         with self._vcv:
