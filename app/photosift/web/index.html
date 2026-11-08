@@ -791,7 +791,7 @@ function renderInfo(p, ix){
    <div style="margin:8px 0">${p.people.map(i=>`<span class="chip" style="background:var(--sel);margin-right:4px">${esc(pname(i))}</span>`).join('')}</div>
    <div id="vsec"></div>
    <hr style="border-color:var(--line)"><button id="vdiag" style="margin-bottom:8px"><svg class="ic" aria-hidden="true"><use href="#i-tool"/></svg>Chẩn đoán file</button><div class="hint">
-   <span class="kbd">←</span><span class="kbd">→</span> chuyển ảnh &nbsp; <span class="kbd">0-5</span> sao &nbsp; <span class="kbd">X</span> loại<br>
+   <span class="kbd">←</span><span class="kbd">→</span> chuyển ảnh &nbsp; <span class="kbd">1-5</span> sao (bấm lại để huỷ) &nbsp; <span class="kbd">X</span> loại<br>
    <span class="kbd">6-9</span> nhãn màu &nbsp; <span class="kbd">F</span> tên người &nbsp; Lăn chuột phóng to, giữ chuột phải kéo ảnh, <span class="kbd">Z</span> phóng nhanh<br><span class="kbd">H</span> vùng cháy/tối &nbsp; <span class="kbd">T</span> bật/tắt dải ảnh thu nhỏ &nbsp; <span class="kbd">Esc</span> quay lại</div>`;
   $('#vstars').onclick=e=>{ const r=e.target.dataset.r; if(r!==undefined) rate([p.id], +r===p.rating?0:+r); };
   fillSections('#vsec', p.id, 'v');
@@ -895,7 +895,10 @@ document.addEventListener('keydown', e=>{
   else if(k==='ArrowUp'){ e.preventDefault(); S.viewer?move(-1):move(-cols(),e.shiftKey); }
   else if(k==='Enter'||k===' '){ e.preventDefault(); S.viewer?closeViewer():openViewer(); }
   else if(k==='Escape'&&!e.repeat){ if(S.viewer) closeViewer(); else showCatalog(); }   // Esc lùi từng cấp: ảnh lớn → lưới → Catalog
-  else if(/^[0-5]$/.test(k)){ const t=targets(); rate(t, +k); advance(t); }
+  else if(/^[0-5]$/.test(k)){ const t=targets(); if(!t.length) return;
+    // bấm lại đúng số sao đang có (vd. đang 1 sao, bấm 1) = huỷ sao; không tự sang ảnh kế
+    if(+k>0&&t.every(i=>S.by.get(i)&&S.by.get(i).rating===+k)){ rate(t,0); toast(t.length>1?`Đã huỷ sao ${t.length} ảnh`:'Đã huỷ sao'); return; }
+    rate(t, +k); advance(t); }
   else if(k==='x'||k==='X'){ const t=targets(); if(t.length){ rate(t, S.by.get(t[0]).rating===-1?0:-1); advance(t); } }
   else if(k>='6'&&k<='9'){ const t=targets(); label(t, LABELS[+k-6]); advance(t); }
   else if(k==='-') label(targets(), '');
@@ -1169,7 +1172,7 @@ function showHelp(){
    <span class="kbd">← → ↑ ↓</span> di chuyển (giữ <span class="kbd">Shift</span> để chọn dải) &nbsp; <span class="kbd">Ctrl+A</span> chọn tất cả<br>
    <span class="kbd">Esc</span> quay lại một bước &nbsp; <span class="kbd">H</span> vùng cháy/mất chi tiết &nbsp; <span class="kbd">T</span> dải ảnh &nbsp; <span class="kbd">Ctrl+1</span>/<span class="kbd">Ctrl+2</span> Lọc ảnh/Dàn trang<br>
    <span class="kbd">Enter</span>/<span class="kbd">Space</span> xem ảnh lớn &nbsp; Lăn chuột phóng to, giữ chuột phải kéo ảnh, <span class="kbd">Z</span> phóng nhanh (kiểm tra độ nét) &nbsp; <span class="kbd">F</span> tên người<br>
-   <span class="kbd">0–5</span> số sao &nbsp; <span class="kbd">X</span> loại / khôi phục &nbsp; <span class="kbd">6</span> đỏ <span class="kbd">7</span> vàng <span class="kbd">8</span> xanh lá <span class="kbd">9</span> xanh dương <span class="kbd">-</span> bỏ nhãn<br>
+   <span class="kbd">1–5</span> chấm sao, bấm lại cùng số để huỷ (<span class="kbd">0</span> cũng huỷ) &nbsp; <span class="kbd">X</span> loại / khôi phục &nbsp; <span class="kbd">6</span> đỏ <span class="kbd">7</span> vàng <span class="kbd">8</span> xanh lá <span class="kbd">9</span> xanh dương <span class="kbd">-</span> bỏ nhãn<br>
    <span class="kbd">Ctrl+Z</span> hoàn tác &nbsp; <span class="kbd">Ctrl+Y</span> xuất ảnh</div>
    <div class="hint" style="margin-top:10px">Ứng dụng không bao giờ xóa hay di chuyển file gốc. “Loại” chỉ là một dấu trong cơ sở dữ liệu; hãy xuất ảnh để lấy bộ ảnh đã chọn.</div>
    <div class="btns"><button class="pri" onclick="this.closest('.back').remove()">Đóng</button></div>`);
