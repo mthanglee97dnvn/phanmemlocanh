@@ -16,7 +16,7 @@ html,body{height:100%;margin:0;background:#14161A;color:#ECEEF2;font:13px/1.4 "S
 #mode button:hover{color:#fff}
 #mode button[aria-selected=true]{color:#ECEEF2;border-bottom-color:#F2B01E}
 #mode button:focus-visible{outline:2px solid #F2B01E;outline-offset:-3px}
-#mode kbd{font:11px Consolas,monospace;color:#A1A8B4;margin-left:6px}
+#mode kbd{display:none}
 #mode .sp{flex:1}
 #mode #tName{font-weight:600;color:#A1A8B4;font-size:12.5px;white-space:nowrap}
 #mode #tLic{height:26px;padding:0 10px;border:1px solid #383D47;border-radius:13px;color:#A1A8B4;font-weight:500;font-size:12px}
@@ -59,8 +59,8 @@ dialog button:focus-visible,#mode button:focus-visible{outline:2px solid #F2B01E
 <div id="shell">
   <nav id="mode" role="tablist" aria-label="Chế độ làm việc">
     <img src="/logo.png" alt="MTHANGLEE STUDIO">
-    <button role="tab" id="tFilter" aria-selected="true">Lọc ảnh<kbd>Ctrl+1</kbd></button>
-    <button role="tab" id="tLayout" aria-selected="false">Dàn trang<kbd>Ctrl+2</kbd></button>
+    <button role="tab" id="tFilter" aria-selected="true" title="Lọc ảnh (Ctrl+1)" aria-keyshortcuts="Control+1">Lọc ảnh</button>
+    <button role="tab" id="tLayout" aria-selected="false" title="Dàn trang (Ctrl+2)" aria-keyshortcuts="Control+2">Dàn trang</button>
     <span class="sp"></span><button id="tUpd" hidden></button><button id="tFont" title="Đổi phông chữ của app">Aa Phông chữ</button><span id="tName">MThanglee Cull&amp;Collage</span>
     <button id="tVer" title="Kiểm tra cập nhật"></button>
     <button id="tLic" title="Thông tin bản quyền"></button>

@@ -24,7 +24,6 @@ button,input,select,textarea{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 
 #app{height:100%;display:grid;grid-template:"top top top" auto "tools stage props" minmax(0,1fr) "tools rail props" auto "bin bin bin" auto / clamp(248px,18vw,288px) minmax(0,1fr) clamp(248px,18vw,288px)}
-@media (max-height:820px){#binGrid{height:108px}}
 
 /* top bar */
 #top{grid-area:top;display:flex;align-items:center;gap:8px;background:var(--panel);border-bottom:1px solid var(--line);
@@ -127,6 +126,7 @@ body.dragging .gap.over{width:44px;background:var(--accent)}
 #binStat{font:12px var(--mono);color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
 #binGrid{display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start;overflow:auto;height:150px;padding:2px 10px 10px;outline:0;
   --tile:96px}
+@media (max-height:820px){#binGrid{height:112px}}   /* màn hình thấp: khay 1 hàng, nhường chỗ cho slide */
 #binGrid:empty::before{content:"Kéo ảnh từ thư mục vào đây, hoặc bấm Thêm ảnh.";color:var(--muted);font-size:13px;padding:14px 2px}
 .tile{position:relative;flex:none;height:var(--tile);width:var(--tile);padding:0;background:var(--panel-2);border:2px solid transparent;border-radius:3px;cursor:grab;line-height:0}
 .tile img{width:100%;height:100%;object-fit:contain;display:block;pointer-events:none}
@@ -146,6 +146,7 @@ body.dragging .gap.over{width:44px;background:var(--accent)}
 .f label{color:var(--muted)}
 .f output{font:12px var(--mono);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 .f input[type=range]{width:100%;accent-color:var(--accent);margin:0}
+@media (max-width:1600px){ .f:has(>input[type=range]){grid-template-columns:minmax(0,1fr) 46px;row-gap:2px} .f:has(>input[type=range])>label{grid-column:1/-1} }
 .f.two{grid-template-columns:82px minmax(0,1fr)}
 .dpiRow{display:flex;align-items:center;gap:8px;min-width:0}
 .dpiRow input[type=range]{flex:1;min-width:0}
@@ -667,10 +668,12 @@ const view=$('#view'),vc=view.getContext('2d');
 const camera={x:0,y:0,z:.3};let vw=0,vh=0,dpr=1,dirty=true,guides=[];
 const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 function resize(){const r=$('#stage').getBoundingClientRect();dpr=window.devicePixelRatio||1;vw=r.width;vh=r.height;view.width=Math.round(vw*dpr);view.height=Math.round(vh*dpr);dirty=true}
-function fit(){const pad=vw<700?24:64,shown=Math.min(doc.slides,4);camera.z=Math.min((vw-pad)/(W*shown),(vh-pad-20)/doc.h);
-  const c=doc.slides>4?clamp(activeSlide+.5,2,doc.slides-2):doc.slides/2;camera.x=vw/2-c*W*camera.z;camera.y=(vh-doc.h*camera.z)/2+6;updateZoom()}
+let autoFit=true;   // còn đang 'Vừa' thì đổi cỡ cửa sổ sẽ tự canh lại; người dùng phóng / kéo thì thôi
+const HUD_H=48;     // chừa chỗ thanh Hít · Nối · % ở đáy khung
+function fit(){autoFit=true;const pad=vw<700?24:64,shown=Math.min(doc.slides,4);camera.z=Math.min((vw-pad)/(W*shown),(vh-pad-20-HUD_H)/doc.h);
+  const c=doc.slides>4?clamp(activeSlide+.5,2,doc.slides-2):doc.slides/2;camera.x=vw/2-c*W*camera.z;camera.y=(vh-HUD_H-doc.h*camera.z)/2+6;updateZoom()}
 function updateZoom(){$('#zoomPct').textContent=Math.round(camera.z*100)+'%';dirty=true}
-function zoomAt(f,sx=vw/2,sy=vh/2){const z=clamp(camera.z*f,.03,3);const dx=(sx-camera.x)/camera.z,dy=(sy-camera.y)/camera.z;camera.z=z;camera.x=sx-dx*z;camera.y=sy-dy*z;updateZoom()}
+function zoomAt(f,sx=vw/2,sy=vh/2){autoFit=false;const z=clamp(camera.z*f,.03,3);const dx=(sx-camera.x)/camera.z,dy=(sy-camera.y)/camera.z;camera.z=z;camera.x=sx-dx*z;camera.y=sy-dy*z;updateZoom()}
 const toDoc=(sx,sy)=>({x:(sx-camera.x)/camera.z,y:(sy-camera.y)/camera.z});
 function rotPoint(it,lx,ly){const a=rad(it.rot),c=Math.cos(a),s=Math.sin(a);return{x:it.x+it.w/2+lx*c-ly*s,y:it.y+it.h/2+lx*s+ly*c}}
 function toLocal(it,p){const a=-rad(it.rot),dx=p.x-(it.x+it.w/2),dy=p.y-(it.y+it.h/2);return{x:dx*Math.cos(a)-dy*Math.sin(a),y:dx*Math.sin(a)+dy*Math.cos(a)}}
@@ -779,7 +782,7 @@ view.addEventListener('pointermove',e=>{
     else if(crop)cu='move';else if(hit(toDoc(sx,sy)))cu='move';view.style.cursor=cu;return}
   const p=toDoc(sx,sy),it=cur();
   switch(gesture.kind){
-    case'pan':camera.x=gesture.cx+sx-gesture.sx;camera.y=gesture.cy+sy-gesture.sy;dirty=true;return;
+    case'pan':autoFit=false;camera.x=gesture.cx+sx-gesture.sx;camera.y=gesture.cy+sy-gesture.sy;dirty=true;return;
     case'marquee':{marquee.x1=p.x;marquee.y1=p.y;const a=Math.min(marquee.x0,p.x),b=Math.max(marquee.x0,p.x),c=Math.min(marquee.y0,p.y),d=Math.max(marquee.y0,p.y);
       const inside=doc.items.filter(t=>{if(t.isBg)return false;const q=aabb(t);return q.x<b&&q.x2>a&&q.y<d&&q.y2>c}).map(t=>t.id);sels=[...new Set([...gesture.base,...inside])];dirty=true;return}
     case'move':{const dx=p.x-gesture.p.x,dy=p.y-gesture.p.y;if(!gesture.moved&&Math.hypot(dx,dy)*camera.z<3)return;gesture.moved=true;
@@ -824,7 +827,7 @@ view.addEventListener('dblclick',e=>{const{sx,sy}=pos(e),t=hit(toDoc(sx,sy));if(
 view.addEventListener('wheel',e=>{e.preventDefault();if(!doc)return;const{sx,sy}=pos(e);
   if(crop&&cur()){const it=cur();it.zoom=clamp(it.zoom*Math.exp(-e.deltaY*.0015),1,6);dirty=true;touch();clearTimeout(view._c);view._c=setTimeout(()=>{commit();renderProps()},300);return}
   if(e.ctrlKey||e.metaKey)zoomAt(Math.exp(-e.deltaY*.0025),sx,sy);
-  else{camera.x-=e.shiftKey?e.deltaY:(e.deltaX||e.deltaY);if(!e.shiftKey&&e.deltaX)camera.y-=e.deltaY;dirty=true}
+  else{autoFit=false;camera.x-=e.shiftKey?e.deltaY:(e.deltaX||e.deltaY);if(!e.shiftKey&&e.deltaX)camera.y-=e.deltaY;dirty=true}
 },{passive:false});
 function startCrop(){const it=cur();if(!it||it.type!=='photo'||!it.src)return;crop=true;$('#cropBar').hidden=false;renderProps();dirty=true}
 function endCrop(){crop=false;$('#cropBar').hidden=true;commit();renderProps();dirty=true}
@@ -1823,7 +1826,7 @@ $('#previewDlg').addEventListener('keydown',e=>{if(e.key==='ArrowRight')pvStep(1
 $('#zoomIn').onclick=()=>zoomAt(1.2);$('#zoomOut').onclick=()=>zoomAt(1/1.2);$('#zoomFit').onclick=fit;
 $('#btnSeams').onclick=e=>{showSeams=!showSeams;e.currentTarget.classList.toggle('on',showSeams);dirty=true};$('#btnSeams').classList.add('on');
 $('#btnSnap').onclick=e=>{snapOn=!snapOn;e.currentTarget.classList.toggle('on',snapOn);toast(snapOn?'Đã bật hít mép':'Đã tắt hít mép')};$('#btnSnap').classList.add('on');
-new ResizeObserver(()=>{if($('#app').hidden)return;resize();if(doc)dirty=true}).observe($('#stage'));
+new ResizeObserver(()=>{if($('#app').hidden)return;resize();if(doc){if(autoFit)fit();dirty=true}}).observe($('#stage'));
 matchMedia('(prefers-color-scheme:dark)').addEventListener('change',()=>dirty=true);
 new MutationObserver(()=>dirty=true).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
 
