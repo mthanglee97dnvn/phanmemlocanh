@@ -408,6 +408,7 @@ const fmt=n=>Number(n).toLocaleString('vi-VN');
 async function loadPhotos(){
   S.photos = await api('/api/photos');
   S.by = new Map(S.photos.map(p=>[p.id,p]));
+  rebest();
   for(const id of [...S.sel]) if(!S.by.has(id)) S.sel.delete(id);
   await refreshCull();
   applyView();
@@ -471,7 +472,34 @@ function toggleStack(g){
 const cells = new Map();
 function capChips(h){ const t=document.createElement('div'); t.innerHTML=h; const k=[...t.children]; if(k.length<=2) return h;
   const rest=k.slice(2).map(e=>e.textContent).join(', '); return k.slice(0,2).map(e=>e.outerHTML).join('')+`<span class="chip more" title="${esc(rest)}">+${k.length-2}</span>`; }
-function bestWhy(p){ return p.nf>=2 ? (p.away?`${p.away} người chưa nhìn máy, nhưng là ảnh khá nhất trong nhóm`:`Mọi người đều nhìn máy, ảnh nét nhất trong nhóm`) : 'Ảnh nét và đủ sáng nhất trong nhóm'; }
+/* Chọn "ảnh tốt nhất" trong mỗi nhóm ảnh trùng, theo cách thợ ảnh chọn:
+   1) ảnh bạn tự chấm sao cao nhất luôn thắng; ảnh đã loại không bao giờ được chọn (trừ khi cả nhóm đều loại);
+   2) trong các ảnh đủ nét (điểm ≥ 75% ảnh cao điểm nhất), ít lỗi nhất: nhắm mắt, mờ, có người quay mặt, quá tối / cháy sáng;
+   3) nhiều gương mặt nhìn máy hơn; 4) cuối cùng mới xét điểm (độ nét, phơi sáng). */
+function defects(p){ const f=p.flags||[]; return (f.includes('eyes')?2:0)+(f.includes('blur')?2:0)+(p.away||0)+((f.includes('dark')||f.includes('bright'))?1:0); }
+function rebest(ids){
+  const gs=new Map(); for(const p of S.photos) if(p.grp){ if(!gs.has(p.grp)) gs.set(p.grp,[]); gs.get(p.grp).push(p); }
+  const only=ids?new Set(ids.map(i=>S.by.get(i)).filter(p=>p&&p.grp).map(p=>p.grp)):null, changed=[];
+  for(const [g,m] of gs){
+    if(only&&!only.has(g)) continue;
+    const live=m.filter(p=>p.rating!==-1), pool=live.length?live:m;
+    const top=Math.max(...pool.map(p=>p.score||0)), maxR=Math.max(...pool.map(p=>p.rating||0));
+    let cand = maxR>0 ? pool.filter(p=>p.rating===maxR) : pool.filter(p=>(p.score||0)>=0.75*top);
+    if(!cand.length) cand=pool;
+    const key=p=>[defects(p), -((p.nf||0)-(p.away||0)), -(p.score||0)];
+    const lt=(a,b)=>{ const x=key(a),y=key(b); for(let i=0;i<x.length;i++) if(x[i]!==y[i]) return x[i]<y[i]; return a.id<b.id; };
+    let best=cand[0]; for(const p of cand) if(lt(p,best)) best=p;
+    for(const p of m){
+      const was=!!p.best; p.best=p===best?1:0;
+      const f=(p.flags||[]).filter(x=>x!=='dup'); if(!p.best) f.push('dup'); p.flags=f;
+      if(was!==!!p.best) changed.push(p.id);
+    }
+    best.why = maxR>0 ? 'Ảnh bạn chấm sao cao nhất trong nhóm'
+      : [best.nf>=2&&!best.away?'mọi người nhìn máy':'', !best.flags.includes('eyes')&&m.some(p=>p!==best&&p.flags.includes('eyes'))?'không ai nhắm mắt':'',
+         best.score>=top?'nét và đủ sáng nhất':'', defects(best)<Math.min(...m.filter(p=>p!==best).map(defects))?'ít lỗi nhất':''].filter(Boolean).join(', ')||'tổng thể tốt nhất';
+  }
+  return changed; }
+function bestWhy(p){ return p.why ? p.why.charAt(0).toUpperCase()+p.why.slice(1) : 'Ảnh tốt nhất trong nhóm'; }
 function cellHTML(p){
   const flags = p.an===false ? '<span class="chip" style="opacity:.7">…</span>' : p.flags.filter(f=>f!=='dup').map(f=>`<span class="chip ${f}">${FLAG[f]}</span>`).join('');
   const grp = !p.grp ? '' : stacked(p)
@@ -602,6 +630,8 @@ async function label(ids, l){
    không để danh sách co lại làm nhảy sang ảnh khác. */
 function afterChange(ids){
   if(S.filter!=='all') ids.forEach(i=>S.keep.add(i));
+  const g=new Set(ids.map(i=>S.by.get(i)).filter(p=>p&&p.grp).map(p=>p.grp));
+  if(g.size){ rebest(ids); for(const p of S.photos) if(g.has(p.grp)) refreshCell(p.id); if(S.viewer){ const c=S.by.get(S.cur); if(c) renderBadge(c); } }   // chấm sao / loại có thể đổi ảnh tốt nhất của nhóm
   ids.forEach(refreshCell); renderStatus();
   if(S.viewer) showViewer();
 }
