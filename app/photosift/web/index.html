@@ -368,7 +368,7 @@ const FILTERS = [['all','Tất cả'],['unrated','Chưa chấm'],['r1','★ 1+']
   ['rej','✕ Đã loại'],['norej','Không bị loại'],['issues','⚠ Có vấn đề (mọi loại)'],['blur','Mờ'],['dark','Tối'],['bright','Sáng quá'],['eyes','Nhắm mắt?'],['away','Có người quay mặt'],['dup','Trùng lặp (bản kém hơn)'],
   ['best','Tốt nhất trong nhóm trùng'],['face','Có khuôn mặt'],['noface','Không có khuôn mặt'],['raw','Chỉ file RAW (ARW, CR2, NEF…)'],['jpg','Chỉ JPG / ảnh thường']];
 const RAWRE=/\.(arw|srf|sr2|cr2|cr3|nef|nrw|dng|orf|raf|rw2|pef|srw|3fr|erf|kdc|mrw|x3f)$/i;
-const S = {photos:[], viewFull:[], keep:new Set(), open:new Set(), stack:(()=>{ try{ return localStorage.getItem('ps_stack')!=='0'; }catch(e){ return true; } })(), by:new Map(), view:[], people:[], sel:new Set(), cur:null, anchor:null, filter:'all', sort:'name', person:null,
+const S = {photos:[], viewFull:[], keep:new Set(), open:new Set(), stack:(()=>{ try{ return localStorage.getItem('ps_stack2')==='1'; }catch(e){ return false; } })(),   /* mặc định: ảnh trùng để riêng từng ô */ by:new Map(), view:[], people:[], sel:new Set(), cur:null, anchor:null, filter:'all', sort:'name', person:null,
            status:{}, undo:[], viewer:false, boxes:true, zoom:false, lastDone:-1, settings:{}};
 
 async function api(path, body){
@@ -1079,7 +1079,7 @@ $('#bCull').onclick=()=>{
 
 /* ---------- xuất ---------- */
 function paintStack(){ const b=$('#sStack'); if(b){ b.textContent='Xếp chồng ảnh trùng: '+(S.stack?'Bật':'Tắt'); b.setAttribute('aria-pressed',String(S.stack)); } }
-function paintAdvInit(){ paintStack(); $('#sStack').onclick=()=>{ S.stack=!S.stack; try{ localStorage.setItem('ps_stack',S.stack?'1':'0'); }catch(e){} paintStack(); applyView(); };
+function paintAdvInit(){ paintStack(); $('#sStack').onclick=()=>{ S.stack=!S.stack; try{ localStorage.setItem('ps_stack2',S.stack?'1':'0'); }catch(e){} paintStack(); applyView(); };
   paintAdvInit2(); }
 function paintAdvInit2(){ paintAdv(); $('#sAdv').onclick=()=>{ S.adv=!S.adv; try{ localStorage.setItem('ps_adv2',S.adv?'1':'0'); }catch(e){} paintAdv(); }; }
 paintAdvInit();
