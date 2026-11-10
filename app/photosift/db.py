@@ -45,7 +45,8 @@ class DB:
                 pass
             for ddl in ("ALTER TABLE photos ADD COLUMN tv INTEGER DEFAULT 0", "ALTER TABLE people ADD COLUMN cent BLOB",
                         "ALTER TABLE photos ADD COLUMN away INTEGER DEFAULT 0",
-                        "ALTER TABLE faces ADD COLUMN yaw REAL DEFAULT -1", "ALTER TABLE faces ADD COLUMN vert REAL DEFAULT -1"):
+                        "ALTER TABLE faces ADD COLUMN yaw REAL DEFAULT -1", "ALTER TABLE faces ADD COLUMN vert REAL DEFAULT -1",
+                        "ALTER TABLE photos ADD COLUMN smile REAL", "ALTER TABLE faces ADD COLUMN smile REAL DEFAULT -1"):
                 try:
                     self.con.execute(ddl)
                 except sqlite3.OperationalError:

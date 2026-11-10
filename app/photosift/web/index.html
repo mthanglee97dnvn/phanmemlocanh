@@ -128,7 +128,7 @@ body.cat #catalog{display:flex}
 #vstage{position:relative;overflow:auto;display:flex;grid-row:1;grid-column:1;min-height:0}
 #vinfo{grid-row:1;grid-column:2;min-height:0}
 #vwrap{position:relative;margin:auto;line-height:0}
-#vwrap img{display:block;max-width:calc(100vw - 290px);max-height:calc(100vh - var(--strip));cursor:zoom-in}
+#vwrap img{display:block;cursor:zoom-in}
 #vstage.zoom #vwrap img{max-width:none;max-height:none;cursor:zoom-out}
 #vstage{scrollbar-width:none}#vstage::-webkit-scrollbar{display:none}
 #vstage.pan,#vstage.pan #vwrap img{cursor:grabbing}
@@ -328,7 +328,7 @@ details.adv{margin:6px 0;border-top:1px solid var(--line);padding-top:6px}detail
     <div class="grp"><button id="bCat" aria-label="Catalog" title="Xem các thư mục đã lọc"><svg class="ic" aria-hidden="true"><use href="#i-lib"/></svg><span class="lbl">Catalog</span></button><button id="bOpen" aria-label="Mở thư mục"><svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg><span class="lbl">Mở thư mục</span></button><label class="hint"><input type="checkbox" id="cRec" checked> gồm thư mục con</label></div>
     <div class="grp"><select id="fFilter" title="Lọc" aria-label="Lọc ảnh"></select><select id="fSort" title="Sắp xếp" aria-label="Sắp xếp">
       <option value="name">Tên file</option><option value="time">Thời gian chụp</option>
-      <option value="score">Điểm chất lượng (cao trước)</option><option value="sharp">Độ nét (cao trước)</option>
+      <option value="score">Điểm chất lượng (cao trước)</option><option value="sharp">Độ nét (cao trước)</option><option value="smile">Nụ cười (tươi nhất trước)</option>
     </select></div>
     <span class="sp"></span>
     <div class="grp"><button id="bCull" aria-label="Tự động lọc"><svg class="ic" aria-hidden="true"><use href="#i-funnel"/></svg><span class="lbl">Tự động lọc</span></button><button id="bUndo" aria-label="Hoàn tác" disabled><svg class="ic" aria-hidden="true"><use href="#i-undo"/></svg><span class="lbl">Hoàn tác</span></button><button id="bUnrej" title="Khôi phục ảnh đã bị đánh dấu loại" hidden></button><button id="bExport" aria-label="Xuất ảnh" aria-keyshortcuts="Control+Y" title="Xuất ảnh (Ctrl+Y)"><svg class="ic" aria-hidden="true"><use href="#i-export"/></svg><span class="lbl">Xuất ảnh</span></button><button id="bLayout" aria-label="Gửi ảnh sang Dàn trang" class="pri" title="Gửi ảnh đã lọc sang Dàn trang" hidden><svg class="ic" aria-hidden="true"><use href="#i-layout"/></svg><span class="lbl">Dàn trang</span></button></div>
@@ -361,14 +361,15 @@ details.adv{margin:6px 0;border-top:1px solid var(--line);padding-top:6px}detail
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const FLAG = {blur:'Mờ', dark:'Tối', bright:'Sáng quá', eyes:'Nhắm mắt?', away:'Quay mặt?', dup:'Trùng'};
+const SMILE_ON=0.6;   // điểm cười cả ảnh (0..1, trung bình theo cỡ mặt) từ mức này = "có nụ cười"
 const LABEL_VI={red:'đỏ',yellow:'vàng',green:'xanh lá',blue:'xanh dương',purple:'tím'};
 const LABELS = ['red','yellow','green','blue','purple'];
 const LABEL_NAME = {red:'Đỏ',yellow:'Vàng',green:'Xanh lá',blue:'Xanh dương',purple:'Tím'};
 const FILTERS = [['all','Tất cả'],['unrated','Chưa chấm'],['r1','★ 1+'],['r2','★★ 2+'],['r3','★★★ 3+'],['r4','★★★★ 4+'],['r5','★★★★★ 5'],
-  ['rej','✕ Đã loại'],['norej','Không bị loại'],['issues','⚠ Có vấn đề (mọi loại)'],['blur','Mờ'],['dark','Tối'],['bright','Sáng quá'],['eyes','Nhắm mắt?'],['away','Có người quay mặt'],['dup','Trùng lặp (bản kém hơn)'],
+  ['rej','✕ Đã loại'],['norej','Không bị loại'],['issues','⚠ Có vấn đề (mọi loại)'],['blur','Mờ'],['dark','Tối'],['bright','Sáng quá'],['eyes','Nhắm mắt?'],['away','Có người quay mặt'],['smile','Có nụ cười'],['dup','Trùng lặp (bản kém hơn)'],
   ['best','Tốt nhất trong nhóm trùng'],['face','Có khuôn mặt'],['noface','Không có khuôn mặt'],['raw','Chỉ file RAW (ARW, CR2, NEF…)'],['jpg','Chỉ JPG / ảnh thường']];
 const RAWRE=/\.(arw|srf|sr2|cr2|cr3|nef|nrw|dng|orf|raf|rw2|pef|srw|3fr|erf|kdc|mrw|x3f)$/i;
-const S = {photos:[], viewFull:[], keep:new Set(), open:new Set(), stack:(()=>{ try{ return localStorage.getItem('ps_stack')!=='0'; }catch(e){ return true; } })(), by:new Map(), view:[], people:[], sel:new Set(), cur:null, anchor:null, filter:'all', sort:'name', person:null,
+const S = {photos:[], viewFull:[], keep:new Set(), open:new Set(), stack:(()=>{ try{ return localStorage.getItem('ps_stack2')==='1'; }catch(e){ return false; } })(),   /* mặc định: ảnh trùng để riêng từng ô */ by:new Map(), view:[], people:[], sel:new Set(), cur:null, anchor:null, filter:'all', sort:'name', person:null,
            status:{}, undo:[], viewer:false, boxes:true, zoom:false, lastDone:-1, settings:{}};
 
 async function api(path, body){
@@ -408,6 +409,7 @@ const fmt=n=>Number(n).toLocaleString('vi-VN');
 async function loadPhotos(){
   S.photos = await api('/api/photos');
   S.by = new Map(S.photos.map(p=>[p.id,p]));
+  rebest();
   for(const id of [...S.sel]) if(!S.by.has(id)) S.sel.delete(id);
   await refreshCull();
   applyView();
@@ -427,6 +429,7 @@ function matchFilter(p){
     case 'raw': return RAWRE.test(p.name); case 'jpg': return !RAWRE.test(p.name);
     case 'best': return p.grp>0 && p.best; case 'face': return p.nf>0; case 'noface': return p.nf===0;
     case 'pv': return !!(S.pv&&S.pv.has(p.id));
+    case 'smile': return (p.smile??-1)>=SMILE_ON;
     case 'blur': case 'dark': case 'bright': case 'eyes': case 'away': case 'dup': return p.flags.includes(f);
     default: if(f[0]==='r') return p.rating>=+f.slice(1); return true;
   }
@@ -435,7 +438,7 @@ function applyView(){
   let v = S.photos.filter(p=>(S.keep.has(p.id)||matchFilter(p)) && (S.person===null || p.people.includes(S.person)));
   const cmp = {name:(a,b)=>a.dir.localeCompare(b.dir)||a.name.localeCompare(b.name,undefined,{numeric:true}),
                time:(a,b)=>(a.taken||0)-(b.taken||0)||a.name.localeCompare(b.name),
-               score:(a,b)=>b.score-a.score, sharp:(a,b)=>(b.nf?b.fsharp:b.sharp)-(a.nf?a.fsharp:a.sharp)}[S.sort];
+               score:(a,b)=>b.score-a.score, sharp:(a,b)=>(b.nf?b.fsharp:b.sharp)-(a.nf?a.fsharp:a.sharp), smile:(a,b)=>((b.smile??-1)-(a.smile??-1))||(b.score-a.score)}[S.sort];
   v.sort(cmp); S.viewFull=v; S.view=stackView(v);   // viewFull: mọi ảnh khớp bộ lọc, kể cả ảnh nằm trong chồng
   if(S.cur===null || !v.some(p=>p.id===S.cur)) S.cur = v.length ? v[0].id : null;
   renderGrid(); scheduleInfo();
@@ -471,7 +474,34 @@ function toggleStack(g){
 const cells = new Map();
 function capChips(h){ const t=document.createElement('div'); t.innerHTML=h; const k=[...t.children]; if(k.length<=2) return h;
   const rest=k.slice(2).map(e=>e.textContent).join(', '); return k.slice(0,2).map(e=>e.outerHTML).join('')+`<span class="chip more" title="${esc(rest)}">+${k.length-2}</span>`; }
-function bestWhy(p){ return p.nf>=2 ? (p.away?`${p.away} người chưa nhìn máy, nhưng là ảnh khá nhất trong nhóm`:`Mọi người đều nhìn máy, ảnh nét nhất trong nhóm`) : 'Ảnh nét và đủ sáng nhất trong nhóm'; }
+/* Chọn "ảnh tốt nhất" trong mỗi nhóm ảnh trùng, theo cách thợ ảnh chọn:
+   1) ảnh bạn tự chấm sao cao nhất luôn thắng; ảnh đã loại không bao giờ được chọn (trừ khi cả nhóm đều loại);
+   2) trong các ảnh đủ nét (điểm ≥ 75% ảnh cao điểm nhất), ít lỗi nhất: nhắm mắt, mờ, có người quay mặt, quá tối / cháy sáng;
+   3) nhiều gương mặt nhìn máy hơn; 4) cuối cùng mới xét điểm (độ nét, phơi sáng). */
+function defects(p){ const f=p.flags||[]; return (f.includes('eyes')?2:0)+(f.includes('blur')?2:0)+(p.away||0)+((f.includes('dark')||f.includes('bright'))?1:0); }
+function rebest(ids){
+  const gs=new Map(); for(const p of S.photos) if(p.grp){ if(!gs.has(p.grp)) gs.set(p.grp,[]); gs.get(p.grp).push(p); }
+  const only=ids?new Set(ids.map(i=>S.by.get(i)).filter(p=>p&&p.grp).map(p=>p.grp)):null, changed=[];
+  for(const [g,m] of gs){
+    if(only&&!only.has(g)) continue;
+    const live=m.filter(p=>p.rating!==-1), pool=live.length?live:m;
+    const top=Math.max(...pool.map(p=>p.score||0)), maxR=Math.max(...pool.map(p=>p.rating||0));
+    let cand = maxR>0 ? pool.filter(p=>p.rating===maxR) : pool.filter(p=>(p.score||0)>=0.75*top);
+    if(!cand.length) cand=pool;
+    const key=p=>[defects(p), -((p.nf||0)-(p.away||0)), -(p.score||0)];
+    const lt=(a,b)=>{ const x=key(a),y=key(b); for(let i=0;i<x.length;i++) if(x[i]!==y[i]) return x[i]<y[i]; return a.id<b.id; };
+    let best=cand[0]; for(const p of cand) if(lt(p,best)) best=p;
+    for(const p of m){
+      const was=!!p.best; p.best=p===best?1:0;
+      const f=(p.flags||[]).filter(x=>x!=='dup'); if(!p.best) f.push('dup'); p.flags=f;
+      if(was!==!!p.best) changed.push(p.id);
+    }
+    best.why = maxR>0 ? 'Ảnh bạn chấm sao cao nhất trong nhóm'
+      : [best.nf>=2&&!best.away?'mọi người nhìn máy':'', !best.flags.includes('eyes')&&m.some(p=>p!==best&&p.flags.includes('eyes'))?'không ai nhắm mắt':'',
+         best.score>=top?'nét và đủ sáng nhất':'', defects(best)<Math.min(...m.filter(p=>p!==best).map(defects))?'ít lỗi nhất':''].filter(Boolean).join(', ')||'tổng thể tốt nhất';
+  }
+  return changed; }
+function bestWhy(p){ return p.why ? p.why.charAt(0).toUpperCase()+p.why.slice(1) : 'Ảnh tốt nhất trong nhóm'; }
 function cellHTML(p){
   const flags = p.an===false ? '<span class="chip" style="opacity:.7">…</span>' : p.flags.filter(f=>f!=='dup').map(f=>`<span class="chip ${f}">${FLAG[f]}</span>`).join('');
   const grp = !p.grp ? '' : stacked(p)
@@ -602,6 +632,8 @@ async function label(ids, l){
    không để danh sách co lại làm nhảy sang ảnh khác. */
 function afterChange(ids){
   if(S.filter!=='all') ids.forEach(i=>S.keep.add(i));
+  const g=new Set(ids.map(i=>S.by.get(i)).filter(p=>p&&p.grp).map(p=>p.grp));
+  if(g.size){ rebest(ids); for(const p of S.photos) if(g.has(p.grp)) refreshCell(p.id); if(S.viewer){ const c=S.by.get(S.cur); if(c) renderBadge(c); } }   // chấm sao / loại có thể đổi ảnh tốt nhất của nhóm
   ids.forEach(refreshCell); renderStatus();
   if(S.viewer) showViewer();
 }
@@ -662,7 +694,16 @@ const Z={k:1,hi:false,max:8,hiFrom:1.6,click:2.5};
 function zoomBase(p){ const st=$('#vstage'), w=p.w||1, h=p.h||1, f=Math.min(st.clientWidth/w,st.clientHeight/h); return [w*f,h*f]; }
 function sizeZoom(){ const p=S.by.get(S.cur), img=$('#vimg'); if(!p) return; const [w,h]=zoomBase(p); img.style.width=Math.round(w*Z.k)+'px'; img.style.height=Math.round(h*Z.k)+'px'; }
 function paintZoom(){ const l=$('#vzoom'); l.hidden=!S.zoom; l.textContent=Math.round(Z.k*100)+'%'; }
-function resetZoom(){ Z.k=1; Z.hi=false; S.zoom=false; const img=$('#vimg'); img.style.width=img.style.height=''; paintZoom(); }
+function resetZoom(){ Z.k=1; Z.hi=false; S.zoom=false; fitView(); paintZoom(); }
+/* Ảnh trong trình xem luôn được đặt đúng cỡ "vừa khung" theo tỉ lệ ảnh — dù đang hiện thumbnail, ảnh xem trước hay bản nét —
+   nên chuyển ảnh không còn bị phóng to / thu nhỏ (trước đây ảnh nhỏ hơn khung hiện theo cỡ thật rồi mới giãn ra). */
+function fitView(w,h){
+  const img=$('#vimg'), p=S.by.get(S.cur); if(S.zoom) return;
+  if(!w||!h){ w=img.naturalWidth; h=img.naturalHeight; }   // gọi lại khi đổi cỡ cửa sổ: theo ảnh đang hiện
+  if(!w||!h){ return; }
+  const st=$('#vstage'), mw=st.clientWidth||window.innerWidth-290, mh=st.clientHeight||window.innerHeight-(stripOn?116:0), k=Math.min(mw/w,mh/h);
+  img.style.width=Math.round(w*k)+'px'; img.style.height=Math.round(h*k)+'px'; }
+addEventListener('resize',()=>{ if(S.viewer&&!S.zoom) fitView(); });
 function zoomTo(k,cx,cy){
   const st=$('#vstage'), img=$('#vimg'), sr=st.getBoundingClientRect(), r=img.getBoundingClientRect();
   const fx=Math.min(1,Math.max(0,(cx-r.left)/r.width)), fy=Math.min(1,Math.max(0,(cy-r.top)/r.height)), was=S.zoom, wasHi=Z.hi;
@@ -688,7 +729,7 @@ function vSide(){ const [mw,mh]=vBox(); return Math.min(4096,Math.ceil(Math.max(
 function needHQ(p){   // ảnh cache có đủ nét cho khung xem không
   if(!p) return false; const raw=RAWX.test(p.name), W=p.w||1600, H=p.h||1067, L=Math.max(W,H);
   const cl=raw?Math.min(L,2048):Math.min(L,1600), [mw,mh]=vBox(), k=Math.min(mw/(W*cl/L),mh/(H*cl/L)), need=cl*k*(window.devicePixelRatio||1);
-  return need>cl*1.04 || (raw&&L<2000&&need>=900); }
+  return need>cl*1.04; }   // chỉ giải mã RAW khi màn hình thật sự cần nhiều điểm ảnh hơn ảnh nhúng (giữ đúng màu máy ảnh)
 const hqUrl=id=>`/api/preview?id=${id}&s=${vSide()}&hq=1`;
 let hqCtl=null, preCtl=null, aheadT=0, aheadKey='';
 function hqKeep(u,im){ VHQ.set(u,im); while(VHQ.size>8){ const [k,o]=VHQ.entries().next().value; VHQ.delete(k); try{ URL.revokeObjectURL(o.src); }catch(e){} } }
@@ -717,17 +758,14 @@ async function showViewer(){
     const thumb=`/thumb/${p.id}.jpg?v=${p.tv}`;
     const fit=(w,h)=>{ // giữ khung ảnh đúng cỡ cuối cùng ngay cả khi mới hiện thumbnail nhỏ → không bị "nhảy"/bóng ma
       if(S.zoom){ sizeZoom(); return; }
-      if(!w||!h){ img.style.width=img.style.height=''; return; }
-      const mw=window.innerWidth-290, mh=window.innerHeight-(stripOn?116:0), k=Math.min(mw/w,mh/h);
-      img.style.width=Math.round(w*k)+'px'; img.style.height=Math.round(h*k)+'px'; };
+      fitView(w,h); };
     const apply=(im,u,clear)=>{ // chỉ đổi ảnh khi ảnh mới đã giải mã xong và khung đã đúng cỡ → không còn khung hình lẫn ảnh cũ
       const go=()=>{ if(tok!==vTok||img.dataset.src!==src) return; fit(im.naturalWidth,im.naturalHeight); img.src=u;
         if(u===src&&!Z.hi&&!S.zoom) upgradeHQ(p,tok,src);
-        if(clear) setTimeout(()=>{ if(img.dataset.src===src&&!S.zoom) img.style.width=img.style.height=''; },80); };
+      };
       (im.decode?im.decode().then(go,go):go()); };
     const done=VPRE.get(src), hq=!Z.hi&&!S.zoom&&needHQ(p)?VHQ.get(hqUrl(p.id)):null;
-    if(hq){ const go=()=>{ if(tok!==vTok||img.dataset.src!==src) return; fit(hq.naturalWidth,hq.naturalHeight); img.src=hq.src;
-        setTimeout(()=>{ if(img.dataset.src===src&&!S.zoom) img.style.width=img.style.height=''; },80); }; go(); prefetchHQ(); }   // đã có bản nét: hiện luôn
+    if(hq){ const go=()=>{ if(tok!==vTok||img.dataset.src!==src) return; fit(hq.naturalWidth,hq.naturalHeight); img.src=hq.src; }; go(); prefetchHQ(); }   // đã có bản nét: hiện luôn
     else if(done&&done.complete&&done.naturalWidth){ apply(done,src,true); }   // đã nạp trước: hiện ngay, không qua thumbnail
     else{
       const t=new Image(); t.onload=()=>{ if(!big.complete||!big.naturalWidth) apply(t,thumb,false); }; t.src=thumb;
@@ -778,13 +816,13 @@ function renderInfo(p, ix){
    <div style="margin-bottom:10px" role="group" aria-label="Nhãn màu">${LABELS.map(l=>`<button class="lbtn l-${l} ${p.label===l?'on':''}" data-l="${l}" title="${LABEL_NAME[l]}" aria-label="Nhãn ${LABEL_NAME[l]}" aria-pressed="${p.label===l}"></button>`).join('')}<button class="lclr" data-l="">Bỏ nhãn</button></div>
    <div class="kv">Điểm chất lượng<b>${p.score}</b></div><div class="kv">Kích thước<b>${p.w}×${p.h}</b></div><div class="kv">Chụp lúc<b>${d}</b></div>
    <div class="kv">Độ nét (toàn ảnh)<b>${p.sharp}</b></div><div class="kv">Độ nét (mặt)<b>${p.nf?p.fsharp:'—'}</b></div>
-   <div class="kv">Độ sáng TB<b>${(p.lum*100).toFixed(0)}%</b></div><div class="kv">Độ mở mắt<b>${p.ear>=0?p.ear:'—'}</b></div>
+   <div class="kv">Độ sáng TB<b>${(p.lum*100).toFixed(0)}%</b></div><div class="kv">Độ mở mắt<b>${p.ear>=0?p.ear:'—'}</b></div><div class="kv">Nụ cười<b>${(p.smile??-1)>=0?Math.round(p.smile*100)+'%':'—'}</b></div>
    <div style="margin:10px 0">${p.an===false?'<span class="hint">Đang phân tích…</span>':''}${p.flags.filter(f=>f!=='dup').map(f=>`<span class="chip ${f}" style="margin-right:4px">${FLAG[f]}</span>`).join('')||(p.flags.length?'':'<span class="ok">Không có cảnh báo</span>')}</div>
    ${p.grp?`<div class="hint">Nhóm trùng #${p.grp} ${p.best?'— <b class="ok">bản tốt nhất</b>':''}</div>`:''}
    <div style="margin:8px 0">${p.people.map(i=>`<span class="chip" style="background:var(--sel);margin-right:4px">${esc(pname(i))}</span>`).join('')}</div>
    <div id="vsec"></div>
    <hr style="border-color:var(--line)"><button id="vdiag" style="margin-bottom:8px"><svg class="ic" aria-hidden="true"><use href="#i-tool"/></svg>Chẩn đoán file</button><div class="hint">
-   <span class="kbd">←</span><span class="kbd">→</span> chuyển ảnh &nbsp; <span class="kbd">0-5</span> sao &nbsp; <span class="kbd">X</span> loại<br>
+   <span class="kbd">←</span><span class="kbd">→</span> chuyển ảnh &nbsp; <span class="kbd">1-5</span> sao (bấm lại để huỷ) &nbsp; <span class="kbd">X</span> loại<br>
    <span class="kbd">6-9</span> nhãn màu &nbsp; <span class="kbd">F</span> tên người &nbsp; Lăn chuột phóng to, giữ chuột phải kéo ảnh, <span class="kbd">Z</span> phóng nhanh<br><span class="kbd">H</span> vùng cháy/tối &nbsp; <span class="kbd">T</span> bật/tắt dải ảnh thu nhỏ &nbsp; <span class="kbd">Esc</span> quay lại</div>`;
   $('#vstars').onclick=e=>{ const r=e.target.dataset.r; if(r!==undefined) rate([p.id], +r===p.rating?0:+r); };
   fillSections('#vsec', p.id, 'v');
@@ -888,7 +926,10 @@ document.addEventListener('keydown', e=>{
   else if(k==='ArrowUp'){ e.preventDefault(); S.viewer?move(-1):move(-cols(),e.shiftKey); }
   else if(k==='Enter'||k===' '){ e.preventDefault(); S.viewer?closeViewer():openViewer(); }
   else if(k==='Escape'&&!e.repeat){ if(S.viewer) closeViewer(); else showCatalog(); }   // Esc lùi từng cấp: ảnh lớn → lưới → Catalog
-  else if(/^[0-5]$/.test(k)){ const t=targets(); rate(t, +k); advance(t); }
+  else if(/^[0-5]$/.test(k)){ const t=targets(); if(!t.length) return;
+    // bấm lại đúng số sao đang có (vd. đang 1 sao, bấm 1) = huỷ sao; không tự sang ảnh kế
+    if(+k>0&&t.every(i=>S.by.get(i)&&S.by.get(i).rating===+k)){ rate(t,0); toast(t.length>1?`Đã huỷ sao ${t.length} ảnh`:'Đã huỷ sao'); return; }
+    rate(t, +k); advance(t); }
   else if(k==='x'||k==='X'){ const t=targets(); if(t.length){ rate(t, S.by.get(t[0]).rating===-1?0:-1); advance(t); } }
   else if(k>='6'&&k<='9'){ const t=targets(); label(t, LABELS[+k-6]); advance(t); }
   else if(k==='-') label(targets(), '');
@@ -1079,7 +1120,7 @@ $('#bCull').onclick=()=>{
 
 /* ---------- xuất ---------- */
 function paintStack(){ const b=$('#sStack'); if(b){ b.textContent='Xếp chồng ảnh trùng: '+(S.stack?'Bật':'Tắt'); b.setAttribute('aria-pressed',String(S.stack)); } }
-function paintAdvInit(){ paintStack(); $('#sStack').onclick=()=>{ S.stack=!S.stack; try{ localStorage.setItem('ps_stack',S.stack?'1':'0'); }catch(e){} paintStack(); applyView(); };
+function paintAdvInit(){ paintStack(); $('#sStack').onclick=()=>{ S.stack=!S.stack; try{ localStorage.setItem('ps_stack2',S.stack?'1':'0'); }catch(e){} paintStack(); applyView(); };
   paintAdvInit2(); }
 function paintAdvInit2(){ paintAdv(); $('#sAdv').onclick=()=>{ S.adv=!S.adv; try{ localStorage.setItem('ps_adv2',S.adv?'1':'0'); }catch(e){} paintAdv(); }; }
 paintAdvInit();
@@ -1162,7 +1203,7 @@ function showHelp(){
    <span class="kbd">← → ↑ ↓</span> di chuyển (giữ <span class="kbd">Shift</span> để chọn dải) &nbsp; <span class="kbd">Ctrl+A</span> chọn tất cả<br>
    <span class="kbd">Esc</span> quay lại một bước &nbsp; <span class="kbd">H</span> vùng cháy/mất chi tiết &nbsp; <span class="kbd">T</span> dải ảnh &nbsp; <span class="kbd">Ctrl+1</span>/<span class="kbd">Ctrl+2</span> Lọc ảnh/Dàn trang<br>
    <span class="kbd">Enter</span>/<span class="kbd">Space</span> xem ảnh lớn &nbsp; Lăn chuột phóng to, giữ chuột phải kéo ảnh, <span class="kbd">Z</span> phóng nhanh (kiểm tra độ nét) &nbsp; <span class="kbd">F</span> tên người<br>
-   <span class="kbd">0–5</span> số sao &nbsp; <span class="kbd">X</span> loại / khôi phục &nbsp; <span class="kbd">6</span> đỏ <span class="kbd">7</span> vàng <span class="kbd">8</span> xanh lá <span class="kbd">9</span> xanh dương <span class="kbd">-</span> bỏ nhãn<br>
+   <span class="kbd">1–5</span> chấm sao, bấm lại cùng số để huỷ (<span class="kbd">0</span> cũng huỷ) &nbsp; <span class="kbd">X</span> loại / khôi phục &nbsp; <span class="kbd">6</span> đỏ <span class="kbd">7</span> vàng <span class="kbd">8</span> xanh lá <span class="kbd">9</span> xanh dương <span class="kbd">-</span> bỏ nhãn<br>
    <span class="kbd">Ctrl+Z</span> hoàn tác &nbsp; <span class="kbd">Ctrl+Y</span> xuất ảnh</div>
    <div class="hint" style="margin-top:10px">Ứng dụng không bao giờ xóa hay di chuyển file gốc. “Loại” chỉ là một dấu trong cơ sở dữ liệu; hãy xuất ảnh để lấy bộ ảnh đã chọn.</div>
    <div class="btns"><button class="pri" onclick="this.closest('.back').remove()">Đóng</button></div>`);

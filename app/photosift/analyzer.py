@@ -20,6 +20,7 @@ IMG_EXT = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".webp", ".bmp", ".heic", "
 ALL_EXT = RAW_EXT | IMG_EXT
 
 ANALYSIS_SIDE = 1600   # cạnh dài tối đa khi phân tích
+SMILE_MIN_PX = 28      # mặt nhỏ hơn (trong ảnh phân tích) thì không đo nụ cười
 PREV_KEEP = 2048       # ảnh cache để xem: giữ nguyên cỡ nếu cạnh dài không quá mức này
 SHARP_SIDE = 1024      # cạnh dài khi đo độ nét
 DETECT_SIDE = 960         # cạnh dài ảnh dùng để tìm mặt; 960px vẫn thấy mặt từ khoảng 36px trên ảnh 1616px
@@ -468,16 +469,17 @@ _raw_gate = threading.BoundedSemaphore(2)   # giải mã RAW tốn RAM: tối đ
 
 
 def _match_tone(src, ref):
-    """Khớp tông màu ảnh giải mã từ RAW theo JPEG nhúng (ảnh máy ảnh đã xử lý màu),
-    để khi đổi sang bản nét hơn ảnh không bị nhảy màu / độ sáng."""
-    small = cv2.resize(src, (ref.shape[1], ref.shape[0]), interpolation=cv2.INTER_AREA)
-    out = np.empty_like(src)
-    for c in range(3):
-        hs = np.bincount(small[..., c].ravel(), minlength=256).cumsum().astype(np.float64)
-        hr = np.bincount(ref[..., c].ravel(), minlength=256).cumsum().astype(np.float64)
-        lut = np.clip(np.searchsorted(hr / hr[-1], hs / hs[-1]), 0, 255).astype(np.uint8)
-        out[..., c] = cv2.LUT(src[..., c], lut)
-    return out
+    """Giữ nguyên màu và tông của JPEG nhúng (màu máy ảnh), chỉ lấy thêm chi tiết nét từ ảnh giải mã RAW:
+    màu (Cr, Cb) và độ sáng tổng thể lấy từ ảnh máy ảnh phóng lên; phần chi tiết nhỏ lấy từ RAW.
+    (Khớp histogram từng kênh như trước không giữ được sắc độ: áo xanh, áo hồng bị đậm lên.)"""
+    H, W = src.shape[:2]
+    up = cv2.resize(ref, (W, H), interpolation=cv2.INTER_CUBIC)
+    yr = cv2.cvtColor(src, cv2.COLOR_BGR2YCrCb)[..., 0].astype(np.float32)
+    ye = cv2.cvtColor(up, cv2.COLOR_BGR2YCrCb)
+    sig = max(1.0, 0.8 * W / ref.shape[1])
+    y = cv2.GaussianBlur(ye[..., 0].astype(np.float32), (0, 0), sig) + (yr - cv2.GaussianBlur(yr, (0, 0), sig))
+    ye[..., 0] = np.clip(y, 0, 255).astype(np.uint8)
+    return cv2.cvtColor(ye, cv2.COLOR_YCrCb2BGR)
 
 
 def load_view(path: str, side: int):
@@ -576,6 +578,10 @@ class Analyzer:
             except Exception:  # noqa: BLE001
                 self._lbf = None
 
+    @property
+    def has_smile(self) -> bool:
+        return models.have("ferplus.onnx")
+
     # --- model theo thread (YuNet / SFace không an toàn đa luồng khi dùng chung) ---
     def _det(self, w, h):
         d = getattr(self._local, "det", None)
@@ -584,6 +590,65 @@ class Analyzer:
             self._local.det = d
         d.setInputSize((w, h))
         return d
+
+    def _fer(self):
+        """Mô hình biểu cảm FER+ (tuỳ chọn). None nếu không có file model."""
+        n = getattr(self._local, "fer", 0)
+        if n == 0:
+            n = None
+            if models.have("ferplus.onnx"):
+                try:
+                    n = cv2.dnn.readNetFromONNX(str(models.path("ferplus.onnx")))
+                except Exception:  # noqa: BLE001
+                    n = None
+            self._local.fer = n
+        return n
+
+    def _smile(self, gray, rc):
+        """Xác suất "vui / cười" (0..1) của một khuôn mặt; -1 nếu không đo được (mặt quá nhỏ, không có model)."""
+        net = self._fer()
+        x, y, fw, fh = rc
+        if net is None or fw < SMILE_MIN_PX:
+            return -1.0
+        h, w = gray.shape[:2]
+        cx, cy, s = x + fw / 2, y + fh / 2, max(fw, fh) * 1.15
+        x0, y0 = int(max(0, cx - s / 2)), int(max(0, cy - s / 2))
+        crop = gray[y0:int(min(h, cy + s / 2)), x0:int(min(w, cx + s / 2))]
+        if crop.size == 0:
+            return -1.0
+        try:
+            net.setInput(cv2.resize(crop, (64, 64), interpolation=cv2.INTER_AREA).astype(np.float32).reshape(1, 1, 64, 64))
+            o = net.forward()[0]
+        except Exception:  # noqa: BLE001
+            return -1.0
+        p = np.exp(o - o.max())
+        return float(p[1] / p.sum())   # lớp 1 = happiness
+
+    @staticmethod
+    def photo_smile(faces):
+        """Điểm cười của cả ảnh: trung bình theo diện tích các khuôn mặt đo được (mặt lớn nặng ký hơn); -1 nếu không có."""
+        v = [(f["fw"] * f["fh"], f["smile"]) for f in faces if f.get("smile", -1) >= 0]
+        a = sum(x for x, _ in v)
+        return round(sum(x * s for x, s in v) / a, 3) if a > 0 else -1.0
+
+    def smile_only(self, img):
+        """Chỉ đo nụ cười (dùng để bổ sung cho ảnh đã phân tích từ trước, không phải đọc lại file gốc)."""
+        if self._fer() is None:
+            return -1.0
+        h, w = img.shape[:2]
+        k = DETECT_SIDE / max(h, w)
+        small = cv2.resize(img, (max(1, round(w * k)), max(1, round(h * k))), interpolation=cv2.INTER_AREA) if k < 1 else img
+        sh, sw = small.shape[:2]
+        _, rows = self._det(sw, sh).detect(small)
+        if rows is None:
+            return -1.0
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        f = w / sw
+        faces = []
+        for r in rows:
+            rc = (r[0] * f, r[1] * f, r[2] * f, r[3] * f)
+            faces.append(dict(fw=rc[2] / w, fh=rc[3] / h, smile=self._smile(gray, rc)))
+        return self.photo_smile(faces)
 
     def _rec(self):
         r = getattr(self._local, "rec", None)
@@ -722,7 +787,7 @@ class Analyzer:
                 fsh = lap_var(cv2.resize(gcrop, (96, 96), interpolation=cv2.INTER_AREA)) if gcrop.size else 0.0
                 faces.append(dict(
                     fx=x0 / w, fy=y0 / h, fw=fw / w, fh=fh / h, det=float(r[14]),
-                    px=px, ear=float(ear), sharp=fsh, yaw=yaw, vert=vert,
+                    px=px, ear=float(ear), sharp=fsh, yaw=yaw, vert=vert, smile=self._smile(gray, rc),
                     emb=emb.tobytes() if emb is not None else b"", crop=_jpg(cv2.resize(crop, (112, 112), interpolation=cv2.INTER_AREA), 88) if crop.size else b"",
                 ))
 
@@ -731,5 +796,5 @@ class Analyzer:
             w=ow, h=oh, sharp=sharp,
             fsharp=faces[0]["sharp"] if faces else 0.0,  # mặt lớn nhất
             lum=lum, lo=lo, hi=hi, dhash=dh, nfaces=len(faces),
-            ear_min=min(ears) if ears else -1.0, faces=faces,
+            ear_min=min(ears) if ears else -1.0, faces=faces, smile=self.photo_smile(faces),
         )

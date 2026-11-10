@@ -37,6 +37,9 @@ jobs:
             https://media.githubusercontent.com/media/opencv/opencv_zoo/main/models/face_recognition_sface/face_recognition_sface_2021dec.onnx
           curl -fL --retry 3 -o app/models/lbfmodel.yaml \
             https://raw.githubusercontent.com/kurnianggoro/GSOC2017/master/data/lbfmodel.yaml
+          curl -fL --retry 3 -o app/models/ferplus.onnx \
+            https://media.githubusercontent.com/media/onnx/models/main/validated/vision/body_analysis/emotion_ferplus/model/emotion-ferplus-8.onnx
+          test $(stat -c %s app/models/ferplus.onnx) -gt 1000000
           ls -la app/models
           test $(stat -c %s app/models/sface.onnx) -gt 1000000
 
