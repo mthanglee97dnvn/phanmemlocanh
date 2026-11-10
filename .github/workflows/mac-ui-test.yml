@@ -2,6 +2,8 @@ name: Thu giao dien tren Mac
 on:
   push:
     branches: [claude/mac-ui-test]
+permissions:
+  contents: write
 jobs:
   ui:
     strategy:
@@ -31,7 +33,10 @@ jobs:
         run: |
           python3 tests/macui/native.py 8801 old
           python3 tests/macui/native.py 8802 new
-      - uses: actions/upload-artifact@v4
-        with:
-          name: shots-${{ matrix.runner }}
-          path: shots/
+      - name: Đẩy ảnh chụp lên nhánh thử (để xem)
+        if: always()
+        run: |
+          D=tests/macui/out/${{ matrix.runner }}; mkdir -p $D; cp shots/*.png $D/ || true
+          git config user.name "ci"; git config user.email "ci@users.noreply.github.com"
+          git add $D; git commit -m "ảnh chụp thử ${{ matrix.runner }} [skip ci]" || exit 0
+          for i in 1 2 3 4 5; do git pull --rebase -q && git push -q && break; sleep 3; done
