@@ -39,8 +39,10 @@ dialog button.pri{background:#F2B01E;border-color:#F2B01E;color:#1A1405;font-wei
 dialog button.dg{color:#ff9d9b}
 #licErr{color:#ff9d9b;font-size:12.5px;min-height:18px;margin-top:6px}
 #stage{position:relative;min-height:0}
-iframe{position:absolute;inset:0;width:100%;height:100%;border:0;visibility:hidden}
-iframe.on{visibility:visible}
+iframe{position:absolute;inset:0;width:100%;height:100%;border:0;visibility:hidden;opacity:0;pointer-events:none;z-index:0;background:#14161A}
+iframe.on{visibility:visible;opacity:1;pointer-events:auto;z-index:1}
+/* Safari / cửa sổ app trên Mac (WebKit): iframe ẩn bằng visibility vẫn có thể lộ các lớp đồ hoạ bên trong
+   (thanh công cụ cố định, ảnh có hiệu ứng) đè lên tab đang mở; thêm opacity + z-index để tab đang mở luôn nằm trên */
 ::selection{background:rgba(242,176,30,.32)}
 dialog button:focus-visible,#mode button:focus-visible{outline:2px solid #F2B01E;outline-offset:1px}
 #mode #tFont{height:26px;padding:0 9px;border:0;color:#A1A8B4;font-weight:600;font-size:12.5px}
