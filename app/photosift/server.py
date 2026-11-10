@@ -23,7 +23,7 @@ from .update import Updater
 from . import fonts
 from .errors import friendly
 from .analyzer import ALL_EXT, _jpg, load_bgr, read_meta
-from .library import COVERS, FACES, PREVIEWS, THUMBS, Library
+from .library import COVERS, FACES, PREVIEWS, THUMBS, Library, ui_ping
 from .license import License
 
 WEB = Path(__file__).parent / "web"
@@ -409,6 +409,7 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                 if u.path == "/api/ls":
                     return self._json(list_dir(q.get("path", "")))
                 if u.path == "/api/preview":
+                    ui_ping()   # đang xem ảnh: việc nền tạm nhường CPU / ổ đĩa
                     pid, side = int(q["id"]), int(q.get("s", 2000))
                     p = lib.path_of(pid)
                     if not p:

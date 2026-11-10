@@ -719,7 +719,8 @@ function toggleStrip(){ stripOn=!stripOn; try{ localStorage.setItem('ps_strip',s
 $('#vbGrid').onclick=()=>closeViewer();
 $('#vbCat').onclick=()=>{ closeViewer(); showCatalog(); };
 function closeViewer(){ S.viewer=false; updateMask(); $('#viewer').classList.remove('on'); $('#app').inert=false; $('#catalog').inert=false; $('#gridwrap').focus({preventScroll:true}); if(S.cur!==null){ const d=cells.get(S.cur); d&&d.scrollIntoView({block:'nearest'}); } }
-let vTok=0;
+let vTok=0, vDir=1, vLastIx=-1;
+const THUMB_WAIT=180;   // ms chờ ảnh nét trước khi tạm hiện thumbnail
 const VPRE=new Map(), VHQ=new Map();
 /* Ảnh nét cho trình xem. Ảnh cache (JPEG nhúng ~1600px) hiện tức thì; bản nét đúng số điểm ảnh màn hình
    được app dựng sẵn ở nền cho ảnh đang xem và vài ảnh kế tiếp, nên chuyển ảnh là nét ngay. */
@@ -768,14 +769,21 @@ async function showViewer(){
     if(hq){ const go=()=>{ if(tok!==vTok||img.dataset.src!==src) return; fit(hq.naturalWidth,hq.naturalHeight); img.src=hq.src; }; go(); prefetchHQ(); }   // đã có bản nét: hiện luôn
     else if(done&&done.complete&&done.naturalWidth){ apply(done,src,true); }   // đã nạp trước: hiện ngay, không qua thumbnail
     else{
-      const t=new Image(); t.onload=()=>{ if(!big.complete||!big.naturalWidth) apply(t,thumb,false); }; t.src=thumb;
-      const big=new Image(); VPRE.set(src,big);
-      big.onload=()=>apply(big,src,true);
-      big.src=src;
+      // chưa nạp xong: giữ ảnh đang hiện thêm một chút; chỉ khi chậm thật mới hiện thumbnail nhỏ (mờ) thế chỗ
+      const reuse=done&&!done.complete, big=reuse?done:new Image(); if(!reuse) VPRE.set(src,big);
+      const t=new Image(); setTimeout(()=>{ if(tok!==vTok||img.dataset.src!==src||(big.complete&&big.naturalWidth)) return;
+        t.onload=()=>{ if(!big.complete||!big.naturalWidth) apply(t,thumb,false); }; t.src=thumb; },THUMB_WAIT);
+      big.addEventListener('load',()=>apply(big,src,true),{once:true});
+      if(!reuse) big.src=src;
     }
   }
   const ix=S.view.findIndex(x=>x.id===p.id);
-  for(const o of [S.view[ix+1],S.view[ix-1],S.view[ix+2]]) if(o){ const u=`/api/preview?id=${o.id}&s=2000`; if(!VPRE.has(u)){ const pre=new Image(); VPRE.set(u,pre); pre.src=u; if(VPRE.size>12){ VPRE.delete(VPRE.keys().next().value); } } }
+  if(vLastIx>=0&&ix!==vLastIx) vDir=ix<vLastIx?-1:1; vLastIx=ix;
+  // nạp trước theo hướng đang lật (4 ảnh tới + 1 ảnh lùi) để bấm liên tục vẫn có ảnh nét sẵn
+  for(const d of [1,2,3,4,-1]){ const o=S.view[ix+d*vDir]; if(!o) continue; const u=`/api/preview?id=${o.id}&s=2000`;
+    if(VPRE.has(u)){ const v=VPRE.get(u); VPRE.delete(u); VPRE.set(u,v); continue; }
+    const pre=new Image(); pre.decoding='async'; VPRE.set(u,pre); pre.src=u; }
+  while(VPRE.size>24) VPRE.delete(VPRE.keys().next().value);
   renderInfo(p, ix); renderBadge(p); loadBoxes(p, tok); updateMask(); renderStrip(true); sendAhead();
 }
 $('#vimg').addEventListener('click', e=>zoomToggle(e.clientX,e.clientY));

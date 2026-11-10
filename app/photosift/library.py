@@ -65,6 +65,40 @@ def _is_network(path: str) -> bool:
     return False
 
 
+# ---- ưu tiên giao diện: việc nền (phân tích, đo nụ cười, dựng ảnh nét cả thư mục) chạy ở mức ưu tiên thấp
+# và tạm nhường khi đang lật ảnh, để trình xem (và cửa sổ app) luôn được CPU trước → chuyển ảnh không khựng.
+_UI_T = [0.0]
+UI_HOT_S = 0.6     # vừa lật ảnh trong khoảng này thì việc nền chờ
+UI_WAIT_MAX = 3.0  # chờ tối đa mỗi lượt (đang lật liên tục thì việc nền vẫn chạy dần, không đứng hẳn)
+
+
+def ui_ping():
+    """Gọi mỗi khi giao diện xin ảnh để xem."""
+    _UI_T[0] = time.time()
+
+
+def ui_yield():
+    end = time.time() + UI_WAIT_MAX
+    while time.time() - _UI_T[0] < UI_HOT_S and time.time() < end:
+        time.sleep(0.05)
+
+
+def _thread_prio(level: int):
+    """Đổi mức ưu tiên CPU của luồng hiện tại trên Windows (-2 thấp nhất … 0 bình thường)."""
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+        k = ctypes.windll.kernel32
+        k.SetThreadPriority(k.GetCurrentThread(), level)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _low_prio():
+    _thread_prio(-1)   # THREAD_PRIORITY_BELOW_NORMAL
+
+
 class Library:
     def __init__(self, db: DB | None = None):
         THUMBS.mkdir(parents=True, exist_ok=True)
@@ -388,14 +422,14 @@ class Library:
                     pass
                 with self._slock:   # để giao diện làm mới lưới ngay khi có thêm thumbnail
                     self.status["quick"] = self.status.get("quick", 0) + 1
-            with ThreadPoolExecutor(max_workers=qa_n) as pa:
+            with ThreadPoolExecutor(max_workers=qa_n, initializer=_low_prio) as pa:
                 list(pa.map(qa, quick))
         self.status["timing"]["thumb_s"] = round(time.time() - t0, 1)
         # Pha 1 (I/O): đọc ảnh xem trước → thumbnail hiện ngay. Pha 2 (CPU): độ nét, khuôn mặt… chạy nền song song.
         n = os.cpu_count() or 2
         cpu = n if n <= 8 else min(16, n - 1)   # máy nhiều nhân: chừa một nhân để giao diện vẫn mượt
-        p1 = ThreadPoolExecutor(max_workers=io_n)
-        p2 = ThreadPoolExecutor(max_workers=cpu)
+        p1 = ThreadPoolExecutor(max_workers=io_n, initializer=_low_prio)
+        p2 = ThreadPoolExecutor(max_workers=cpu, initializer=_low_prio)
 
         def bump(**kw):
             with self._slock:
@@ -410,6 +444,7 @@ class Library:
                     waiting[0] -= 1
             if cancel.is_set():
                 return
+            ui_yield()
             try:
                 ok = self._analyze_cached(pid, img)
             except Exception as e:  # noqa: BLE001
@@ -420,6 +455,7 @@ class Library:
         def phase1(pid, path, cached):
             if cancel.is_set():
                 return
+            ui_yield()
             img = None
             if not cached:
                 try:
@@ -479,6 +515,7 @@ class Library:
         def one(pid):
             if cancel.is_set():
                 return pid, None
+            ui_yield()
             img = cv2.imread(str(PREVIEWS / f"{pid}.jpg"))
             if img is None:
                 return pid, -1.0
@@ -492,7 +529,7 @@ class Library:
                 return pid, -1.0
         n = os.cpu_count() or 4
         done = []
-        with ThreadPoolExecutor(max_workers=n if n <= 8 else min(16, n - 1)) as ex:
+        with ThreadPoolExecutor(max_workers=n if n <= 8 else min(16, n - 1), initializer=_low_prio) as ex:
             for pid, sm in ex.map(one, todo):
                 if sm is not None:
                     done.append((sm, pid))
@@ -961,15 +998,21 @@ class Library:
                     if job:
                         break
                     self._vcv.wait(2)
+                low = job not in self._vq   # việc nền (cả thư mục), không phải ảnh trình xem đang cần
                 for q in (self._vq, self._vlow):
                     if job in q:
                         q.remove(job)
                 self._vbusy.add(job)
             try:
+                if low:
+                    _thread_prio(-2)
+                    ui_yield()
                 self._view_build(*job)
             except Exception as e:  # noqa: BLE001
                 print("view:", e, file=sys.stderr)
             finally:
+                if low:
+                    _thread_prio(0)
                 with self._vcv:
                     self._vbusy.discard(job)
                     self._vcv.notify_all()
