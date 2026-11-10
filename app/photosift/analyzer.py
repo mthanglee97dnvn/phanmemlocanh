@@ -629,7 +629,7 @@ class Analyzer:
         """Điểm cười của cả ảnh: trung bình theo diện tích các khuôn mặt đo được (mặt lớn nặng ký hơn); -1 nếu không có."""
         v = [(f["fw"] * f["fh"], f["smile"]) for f in faces if f.get("smile", -1) >= 0]
         a = sum(x for x, _ in v)
-        return round(sum(x * s for x, s in v) / a, 3) if a > 0 else -1.0
+        return round(float(sum(x * s for x, s in v) / a), 3) if a > 0 else -1.0   # float thường: numpy float32 sẽ bị SQLite lưu thành bytes
 
     def smile_only(self, img):
         """Chỉ đo nụ cười (dùng để bổ sung cho ảnh đã phân tích từ trước, không phải đọc lại file gốc)."""

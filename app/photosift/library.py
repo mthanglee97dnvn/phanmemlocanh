@@ -99,6 +99,20 @@ def _low_prio():
     _thread_prio(-1)   # THREAD_PRIORITY_BELOW_NORMAL
 
 
+
+def _num(v, miss=-1.0):
+    """Giá trị số đọc từ DB; bản 1.1.46 lỡ lưu điểm cười dạng bytes (float32) → đọc lại thành số."""
+    if v is None:
+        return miss
+    if isinstance(v, (bytes, bytearray)):
+        import struct
+        try:
+            return round(struct.unpack("<f", bytes(v)[:4])[0], 3) if len(v) >= 4 else miss
+        except struct.error:
+            return miss
+    return v
+
+
 class Library:
     def __init__(self, db: DB | None = None):
         THUMBS.mkdir(parents=True, exist_ok=True)
@@ -209,6 +223,15 @@ class Library:
 
     def _migrate(self):
         db = self.db
+        try:   # sửa dữ liệu bản 1.1.46: điểm cười lưu nhầm dạng bytes làm danh sách ảnh báo lỗi (Catalog "chưa có ảnh")
+            bad = db.q("SELECT id, smile FROM photos WHERE typeof(smile)='blob'")
+            if bad:
+                db.many("UPDATE photos SET smile=? WHERE id=?", [(_num(b["smile"]), b["id"]) for b in bad])
+            bad = db.q("SELECT id, smile FROM faces WHERE typeof(smile)='blob'")
+            if bad:
+                db.many("UPDATE faces SET smile=? WHERE id=?", [(_num(b["smile"]), b["id"]) for b in bad])
+        except Exception as e:  # noqa: BLE001
+            print("smile fix:", e, file=sys.stderr)
         r = db.one("SELECT v FROM meta WHERE k='cache_version'")
         if r and int(r["v"]) == CACHE_VERSION:
             return
@@ -524,7 +547,7 @@ class Library:
                 k = ANALYSIS_SIDE / max(h, w)
                 img = cv2.resize(img, (max(1, round(w * k)), max(1, round(h * k))), interpolation=cv2.INTER_AREA)
             try:
-                return pid, self.an.smile_only(img)
+                return pid, float(self.an.smile_only(img))
             except Exception:  # noqa: BLE001
                 return pid, -1.0
         n = os.cpu_count() or 4
@@ -579,12 +602,12 @@ class Library:
                 """UPDATE photos SET sharp=?,fsharp=?,lum=?,lo=?,hi=?,dhash=?,
                    nfaces=?,ear_min=?,smile=?,analyzed=1,err=NULL WHERE id=?""",
                 (r["sharp"], r["fsharp"], r["lum"], r["lo"], r["hi"], r["dhash"], r["nfaces"], r["ear_min"],
-                 r.get("smile", -1.0) if self.an.has_smile else None, pid))
+                 float(r.get("smile", -1.0)) if self.an.has_smile else None, pid))
             for fc in r["faces"]:
                 cur = self.db.con.execute(
                     "INSERT INTO faces(photo_id,fx,fy,fw,fh,det,px,ear,emb,yaw,vert,smile) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                     (pid, fc["fx"], fc["fy"], fc["fw"], fc["fh"], fc["det"], fc["px"], fc["ear"], fc["emb"],
-                     fc.get("yaw", -1.0), fc.get("vert", -1.0), fc.get("smile", -1.0)))
+                     fc.get("yaw", -1.0), fc.get("vert", -1.0), float(fc.get("smile", -1.0))))
                 if fc["crop"]:
                     crops.append((cur.lastrowid, fc["crop"]))
             self.db.con.commit()
@@ -838,7 +861,7 @@ class Library:
                 id=r["id"], name=os.path.basename(r["path"]), dir=r["dir"], w=r["w"], h=r["h"],
                 taken=r["taken"], sharp=round(r["sharp"] or 0, 1), fsharp=round(r["fsharp"] or 0, 1),
                 lum=round(r["lum"] or 0, 3), nf=r["nfaces"], ear=round(r["ear_min"], 3),
-                smile=r["smile"] if r["smile"] is not None else -1,
+                smile=_num(r["smile"]),
                 rating=r["rating"], label=r["label"], grp=r["grp"], best=r["best"], score=r["score"],
                 away=r["away"] or 0, people=pmap.get(r["id"], []), flags=flags, an=True, tv=r["tv"]))
         return out
