@@ -113,6 +113,9 @@ def _num(v, miss=-1.0):
     return v
 
 
+EXPORT_WORKERS = 2       # chép ổ trong máy → ổ trong máy
+EXPORT_WORKERS_NET = 3   # nguồn hoặc đích là ổ mạng / NAS (nhiều hơn dễ làm ổ cứng NAS phải nhảy đầu đọc)
+
 class Library:
     def __init__(self, db: DB | None = None):
         THUMBS.mkdir(parents=True, exist_ok=True)
@@ -1311,13 +1314,11 @@ class Library:
         rows = sorted([r for r in rows if r], key=lambda r: (r["taken"] or 0, r["path"]))
         if progress is not None:
             progress["total"] = len(rows)
+        # Bước 1 (nhanh, tuần tự): đặt tên file đích cho từng ảnh — giữ đúng thứ tự {seq}, không trùng tên.
+        jobs, taken_names = [], set()
         for r in rows:
-            if stop is not None and stop.is_set():
-                break
             seq += 1
             src = Path(r["path"])
-            if progress is not None:
-                progress["cur"] = src.name
             people = [x["person_id"] for x in self.db.q(
                 "SELECT DISTINCT person_id FROM faces WHERE photo_id=? AND person_id IS NOT NULL", (r["id"],))]
             labels = [self.person_label(p, names) for p in people]
@@ -1329,24 +1330,54 @@ class Library:
             fname = _safe(stem) + src.suffix
             targets = [dest_p / _safe(l) for l in labels] if by_person and labels else \
                       ([dest_p / "Khong_xac_dinh"] if by_person else [dest_p])
+            outs = []
             for t in targets:
+                out, i = t / fname, 1
+                while os.path.normcase(str(out)) in taken_names or out.exists():
+                    out = t / f"{Path(fname).stem}_{i}{src.suffix}"
+                    i += 1
+                taken_names.add(os.path.normcase(str(out)))
+                outs.append(out)
+            jobs.append((r, src, labels, outs))
+        for t in {o.parent for _, _, _, outs in jobs for o in outs}:
+            try:
+                mkdir(t)
+            except OSError:
+                pass
+        # Bước 2: chép song song vài file một lúc. Một luồng chép qua mạng LAN / NAS thường không dùng hết băng thông
+        # (mỗi file phải chờ mở / đóng / xác nhận qua SMB); 3–4 luồng chồng lên nhau lấp khoảng chờ đó.
+        lock = threading.Lock()
+        state = dict(done=0, copied=0)
+
+        def one(job):
+            r, src, labels, outs = job
+            if stop is not None and stop.is_set():
+                return
+            if progress is not None:
+                progress["cur"] = src.name
+            for out in outs:
                 try:
-                    mkdir(t)
-                    out, i = t / fname, 1
-                    while out.exists():
-                        out = t / f"{Path(fname).stem}_{i}{src.suffix}"
-                        i += 1
                     if made is not None:
-                        made.append(out)   # ghi trước khi chép: chép dở rồi bị dừng thì vẫn dọn được
+                        with lock:
+                            made.append(out)   # ghi trước khi chép: chép dở rồi bị dừng thì vẫn dọn được
                     shutil.copy2(src, out)
                     if xmp:
                         x = out.with_suffix(".xmp")
                         if made is not None and not x.exists():
-                            made.append(x)
+                            with lock:
+                                made.append(x)
                         x.write_text(self._xmp(r["rating"], r["label"], labels), encoding="utf-8")
-                    copied += 1
+                    with lock:
+                        state["copied"] += 1
                 except Exception as e:  # noqa: BLE001
-                    errors.append(f"{src.name}: {friendly(e)}")
-            if progress is not None:
-                progress.update(done=seq, copied=copied, n_errors=len(errors), errors=errors[:20])
+                    with lock:
+                        errors.append(f"{src.name}: {friendly(e)}")
+            with lock:
+                state["done"] += 1
+                if progress is not None:
+                    progress.update(done=state["done"], copied=state["copied"], n_errors=len(errors), errors=errors[:20])
+        net = any(_is_network(str(j[1])) for j in jobs[:1]) or _is_network(str(dest_p))
+        with ThreadPoolExecutor(max_workers=EXPORT_WORKERS_NET if net else EXPORT_WORKERS) as ex:
+            list(ex.map(one, jobs))
+        copied = state["copied"]
         return dict(copied=copied, errors=errors[:20], n_errors=len(errors))
