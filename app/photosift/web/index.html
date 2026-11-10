@@ -1223,7 +1223,7 @@ function xjPaint(st){ XJ.st=st; const box=$('#xjob'), card=$('#xjcard'), mini=$(
   const err=st.n_errors&&!s.startsWith('del')?`<div class="warn" style="margin-top:6px;font-size:12px">${fmt(st.n_errors)} ảnh chưa chép được${(st.errors||[]).length?': '+esc(st.errors.slice(0,3).join('; '))+(st.n_errors>3?'…':''):''}</div>`:'';
   const btn=run?`<button id="xjMin">Thu nhỏ</button><button id="xjStop">Dừng</button><button class="danger" id="xjWipe">Dừng &amp; xoá file đã chép</button>`
     :s==='deleting'?'':s==='deleted'?`<button class="pri" id="xjClose">Đóng</button>`
-    :`<button id="xjOpen">Mở thư mục</button>${st.files?`<button class="danger" id="xjWipe" title="${fmt(st.files)} file (gồm cả .xmp)">Xoá ${fmt(st.copied||0)} ảnh đã xuất</button>`:''}<button class="pri" id="xjClose">Đóng</button>`;
+    :`<button id="xjOpen">Mở thư mục</button>${s!=='error'&&st.copied?'<button id="xjLr" title="Mở thư mục và hộp Import của Lightroom Classic, tự tick Build Smart Previews">Nhập vào Lightroom</button>':''}${st.files?`<button class="danger" id="xjWipe" title="${fmt(st.files)} file (gồm cả .xmp)">Xoá ${fmt(st.copied||0)} ảnh đã xuất</button>`:''}<button class="pri" id="xjClose">Đóng</button>`;
   card.className={done:'done',stopped:'stop',error:'err',deleting:'del',deleted:'del'}[s]||'';
   card.innerHTML=`<div class="ring" role="progressbar" aria-label="${head}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(100*p)}">${run||s==='deleting'?'<div class="spin"></div>':''}<svg viewBox="0 0 180 180"><circle class="trk" cx="90" cy="90" r="80" fill="none" stroke-width="12"/><circle class="bar" cx="90" cy="90" r="80" fill="none" stroke-width="12" stroke-dasharray="${XC}" stroke-dashoffset="${XC*(1-p)}"/></svg><div class="mid">${mid}</div></div>
     <h3 id="xjh">${head}</h3><div class="dest" title="${esc(st.dest||'')}">→ ${esc(st.dest||'')}</div><div class="cur">${cur}</div><div class="meta">${meta}</div>${err}<div class="btns">${btn}</div>`;
@@ -1236,6 +1236,7 @@ function xjPaint(st){ XJ.st=st; const box=$('#xjob'), card=$('#xjcard'), mini=$(
   on('xjWipe',()=>{ const m=modal(`<h3>Xoá file đã xuất?</h3><div class="hint" style="margin-bottom:10px">${run?'Dừng xuất và x':'X'}oá <b>các file do lần xuất này chép sang</b> thư mục<br><b>${esc(st.dest||'')}</b>.<br>Ảnh gốc, số sao và các file khác trong thư mục đó không bị đụng tới.</div><div class="btns"><button onclick="this.closest('.back').remove()">Huỷ</button><button class="pri" id="xjYes">Xoá</button></div>`);
     m.style.zIndex=70; m.querySelector('#xjYes').onclick=async()=>{ m.close(); xjPaint(await api('/api/export/cancel',{delete:true})); xjPoll(); }; });
   on('xjOpen',async()=>{ const r=await api('/api/reveal',{path:st.dest}); if(r.error) toast(r.error); });
+  on('xjLr',()=>lrImport(st.dest));
   on('xjClose',async()=>{ await api('/api/export/dismiss',{}); XJ.mini=false; xjPaint(null); });
 }
 $('#xjmini').onclick=()=>xjMini(false);
@@ -1245,9 +1246,16 @@ addEventListener('keydown',e=>{   // bảng tiến độ đang mở: phím tắt
   if(e.key==='Escape'){ const s=XJ.st&&XJ.st.state; if(s==='running'||s==='deleting') xjMini(true); else { const c=$('#xjcard #xjClose'); c&&c.click(); } }
   if(e.key==='Enter'&&e.target.tagName==='BUTTON') return;
   e.stopImmediatePropagation(); e.preventDefault(); },true);
+async function lrImport(dest){
+  toast('Đang mở Lightroom…',4000);
+  try{ const r=await api('/api/lightroom',{path:dest});
+    toast(r.running?'Lightroom đang mở sẵn: hộp Import sẽ hiện, nhớ tick “Build Smart Previews” (lần sau đóng Lightroom trước để app tự tick).'
+      :'Đã mở thư mục và Lightroom Import (đã bật Build Smart Previews, chọn Add).',r.running?7000:4500); }
+  catch(e){ toast(e.message,5000); } }
 async function xjPoll(){ clearTimeout(XJ.t);
   let st; try{ st=await api('/api/export/status'); }catch(e){ XJ.t=setTimeout(xjPoll,2000); return; }
-  xjPaint(st); if(st.state==='running'||st.state==='deleting') XJ.t=setTimeout(xjPoll,400); }
+  xjPaint(st); if(st.state==='done'&&XJ.autoLr&&XJ.autoLr===st.dest&&st.copied){ XJ.autoLr=null; lrImport(st.dest); }
+  if(st.state==='running'||st.state==='deleting') XJ.t=setTimeout(xjPoll,400); }
 xjPoll();   // mở lại app khi đang xuất dở: bảng tiến độ hiện lại
 function openExportKey(){ if($('#xjob').classList.contains('on')) return; const b=$('#bExport'); if(b&&!b.disabled&&b.offsetParent!==null) b.click(); }
 window.openExportKey=openExportKey;
@@ -1259,12 +1267,14 @@ $('#bExport').onclick=()=>{
    <div class="hint" style="margin:-4px 0 6px 160px">{name} {date} {time} {seq} {person}</div>
    <div class="row"><label></label><label style="flex:1;color:var(--tx)"><input type="checkbox" id="xp"> Tách thư mục theo từng người (ảnh nhiều người được chép vào nhiều thư mục)</label></div>
    <div class="row"><label></label><label style="flex:1;color:var(--tx)"><input type="checkbox" id="xx" checked> Ghi sao/nhãn/tên người vào file .xmp (Lightroom, Bridge, Capture One đọc được với RAW)</label></div>
+   <div class="row"><label></label><label style="flex:1;color:var(--tx)"><input type="checkbox" id="xlr"> Xuất xong: mở thư mục và Import vào Lightroom Classic (tự tick Build Smart Previews)</label></div>
    <div id="xr" class="hint"></div>
    <div class="btns"><button onclick="this.closest('.back').remove()">Đóng</button><button class="pri" id="xgo">Sao chép</button></div>`);
   // mặc định: lựa chọn lần trước; lần đầu thì "tất cả trừ ảnh loại", hoặc đúng bộ đang lọc
   const xs=m.querySelector('#xs'), xgo=m.querySelector('#xgo'), ls=k=>{ try{ return localStorage.getItem(k)||''; }catch(e){ return ''; } };
   const last=ls('ps_xs'); xs.value=[...xs.options].some(o=>o.value===last)?last:(S.filter!=='all'?'view':'keep');
   m.querySelector('#xd').value=ls('ps_xd');
+  const xlr=m.querySelector('#xlr'); xlr.checked=ls('ps_xlr')==='1'; xlr.onchange=()=>{ try{ localStorage.setItem('ps_xlr',xlr.checked?'1':'0'); }catch(e){} };
   const pick=()=>{ const sc=xs.value; return sc==='sel'?targetsForExport():sc==='view'?S.viewFull.map(p=>p.id):sc==='keep'?S.photos.filter(p=>p.rating>=0).map(p=>p.id):sc==='r5'?S.photos.filter(p=>p.rating===5).map(p=>p.id):S.photos.filter(p=>p.rating>=3).map(p=>p.id); };
   const paintGo=()=>{ xgo.textContent=`Sao chép ${fmt(pick().length)} ảnh`; };
   xs.onchange=()=>{ try{ localStorage.setItem('ps_xs',xs.value); }catch(e){} paintGo(); }; paintGo();
@@ -1274,7 +1284,7 @@ $('#bExport').onclick=()=>{
     const dest=m.querySelector('#xd').value.trim(); try{ localStorage.setItem('ps_xd',dest); }catch(e){} if(!dest){ toast('Chưa chọn thư mục đích'); return; } if(!list.length){ toast('Không có ảnh để xuất'); return; }
     xgo.disabled=true;
     try{ await api('/api/export',{ids:list,dest,by_person:m.querySelector('#xp').checked,template:m.querySelector('#xt').value,xmp:m.querySelector('#xx').checked});
-      m.close(); XJ.mini=false; }
+      XJ.autoLr=xlr.checked?dest:null; m.close(); XJ.mini=false; }
     catch(err){ m.querySelector('#xr').innerHTML=`<span class="warn">${esc(err.message)}</span>`; xgo.disabled=false; }
     xjPoll();
   };
