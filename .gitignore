@@ -7,3 +7,11 @@ build/installer/payload/app.zip
 build/installer/payload/launcher.exe
 build/installer/payload/uninstall.exe
 smoke.log
+
+# build bảo vệ mã (tools/build_core.py)
+node_modules/
+build/core/
+build/entry/
+build/webobf/
+app/photosift/_webpack.py
+*.spec
