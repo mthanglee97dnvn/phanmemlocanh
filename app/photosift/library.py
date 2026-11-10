@@ -1200,29 +1200,91 @@ class Library:
         return n
 
     def start_export(self, ids, dest, by_person=False, template="{name}", xmp=False):
-        """Chạy xuất ảnh ở nền; tiến độ lấy qua export_status()."""
+        """Chạy xuất ảnh ở nền; tiến độ lấy qua export_status(), dừng / xoá qua export_cancel()."""
         j = getattr(self, "export_job", None)
-        if j and j.get("state") == "running":
-            return dict(error="Đang có một tác vụ xuất chạy — hãy đợi nó xong")
+        if j and j.get("state") in ("running", "deleting"):
+            return dict(error="Đang có một tác vụ xuất chạy — hãy đợi nó xong hoặc bấm Dừng ở bảng tác vụ", busy=True)
         ids = [int(i) for i in ids]
-        self.export_job = dict(state="running", total=len(ids), done=0, copied=0, n_errors=0, errors=[], cur="", dest=str(dest))
+        stop = threading.Event()
+        self._export_stop = stop
+        self._export_made = []   # file do lần xuất này tạo ra (để xoá được nếu xuất nhầm) — không bao giờ có ảnh gốc
+        self._export_dirs = []   # thư mục do lần xuất này tạo ra
+        self.export_job = dict(state="running", total=len(ids), done=0, copied=0, n_errors=0, errors=[], cur="",
+                               dest=str(dest), started=time.time(), removed=0)
 
         def work():
             try:
-                r = self.export(ids, dest, by_person, template, xmp, progress=self.export_job)
-                self.export_job.update(state="done", copied=r["copied"], errors=r["errors"], n_errors=r["n_errors"])
+                r = self.export(ids, dest, by_person, template, xmp, progress=self.export_job, stop=stop)
+                self.export_job.update(copied=r["copied"], errors=r["errors"], n_errors=r["n_errors"],
+                                       state="stopped" if stop.is_set() else "done", ended=time.time())
             except Exception as e:  # noqa: BLE001
-                self.export_job.update(state="error", message=friendly(e))
+                self.export_job.update(state="error", message=friendly(e), ended=time.time())
+            if getattr(self, "_export_wipe", False):
+                self._export_delete()
+        self._export_wipe = False
         threading.Thread(target=work, daemon=True).start()
         return dict(ok=True, total=len(ids))
 
     def export_status(self):
-        return dict(getattr(self, "export_job", None) or dict(state="idle"))
+        j = dict(getattr(self, "export_job", None) or dict(state="idle"))
+        if j.get("state") != "idle":
+            j["files"] = len(getattr(self, "_export_made", []))
+        return j
 
-    def export(self, ids, dest: str, by_person=False, template="{name}", xmp=False, progress=None):
+    def export_cancel(self, delete=False):
+        """Dừng lần xuất đang chạy; delete=True thì xoá luôn các file lần xuất này đã chép (ảnh gốc không bị đụng tới)."""
+        j = getattr(self, "export_job", None)
+        if not j:
+            return dict(state="idle")
+        if j.get("state") == "running":
+            self._export_stop.set()
+            if delete:
+                self._export_wipe = True   # luồng xuất sẽ xoá ngay khi dừng hẳn (tránh xoá lúc đang chép dở một file)
+        elif delete and j.get("state") in ("done", "stopped", "error"):
+            j["state"] = "deleting"
+            threading.Thread(target=self._export_delete, daemon=True).start()
+        return self.export_status()
+
+    def _export_delete(self):
+        j = self.export_job
+        j["state"] = "deleting"
+        n = 0
+        for f in reversed(getattr(self, "_export_made", [])):
+            try:
+                f.unlink()
+                n += 1
+            except OSError:
+                pass
+            j["removed"] = n
+        for d in sorted(getattr(self, "_export_dirs", []), key=lambda p: len(str(p)), reverse=True):
+            try:
+                d.rmdir()   # chỉ xoá được khi trống: thư mục có file khác của bạn vẫn giữ nguyên
+            except OSError:
+                pass
+        self._export_made = []
+        j.update(state="deleted", removed=n, ended=time.time())
+
+    def export_dismiss(self):
+        j = getattr(self, "export_job", None)
+        if j and j.get("state") not in ("running", "deleting"):
+            self.export_job = None
+        return dict(ok=True)
+
+    def export(self, ids, dest: str, by_person=False, template="{name}", xmp=False, progress=None, stop=None):
         """Sao chép (không bao giờ di chuyển/xoá file gốc)."""
         dest_p = Path(dest)
-        dest_p.mkdir(parents=True, exist_ok=True)
+        made = getattr(self, "_export_made", None) if progress is not None else None
+        mdirs = getattr(self, "_export_dirs", None) if progress is not None else None
+
+        def mkdir(p):
+            if mdirs is not None:
+                q, new = p, []
+                while not q.exists() and q != q.parent:
+                    new.append(q)
+                    q = q.parent
+                mdirs.extend(new)
+            p.mkdir(parents=True, exist_ok=True)
+        mkdir(dest_p)
         names = self._names()
         seq, copied, errors = 0, 0, []
         rows = [self.db.one("SELECT * FROM photos WHERE id=?", (int(i),)) for i in ids]
@@ -1230,6 +1292,8 @@ class Library:
         if progress is not None:
             progress["total"] = len(rows)
         for r in rows:
+            if stop is not None and stop.is_set():
+                break
             seq += 1
             src = Path(r["path"])
             if progress is not None:
@@ -1247,14 +1311,19 @@ class Library:
                       ([dest_p / "Khong_xac_dinh"] if by_person else [dest_p])
             for t in targets:
                 try:
-                    t.mkdir(parents=True, exist_ok=True)
+                    mkdir(t)
                     out, i = t / fname, 1
                     while out.exists():
                         out = t / f"{Path(fname).stem}_{i}{src.suffix}"
                         i += 1
+                    if made is not None:
+                        made.append(out)   # ghi trước khi chép: chép dở rồi bị dừng thì vẫn dọn được
                     shutil.copy2(src, out)
                     if xmp:
-                        out.with_suffix(".xmp").write_text(self._xmp(r["rating"], r["label"], labels), encoding="utf-8")
+                        x = out.with_suffix(".xmp")
+                        if made is not None and not x.exists():
+                            made.append(x)
+                        x.write_text(self._xmp(r["rating"], r["label"], labels), encoding="utf-8")
                     copied += 1
                 except Exception as e:  # noqa: BLE001
                     errors.append(f"{src.name}: {friendly(e)}")

@@ -270,6 +270,14 @@ details.adv{margin:6px 0;border-top:1px solid var(--line);padding-top:6px}detail
 #vbadge .chip.stk .kbd{font-size:10px;padding:0 4px;margin-left:4px}
 #dropzone{position:fixed;inset:10px;z-index:98;display:none;align-items:center;justify-content:center;flex-direction:column;gap:8px;border:2px dashed var(--pri,#F2B01E);border-radius:16px;background:rgba(10,12,16,.82);pointer-events:none;text-align:center}
 #dropzone.on{display:flex}#dropzone b{font-size:20px;color:var(--pri,#F2B01E)}#dropzone span{color:var(--mut,#9aa3ad)}
+#xjob{position:fixed;right:16px;bottom:44px;z-index:60;width:min(380px,calc(100vw - 32px));background:var(--panel2,#1e2127);border:1px solid var(--line);border-radius:12px;box-shadow:0 14px 40px rgba(0,0,0,.5);padding:12px 14px;display:none}
+#xjob.on{display:block}#xjob h4{margin:0 0 2px;font-size:13px;display:flex;align-items:center;gap:8px}#xjob h4 .sp{flex:1}
+#xjob .xd{font-size:11px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:8px}
+#xjob .xbar{height:8px;border-radius:6px;background:rgba(255,255,255,.12);overflow:hidden}#xjob .xbar i{display:block;height:100%;width:0;background:#F2B01E;transition:width .3s}
+#xjob.del .xbar i{background:#e5534b}#xjob.ok .xbar i{background:#3fb950}
+#xjob .xt{font-size:12px;margin:6px 0 8px;font-variant-numeric:tabular-nums}#xjob .xt b{font-size:14px}
+#xjob .xb{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}#xjob .xb button{font-size:12px;padding:5px 10px}
+#xjob .xb .danger{color:#ff8a80;border-color:rgba(255,107,107,.45)}#xjob .xx{background:none;border:0;padding:0 2px;color:var(--mut);font-size:16px;line-height:1;cursor:pointer}
 </style>
 <link id="uiFont" rel="stylesheet" href="/ui.css">
 </head>
@@ -315,6 +323,7 @@ details.adv{margin:6px 0;border-top:1px solid var(--line);padding-top:6px}detail
  <svg class="cb" viewBox="0 0 100 115" style="left:36%;bottom:-70px;width:150px"><use href="#cube"/></svg>
  <svg class="cb" viewBox="0 0 100 115" style="right:-24px;bottom:-30px;width:240px;transform:rotate(-8deg)"><use href="#cube"/></svg>
 </div>
+<div id="xjob" role="status" aria-live="polite"></div>
 <div id="dropzone" aria-hidden="true"><svg class="ic" style="width:40px;height:40px" aria-hidden="true"><use href="#i-folder"/></svg><b>Thả thư mục vào để mở</b><span>Thư mục ảnh từ máy tính, ổ cứng ngoài hoặc NAS</span></div>
 <div id="catalog">
   <div class="chead">
@@ -1175,6 +1184,34 @@ function paintAdvInit(){ paintStack(); $('#sStack').onclick=()=>{ S.stack=!S.sta
   paintAdvInit2(); }
 function paintAdvInit2(){ paintAdv(); $('#sAdv').onclick=()=>{ S.adv=!S.adv; try{ localStorage.setItem('ps_adv2',S.adv?'1':'0'); }catch(e){} paintAdv(); }; }
 paintAdvInit();
+/* ---------- bảng tác vụ xuất ảnh: tiến độ %, dừng, xoá file đã chép nếu xuất nhầm ---------- */
+const XJ={t:0,st:null};
+function xjPaint(st){ const b=$('#xjob'); XJ.st=st;
+  if(!st||st.state==='idle'){ b.className=''; b.innerHTML=''; return; }
+  const tot=st.total||0, pct=tot?Math.min(100,Math.round(100*(st.done||0)/tot)):0, run=st.state==='running', del=st.state==='deleting'||st.state==='deleted';
+  const head={running:'Đang xuất ảnh',done:'Đã xuất xong',stopped:'Đã dừng xuất ảnh',error:'Xuất ảnh bị lỗi',deleting:'Đang xoá file đã xuất',deleted:'Đã xoá file đã xuất'}[st.state]||'Xuất ảnh';
+  const w=del?(st.state==='deleted'?100:Math.round(100*(st.removed||0)/Math.max(1,st.files+(st.removed||0)))):pct;
+  let tx;
+  if(del) tx=st.state==='deleted'?`Đã xoá <b>${fmt(st.removed||0)}</b> file do lần xuất này tạo ra. Ảnh gốc vẫn nguyên.`:`Đang xoá… ${fmt(st.removed||0)} file`;
+  else tx=`<b>${pct}%</b> · ${fmt(st.done||0)} / ${fmt(tot)} ảnh`+(run&&st.cur?` · <span class="hint">${esc(st.cur)}</span>`:'')+(st.n_errors?` · <span class="warn">${fmt(st.n_errors)} lỗi</span>`:'')
+    +(st.state==='error'?`<div class="warn">${esc(st.message||'')}</div>`:'')+(st.state==='stopped'?`<div class="hint">Đã chép ${fmt(st.copied||0)} file trước khi dừng.</div>`:'');
+  const btn=run?`<button id="xjStop">Dừng</button><button class="danger" id="xjWipe">Dừng &amp; xoá file đã chép</button>`
+    :del?(st.state==='deleted'?`<button id="xjClose">Đóng</button>`:'')
+    :`<button id="xjOpen">Mở thư mục</button>${st.files?`<button class="danger" id="xjWipe" title="${fmt(st.files)} file (gồm cả file .xmp)">Xoá ${fmt(st.copied||0)} ảnh đã xuất</button>`:''}<button id="xjClose">Đóng</button>`;
+  b.className='on'+(del?' del':st.state==='done'?' ok':'');
+  b.innerHTML=`<h4>${head}<span class="sp"></span>${run||st.state==='deleting'?'':'<button class="xx" id="xjX" aria-label="Đóng bảng tác vụ">×</button>'}</h4><div class="xd" title="${esc(st.dest||'')}">→ ${esc(st.dest||'')}</div>
+    <div class="xbar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${w}"><i style="width:${w}%"></i></div><div class="xt">${tx}</div><div class="xb">${btn}</div>`;
+  const on=(id,f)=>{ const e=b.querySelector('#'+id); if(e) e.onclick=f; };
+  on('xjStop',async()=>{ xjPaint(await api('/api/export/cancel',{})); toast('Đã dừng, các file đã chép được giữ lại'); });
+  on('xjWipe',()=>{ const m=modal(`<h3>Xoá file đã xuất?</h3><div class="hint" style="margin-bottom:10px">${run?'Dừng xuất và x':'X'}oá <b>các file do lần xuất này chép sang</b> thư mục<br><b>${esc(st.dest||'')}</b>.<br>Ảnh gốc, số sao và các file khác trong thư mục đó không bị đụng tới.</div><div class="btns"><button onclick="this.closest('.back').remove()">Huỷ</button><button class="pri" id="xjYes">Xoá</button></div>`);
+    m.querySelector('#xjYes').onclick=async()=>{ m.close(); xjPaint(await api('/api/export/cancel',{delete:true})); xjPoll(); }; });
+  on('xjOpen',async()=>{ const r=await api('/api/reveal',{path:st.dest}); if(r.error) toast(r.error); });
+  const close=async()=>{ await api('/api/export/dismiss',{}); xjPaint(null); }; on('xjClose',close); on('xjX',close);
+}
+async function xjPoll(){ clearTimeout(XJ.t);
+  let st; try{ st=await api('/api/export/status'); }catch(e){ XJ.t=setTimeout(xjPoll,2000); return; }
+  xjPaint(st); if(st.state==='running'||st.state==='deleting') XJ.t=setTimeout(xjPoll,400); }
+xjPoll();   // mở lại app khi đang xuất dở: bảng tác vụ hiện lại
 function openExportKey(){ const b=$('#bExport'); if(b&&!b.disabled&&b.offsetParent!==null) b.click(); }
 window.openExportKey=openExportKey;
 $('#bExport').onclick=()=>{
@@ -1198,28 +1235,13 @@ $('#bExport').onclick=()=>{
   m.querySelector('#xgo').onclick=async()=>{
     const list=pick();
     const dest=m.querySelector('#xd').value.trim(); try{ localStorage.setItem('ps_xd',dest); }catch(e){} if(!dest){ toast('Chưa chọn thư mục đích'); return; } if(!list.length){ toast('Không có ảnh để xuất'); return; }
-    m.querySelector('#xgo').disabled=true;
-    const xr=m.querySelector('#xr');
-    xr.innerHTML=`<div class="xprog" style="height:14px;border-radius:8px;background:rgba(255,255,255,.12);overflow:hidden;margin:6px 0 4px"><i id="xbar" style="display:block;height:100%;width:0;background:linear-gradient(90deg,#f5a623,#ffd27a);transition:width .25s"></i></div><div id="xtx" style="color:var(--tx)">Đang chuẩn bị…</div>`;
-    const bar=xr.querySelector('#xbar'), tx=xr.querySelector('#xtx');
-    try{
-      await api('/api/export',{ids:list,dest,by_person:m.querySelector('#xp').checked,template:m.querySelector('#xt').value,xmp:m.querySelector('#xx').checked});
-      let st;
-      for(;;){
-        st=await api('/api/export/status'); const tot=st.total||list.length, pct=tot?Math.min(100,Math.round(100*st.done/tot)):0;
-        bar.style.width=pct+'%';
-        tx.innerHTML=`<b>${pct}%</b> &nbsp;•&nbsp; đã xuất <b>${fmt(st.done)}</b> / ${fmt(tot)} ảnh`+(st.state==='running'&&st.cur?` &nbsp;•&nbsp; <span class="hint">${esc(st.cur)}</span>`:'');
-        if(st.state!=='running') break;
-        if(!document.body.contains(m)) return;
-        await new Promise(r=>setTimeout(r,300));
-      }
-      if(st.state==='error') throw new Error(st.message||'Lỗi khi xuất');
-      bar.style.width='100%';
-      tx.innerHTML=`<span class="ok"><b>Xong.</b> Đã sao chép ${fmt(st.done)}/${fmt(st.total)} ảnh (${fmt(st.copied)} file).</span> <button id="xopen">Mở thư mục</button>`+(st.n_errors?`<div class="warn" style="margin-top:6px">${st.n_errors} ảnh chưa chép được: ${esc((st.errors||[]).slice(0,5).join('; '))}${st.n_errors>5?'…':''}</div>`:'');
-      tx.querySelector('#xopen').onclick=async()=>{ const r=await api('/api/reveal',{path:dest}); if(r.error) toast(r.error); };
-    }catch(err){ xr.innerHTML=`<span class="warn">${esc(err.message)}</span>`; }
-    m.querySelector('#xgo').disabled=false;
+    xgo.disabled=true;
+    try{ await api('/api/export',{ids:list,dest,by_person:m.querySelector('#xp').checked,template:m.querySelector('#xt').value,xmp:m.querySelector('#xx').checked});
+      m.close(); toast('Đang xuất ảnh, xem tiến độ ở bảng góc dưới bên phải'); }
+    catch(err){ m.querySelector('#xr').innerHTML=`<span class="warn">${esc(err.message)}</span>`; xgo.disabled=false; }
+    xjPoll();
   };
+  if(XJ.st&&(XJ.st.state==='running'||XJ.st.state==='deleting')){ m.querySelector('#xr').innerHTML='<span class="warn">Đang có một lần xuất chạy, xem ở bảng góc dưới bên phải. Bấm Dừng ở đó nếu muốn xuất lại.</span>'; }
 };
 /* Gửi ảnh đã lọc sang chế độ Dàn trang */
 if(window.parent!==window && window.parent.PS) $('#bLayout').hidden=false;

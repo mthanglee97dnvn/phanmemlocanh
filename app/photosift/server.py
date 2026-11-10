@@ -564,6 +564,10 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                     path = os.path.join(parent, name)
                     os.makedirs(path, exist_ok=True)
                     return self._json(dict(ok=True, path=path))
+                if u.path == "/api/export/cancel":
+                    return self._json(lib.export_cancel(bool(b.get("delete"))))
+                if u.path == "/api/export/dismiss":
+                    return self._json(lib.export_dismiss())
                 if u.path == "/api/export":
                     r = lib.start_export(b["ids"], b["dest"], bool(b.get("by_person")),
                                          b.get("template") or "{name}", bool(b.get("xmp")))
