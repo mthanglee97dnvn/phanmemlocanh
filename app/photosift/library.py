@@ -1240,6 +1240,7 @@ class Library:
                 r = self.export(ids, dest, by_person, template, xmp, progress=self.export_job, stop=stop)
                 self.export_job.update(copied=r["copied"], errors=r["errors"], n_errors=r["n_errors"],
                                        state="stopped" if stop.is_set() else "done", ended=time.time())
+                self._export_log(ids, dest, r["copied"], "stopped" if stop.is_set() else "done")
             except Exception as e:  # noqa: BLE001
                 self.export_job.update(state="error", message=friendly(e), ended=time.time())
             if getattr(self, "_export_wipe", False):
@@ -1247,6 +1248,49 @@ class Library:
         self._export_wipe = False
         threading.Thread(target=work, daemon=True).start()
         return dict(ok=True, total=len(ids))
+
+    def _export_log(self, ids, dest, copied, state):
+        """Ghi lịch sử xuất (hiện dưới Catalog để Add vào Lightroom sau)."""
+        try:
+            if not copied:
+                return
+            n5 = 0
+            for i in range(0, len(ids), 900):
+                part = ids[i:i + 900]
+                n5 += self.db.one(f"SELECT COUNT(*) c FROM photos WHERE rating=5 AND id IN ({','.join('?' * len(part))})", part)["c"]
+            dest = os.path.abspath(str(dest))
+            self.db.x("DELETE FROM export_log WHERE dest=?", (dest,))   # xuất lại cùng thư mục: giữ một dòng mới nhất
+            cur = self.db.con.execute("INSERT INTO export_log(time,src,dest,n,copied,n5,state) VALUES(?,?,?,?,?,?,?)",
+                                      (time.time(), self.status.get("root") or "", dest, len(ids), copied, n5, state))
+            self.db.con.commit()
+            self.export_job["log_id"] = cur.lastrowid
+        except Exception as e:  # noqa: BLE001
+            print("export log:", e, file=sys.stderr)
+
+    def export_history(self):
+        out = []
+        for r in self.db.q("SELECT * FROM export_log ORDER BY time DESC LIMIT 200"):
+            d = r["dest"]
+            out.append(dict(id=r["id"], time=r["time"], src=r["src"], dest=d, name=os.path.basename(d.rstrip("\\/")) or d,
+                            parent=os.path.basename(os.path.dirname(d.rstrip("\\/"))), n=r["n"], copied=r["copied"],
+                            n5=r["n5"], state=r["state"],
+                            missing=not d.startswith("\\\\") and not os.path.isdir(d)))   # không dò ổ mạng: có thể treo lâu
+        return out
+
+    def export_history_add(self, dest, src=""):
+        """Thêm tay một thư mục đã xuất từ trước (khi chưa có lịch sử)."""
+        dest = os.path.abspath(str(dest))
+        if not os.path.isdir(dest):
+            return dict(error="Không tìm thấy thư mục")
+        n = 0
+        try:
+            n = sum(1 for e in os.scandir(dest) if Path(e.name).suffix.lower() in ALL_EXT)
+        except OSError:
+            pass
+        self.db.x("DELETE FROM export_log WHERE dest=?", (dest,))
+        self.db.x("INSERT INTO export_log(time,src,dest,n,copied,n5,state) VALUES(?,?,?,?,?,?,?)",
+                  (os.path.getmtime(dest), src, dest, n, n, -1, "manual"))
+        return dict(ok=True)
 
     def export_status(self):
         j = dict(getattr(self, "export_job", None) or dict(state="idle"))
@@ -1286,6 +1330,9 @@ class Library:
                 pass
         self._export_made = []
         j.update(state="deleted", removed=n, ended=time.time())
+        lid = j.get("log_id")
+        if lid:
+            self.db.x("DELETE FROM export_log WHERE id=?", (lid,))   # đã xoá file xuất nhầm: bỏ khỏi lịch sử
 
     def export_dismiss(self):
         j = getattr(self, "export_job", None)

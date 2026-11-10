@@ -298,6 +298,15 @@ details.adv{margin:6px 0;border-top:1px solid var(--line);padding-top:6px}detail
 @media (prefers-reduced-motion:reduce){#xjcard .spin{animation-duration:3s}}
 .lrop{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;margin-bottom:8px;border:1px solid var(--line);border-radius:10px;cursor:pointer;line-height:1.5}
 .lrop:has(input:checked){border-color:var(--acc);background:rgba(242,176,30,.08)}.lrop input{margin-top:4px}
+.chist{margin-top:22px}.chist .hh{display:flex;align-items:center;gap:10px;margin:0 0 8px}.chist .hh h3{margin:0;font-size:15px}.chist .hh .sp{flex:1}
+.chist .hh button{font-size:12px;padding:5px 10px}
+.hrow{display:grid;grid-template-columns:28px minmax(160px,1.4fr) minmax(90px,.6fr) minmax(150px,.9fr) 130px auto;align-items:center;gap:10px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel);margin-bottom:6px;cursor:pointer}
+.hrow:hover{border-color:var(--mut)}.hrow.on{border-color:var(--acc);background:rgba(242,176,30,.07)}.hrow.gone{opacity:.55}
+.hrow input{width:16px;height:16px;margin:0;cursor:pointer}.hrow .hn b{display:block}.hrow .hn span,.hrow .hs,.hrow .hd{font-size:12px;color:var(--mut)}
+.hrow .hn span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hrow .hc{font-variant-numeric:tabular-nums;font-size:12px}.hrow .hc b{color:#ffca28}
+.hrow .hb{display:flex;gap:4px}.hrow .hb button{font-size:12px;padding:4px 9px}.hrow .hb .cdel{position:static;width:auto;height:auto;border-radius:6px;background:var(--panel2);color:var(--mut);opacity:0}.hrow:hover .cdel,.hrow:focus-within .cdel{opacity:1}
+.chist .hnone{color:var(--mut);font-size:12px;padding:10px 12px;border:1px dashed var(--line);border-radius:10px}
+@media (max-width:900px){.hrow{grid-template-columns:28px 1fr auto}.hrow .hs,.hrow .hd,.hrow .hc{display:none}}
 </style>
 <link id="uiFont" rel="stylesheet" href="/ui.css">
 </head>
@@ -350,6 +359,7 @@ details.adv{margin:6px 0;border-top:1px solid var(--line);padding-top:6px}detail
     <h2>Catalog thư mục</h2>
     <button class="pri" id="catAdd" title="Hoặc kéo thả thư mục ảnh từ máy tính vào cửa sổ app"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Thêm thư mục</button>
     <button id="catBack" hidden>← Về thư mục đang mở</button>
+    <button class="pri" id="catLr" hidden disabled title="Tick các thư mục đã lọc trong Lịch sử xuất ảnh bên dưới">Add vào Lightroom</button>
     <span class="sp"></span>
     <input type="text" id="catQ" placeholder="Tìm thư mục…" aria-label="Tìm thư mục">
     <select id="catSort" aria-label="Sắp xếp"><option value="opened">Mở gần nhất</option><option value="name">Tên thư mục</option><option value="t1">Ngày chụp mới nhất</option><option value="n">Nhiều ảnh nhất</option><option value="size">Dung lượng lớn nhất</option></select>
@@ -999,7 +1009,8 @@ const catDate=t=>t?new Date(t*1000).toLocaleDateString('vi-VN'):'—';
 const catSize=b=>b>=1e9?(b/1e9).toFixed(1).replace('.',',')+' GB':b>=1e6?Math.round(b/1e6)+' MB':b?Math.max(1,Math.round(b/1e3))+' KB':'—';
 const catRange=c=>{ const a=catDate(c.t0),b=catDate(c.t1); return a===b?a:a+' – '+b; };
 async function showCatalog(){ document.body.classList.add('cat'); $('#catBack').hidden=!S.status.root; $('#catSort').value=Cat.sort;
-  try{ Cat.list=await api('/api/catalog'); paintCache(await api('/api/cache')); }catch(e){ toast(e.message,4000); } drawCatalog(); }
+  try{ Cat.list=await api('/api/catalog'); paintCache(await api('/api/cache')); }catch(e){ toast(e.message,4000); }
+  try{ Cat.hist=await api('/api/export/history'); }catch(e){ Cat.hist=[]; } drawCatalog(); }
 const paintCache=c=>{ Cat.cache=c; $('#catCache').innerHTML='<svg class="ic" aria-hidden="true"><use href="#i-disk"/></svg>Bộ nhớ đệm '+catSize(c.bytes); };
 $('#catCache').onclick=()=>{ const c=Cat.cache, opts=[5,10,20,50,100].map(g=>`<option value="${g}"${g===c.limit_gb?' selected':''}>${g} GB</option>`).join('');
   const m=modal(`<h3>Bộ nhớ đệm</h3><div class="hint" style="margin-bottom:10px">Đang dùng <b>${catSize(c.bytes)}</b>. Nhờ đó, mở lại thư mục đã đọc là có ngay. Dọn bộ nhớ đệm không ảnh hưởng ảnh gốc, số sao, nhãn màu và dấu ✕, chỉ là thư mục đó phải đọc lại khi mở.</div>
@@ -1071,6 +1082,47 @@ async function dropOpen(dt){
   addEventListener('dragleave',e=>{ if(!has(e)) return; if(--n<=0){ n=0; z.classList.remove('on'); } });
   addEventListener('drop',e=>{ if(!has(e)) return; e.preventDefault(); n=0; z.classList.remove('on'); if(document.querySelector('.back')) return; dropOpen(e.dataTransfer); });
 }
+/* ---------- Catalog: lịch sử xuất ảnh đã lọc (vd. ảnh 5 sao) → tick chọn để Add vào Lightroom ---------- */
+Cat.hist=[]; Cat.lrSel=new Set();
+const _drawCatalog0=drawCatalog;
+drawCatalog=function(){ _drawCatalog0(); drawHist(); };
+$('#catQ').oninput=()=>drawCatalog();
+function drawHist(){
+  const box=$('#catBody'); let h=box.querySelector('.chist'); if(h) h.remove();
+  const q=$('#catQ').value.trim().toLowerCase(), l=(Cat.hist||[]).filter(x=>!q||x.dest.toLowerCase().includes(q)||(x.src||'').toLowerCase().includes(q));
+  for(const id of [...Cat.lrSel]) if(!(Cat.hist||[]).some(x=>x.id===id)) Cat.lrSel.delete(id);
+  const srcName=p=>(p||'').replace(/[\\/]+$/,'').split(/[\\/]/).pop()||'—';
+  const when=t=>t?new Date(t*1000).toLocaleString('vi-VN',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
+  const rows=l.map(x=>`<div class="hrow ${Cat.lrSel.has(x.id)?'on':''} ${x.missing?'gone':''}" data-hid="${x.id}" title="${esc(x.dest)}">
+     <input type="checkbox" ${Cat.lrSel.has(x.id)?'checked':''} ${x.missing?'disabled':''} aria-label="Chọn ${esc(x.name)} để Add vào Lightroom">
+     <div class="hn"><b>${esc(x.parent?x.parent+' / ':'')}${esc(x.name)}</b><span>${esc(x.dest)}</span></div>
+     <div class="hs">từ <b>${esc(srcName(x.src))}</b></div>
+     <div class="hc">${fmt(x.n)} ảnh${x.n5>0?` · <b>${fmt(x.n5)} ★5</b>`:''}${x.state==='stopped'?' · <span class="warn">đã dừng giữa chừng</span>':''}${x.missing?' · <span class="warn">không tìm thấy</span>':''}</div>
+     <div class="hd">${when(x.time)}</div>
+     <div class="hb"><button data-hopen="${x.id}" ${x.missing?'disabled':''}>Mở</button><button class="cdel" data-hdel="${x.id}" title="Bỏ khỏi lịch sử (không xoá file)" aria-label="Bỏ ${esc(x.name)} khỏi lịch sử">✕</button></div></div>`).join('');
+  box.insertAdjacentHTML('beforeend',`<section class="chist" aria-label="Lịch sử xuất ảnh"><div class="hh"><h3>Lịch sử xuất ảnh đã lọc</h3><span class="hint">${l.length?'Tick thư mục rồi bấm “Add vào Lightroom” ở trên':''}</span><span class="sp"></span><button id="hAdd">+ Thêm thư mục đã xuất</button></div>
+    ${rows||'<div class="hnone">Chưa có lần xuất nào. Ảnh xuất bằng nút “Xuất ảnh” sẽ hiện ở đây, hoặc bấm “Thêm thư mục đã xuất” để thêm thư mục đã lọc từ trước.</div>'}</section>`);
+  const b=$('#catLr'); b.hidden=!(Cat.hist||[]).length; b.disabled=!Cat.lrSel.size;
+  b.textContent=Cat.lrSel.size?`Add vào Lightroom (${Cat.lrSel.size})`:'Add vào Lightroom';
+  $('#hAdd').onclick=()=>pickFolder(lsGet('ps_xd',''),async p=>{ try{ await api('/api/export/history/add',{path:p,src:S.status.root||''}); Cat.hist=await api('/api/export/history'); drawHist(); toast('Đã thêm vào lịch sử'); }catch(e){ toast(e.message,4000); } },'Chọn thư mục ảnh đã lọc');
+}
+$('#catBody').addEventListener('click',async e=>{
+  const o=e.target.closest('[data-hopen]'); if(o){ e.stopPropagation(); const x=Cat.hist.find(h=>h.id===+o.dataset.hopen); if(x){ const r=await api('/api/reveal',{path:x.dest}).catch(err=>({error:err.message})); if(r.error) toast(r.error); } return; }
+  const d=e.target.closest('[data-hdel]'); if(d){ e.stopPropagation(); await api('/api/export/history/remove',{id:+d.dataset.hdel}); Cat.hist=Cat.hist.filter(h=>h.id!==+d.dataset.hdel); Cat.lrSel.delete(+d.dataset.hdel); drawHist(); return; }
+  const r=e.target.closest('[data-hid]'); if(r){ e.stopPropagation(); const id=+r.dataset.hid, x=Cat.hist.find(h=>h.id===id); if(!x||x.missing) return;
+    Cat.lrSel.has(id)?Cat.lrSel.delete(id):Cat.lrSel.add(id); drawHist(); }
+},true);
+$('#catLr').onclick=()=>{
+  const sel=Cat.hist.filter(x=>Cat.lrSel.has(x.id)); if(!sel.length) return;
+  if(sel.length===1){ lrRun(sel[0].dest); return; }
+  const sp=p=>p.replace(/[\\/]+$/,'').split(/[\\/]/), parts=sel.map(x=>sp(x.dest));
+  let k=0; while(parts.every(a=>a.length>k+1&&a[k]===parts[0][k])) k++;
+  const sep=sel[0].dest.includes('\\')?'\\':'/', common=parts[0].slice(0,k).join(sep);
+  const tooHigh=k<2||/^[A-Za-z]:$/.test(common)||(common.startsWith('\\\\')&&k<5);
+  if(tooHigh){ toast('Lightroom chỉ nhận một thư mục nguồn mỗi lần: hãy tick các thư mục nằm chung một thư mục tổng (vd. MTH và MH của cùng buổi chụp).',6000); return; }
+  const m=modal(`<h3>Add vào Lightroom</h3><div class="hint" style="margin-bottom:10px">Lightroom nhận một thư mục nguồn mỗi lần, nên app sẽ mở Import cho thư mục tổng<br><b>${esc(common)}</b><br>gồm ${sel.map(x=>'<b>'+esc(x.name)+'</b>').join(', ')} (Include Subfolders). Nếu thư mục tổng còn thư mục con khác, bạn có thể bỏ tick chúng trong hộp Import.</div><div class="btns"><button onclick="this.closest('.back').remove()">Huỷ</button><button class="pri" id="lrAll">Mở Lightroom</button></div>`);
+  m.querySelector('#lrAll').onclick=()=>{ m.close(); lrRun(common); };
+};
 const mainDirNav={hist:[],idx:-1};  // nhớ qua các lần mở hộp chọn, để lùi được cả khi đã lỡ bấm "Chọn thư mục này"
 function pickFolder(start, onPick, title='Chọn thư mục'){
   const nav = onPick ? {hist:[],idx:-1} : mainDirNav;
@@ -1209,7 +1261,7 @@ const XJ={t:0,st:null,mini:false};
 const XC=2*Math.PI*80, XMC=2*Math.PI*16;
 function xjMini(v){ XJ.mini=v; xjPaint(XJ.st); if(!v) setTimeout(()=>{ const b=$('#xjcard button'); b&&b.focus(); },0); }
 function xjPaint(st){ XJ.st=st; const box=$('#xjob'), card=$('#xjcard'), mini=$('#xjmini');
-  if(!st||st.state==='idle'){ box.className=''; mini.className=''; card.innerHTML=''; return; }
+  if(!st||!st.state||st.state==='idle'){ box.className=''; mini.className=''; card.innerHTML=''; return; }
   const s=st.state, run=s==='running', tot=st.total||0, done=st.done||0, pct=tot?Math.min(100,Math.round(100*done/tot)):0;
   const delAll=(st.files||0)+(st.removed||0), p=s==='deleting'?(st.removed||0)/Math.max(1,delAll):s==='deleted'?1:(tot?done/tot:0);
   const head={running:'Đang xuất ảnh',done:'Đã xuất xong',stopped:'Đã dừng xuất ảnh',error:'Xuất ảnh bị lỗi',deleting:'Đang xoá file đã xuất',deleted:'Đã xoá file đã xuất'}[s]||'Xuất ảnh';

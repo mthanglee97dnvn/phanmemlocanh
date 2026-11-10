@@ -470,6 +470,8 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                     return self._json(lib.catalog())
                 if u.path == "/api/cull/last":
                     return self._json(lib.cull_last())
+                if u.path == "/api/export/history":
+                    return self._json(lib.export_history())
                 if u.path == "/api/export/status":
                     return self._json(lib.export_status())
                 if u.path == "/api/photos":
@@ -654,6 +656,12 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                     return self._json(dict(ok=True, path=path))
                 if u.path == "/api/export/cancel":
                     return self._json(lib.export_cancel(bool(b.get("delete"))))
+                if u.path == "/api/export/history/remove":
+                    lib.db.x("DELETE FROM export_log WHERE id=?", (int(b["id"]),))
+                    return self._json(dict(ok=True))
+                if u.path == "/api/export/history/add":
+                    r = lib.export_history_add(str(b.get("path", "")), str(b.get("src", "")))
+                    return self._json(r, 400 if r.get("error") else 200)
                 if u.path == "/api/export/dismiss":
                     return self._json(lib.export_dismiss())
                 if u.path == "/api/export":
