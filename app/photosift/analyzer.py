@@ -468,6 +468,33 @@ RAW_EMB_OK = 2000  # JPEG nhúng trong RAW từ cỡ này trở lên (Canon/Niko
 _raw_gate = threading.BoundedSemaphore(2)   # giải mã RAW tốn RAM: tối đa 2 ảnh cùng lúc
 
 
+def _align(dec, ref):
+    """Kéo ảnh giải mã RAW (chưa sửa méo ống kính) khớp hình học với JPEG nhúng (máy ảnh đã sửa méo / crop).
+    Trả về (ảnh đã khớp, độ khớp 0..1)."""
+    H, W = dec.shape[:2]
+    h, w = ref.shape[:2]
+    a = cv2.cvtColor(cv2.resize(dec, (w, h), interpolation=cv2.INTER_AREA), cv2.COLOR_BGR2GRAY)
+    b = cv2.cvtColor(ref, cv2.COLOR_BGR2GRAY)
+    a, b = cv2.equalizeHist(a), cv2.equalizeHist(b)   # tông RAW và JPEG khác nhau: cân bằng để so hình
+    dis = cv2.DISOpticalFlow_create(cv2.DISOPTICAL_FLOW_PRESET_MEDIUM)
+    fl = dis.calc(b, a, None)                            # b(x) ≈ a(x + fl)
+    k = max(3, int(min(h, w) / 20) | 1)                  # méo ống kính thay đổi rất chậm: làm mượt mạnh, bỏ nhiễu
+    fl = cv2.GaussianBlur(fl, (0, 0), k / 2)
+    gx, gy = np.meshgrid(np.arange(w, dtype=np.float32), np.arange(h, dtype=np.float32))
+    a2 = cv2.remap(a, gx + fl[..., 0], gy + fl[..., 1], cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
+    hp = lambda g: (lambda f: f - cv2.GaussianBlur(f, (0, 0), 2))(g.astype(np.float32))
+    x, y = hp(a2).ravel(), hp(b).ravel()
+    score = float(np.dot(x, y) / (np.linalg.norm(x) * np.linalg.norm(y) + 1e-6))
+    sx, sy = W / w, H / h
+    F = cv2.resize(fl, (W, H), interpolation=cv2.INTER_LINEAR)
+    GX, GY = np.meshgrid(np.arange(W, dtype=np.float32), np.arange(H, dtype=np.float32))
+    out = cv2.remap(dec, GX + F[..., 0] * sx, GY + F[..., 1] * sy, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
+    return out, score
+
+
+ALIGN_MIN = 0.3   # khớp kém hơn mức này (ảnh lạ, RAW hỏng…) thì chỉ dùng JPEG nhúng, không ghép chi tiết
+
+
 def _match_tone(src, ref):
     """Giữ nguyên màu và tông của JPEG nhúng (màu máy ảnh), chỉ lấy thêm chi tiết nét từ ảnh giải mã RAW:
     màu (Cr, Cb) và độ sáng tổng thể lấy từ ảnh máy ảnh phóng lên; phần chi tiết nhỏ lấy từ RAW.
@@ -503,7 +530,11 @@ def load_view(path: str, side: int):
                     rgb = raw.postprocess(half_size=True, use_camera_wb=True, output_bps=8)   # đã xoay đúng chiều
                 dec = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
                 if emb is not None and max(dec.shape[:2]) > max(emb.shape[:2]):
-                    img = _match_tone(dec, emb)
+                    # JPEG nhúng đã được máy ảnh sửa méo ống kính, RAW thì chưa: phải khớp hình trước khi ghép chi tiết,
+                    # nếu không nét chữ / viền bị nhân đôi (lệch tới ~16px ở rìa ảnh)
+                    dec, score = _align(dec, emb)
+                    if score >= ALIGN_MIN:
+                        img = _match_tone(dec, emb)
                 elif emb is None:
                     img = dec
             except Exception:  # noqa: BLE001  không có rawpy / RAW lạ: giữ JPEG nhúng

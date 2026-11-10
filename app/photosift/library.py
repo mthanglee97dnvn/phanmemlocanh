@@ -147,6 +147,7 @@ class Library:
                     self._vsides.add(int(a[1]))
         except OSError:
             pass
+        self._view_reset()
         for k in range(2):
             threading.Thread(target=self._view_worker, args=(k == 0,), daemon=True).start()
 
@@ -1073,6 +1074,25 @@ class Library:
         self.db.many("UPDATE photos SET label=? WHERE id=?", [(label, int(i)) for i in ids])
 
     # ------------------------------------------------------------------ ảnh nét cho trình xem
+    VIEW_VERSION = 2   # 2: khớp méo ống kính trước khi ghép chi tiết RAW (bản 1 bị viền đôi)
+
+    def _view_reset(self):
+        """Ảnh nét dựng bằng cách cũ thì bỏ đi (dựng lại khi xem). Đổi tên thư mục cũ ngay (tức thì, trình xem không thể
+        dùng nhầm ảnh cũ) rồi xoá nó ở nền để mở app không bị chậm."""
+        try:
+            r = self.db.one("SELECT v FROM meta WHERE k='view_version'")
+            if r and int(r["v"]) >= self.VIEW_VERSION:
+                return
+            old = VIEWS.with_name(f"view_old_{int(time.time())}")
+            if VIEWS.exists():
+                VIEWS.rename(old)
+            VIEWS.mkdir(parents=True, exist_ok=True)
+            self._vsides = {self._vside} if self._vside else set()
+            self.db.x("INSERT OR REPLACE INTO meta(k,v) VALUES('view_version',?)", (str(self.VIEW_VERSION),))
+            threading.Thread(target=shutil.rmtree, args=(old,), kwargs=dict(ignore_errors=True), daemon=True).start()
+        except Exception as e:  # noqa: BLE001
+            print("view reset:", e, file=sys.stderr)
+
     @staticmethod
     def view_file(pid: int, side: int):
         return VIEWS / f"{pid}_{side}.jpg"
