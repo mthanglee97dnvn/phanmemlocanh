@@ -105,7 +105,7 @@ jobs:
         include:
           - arch: arm64
             label: arm64
-            runner: macos-14
+            runner: macos-15
           - arch: x86_64
             label: intel
             runner: macos-15-intel
