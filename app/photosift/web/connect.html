@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kết nối điện thoại — MThanglee Cull&Collage</title>
+<style>
+  :root{--bg:#16181D;--card:#1e2128;--line:#2c313c;--fg:#eceff4;--mut:#9aa3b2;--accent:#4c8dff;--green:#3ecf8e;--gold:#ffc53d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;padding:28px}
+  .wrap{max-width:900px;margin:0 auto}
+  h1{font-size:22px;margin:0 0 4px}
+  .sub{color:var(--mut);margin:0 0 22px}
+  .cols{display:flex;gap:18px;flex-wrap:wrap}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px;flex:1;min-width:300px}
+  .card h2{font-size:17px;margin:0 0 4px;display:flex;align-items:center;gap:8px}
+  .card .tag{font-size:12px;font-weight:700;padding:2px 8px;border-radius:999px;background:#1c2434;color:var(--accent);border:1px solid #2b3b57}
+  .card .tag.g{color:var(--green);background:#15271f;border-color:#2f6b50}
+  .card p{color:var(--mut);margin:6px 0 14px;font-size:14px}
+  .qrbox{background:#fff;border-radius:14px;padding:14px;display:inline-block;line-height:0}
+  .qrbox img{width:260px;height:260px;display:block}
+  .urlrow{display:flex;gap:8px;margin-top:14px}
+  .urlrow input{flex:1;background:#12141a;border:1px solid var(--line);color:var(--fg);border-radius:10px;padding:10px 12px;font:13px/1.3 ui-monospace,Menlo,Consolas,monospace;min-width:0}
+  button{background:var(--accent);border:none;color:#fff;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer;white-space:nowrap}
+  button.ghost{background:#222734;color:var(--fg);border:1px solid var(--line)}
+  button:active{transform:scale(.97)}
+  .steps{margin:16px 0 0;padding-left:18px;color:var(--mut);font-size:14px}
+  .steps li{margin:3px 0}
+  .warn{color:var(--gold);font-size:13px;margin-top:10px}
+  .none{color:var(--mut);font-size:14px}
+  .foot{color:#5b6472;font-size:12px;text-align:center;margin-top:26px}
+  code{background:#12141a;padding:1px 6px;border-radius:6px;border:1px solid var(--line);font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Kết nối điện thoại để lọc ảnh</h1>
+  <p class="sub">Máy tính làm toàn bộ việc nặng; điện thoại chỉ xem ảnh và chấm sao. Giữ cho app trên máy tính đang chạy.</p>
+
+  <div class="cols">
+    <div class="card" id="cardLan">
+      <h2>Cùng Wi-Fi <span class="tag g">Trong studio</span></h2>
+      <p>Điện thoại và máy tính dùng chung mạng Wi-Fi. Mở camera iPhone, hướng vào mã QR rồi chạm thông báo hiện ra.</p>
+      <div id="lanBody"><div class="none">Đang lấy địa chỉ…</div></div>
+    </div>
+
+    <div class="card" id="cardTs">
+      <h2>Khi đi xa <span class="tag">Qua Tailscale</span></h2>
+      <p>Lọc ảnh từ bất cứ đâu qua internet, có mã hoá. Cần cài Tailscale (miễn phí) trên cả máy tính và iPhone, đăng nhập cùng một tài khoản.</p>
+      <div id="tsBody"><div class="none">Đang kiểm tra Tailscale…</div></div>
+    </div>
+  </div>
+
+  <ol class="steps">
+    <li>Trên iPhone, sau khi mở link, chạm nút chia sẻ → <b>Thêm vào MH chính</b> để dùng như một app riêng.</li>
+    <li>Nếu điện thoại báo không mở được: kiểm tra app trên máy tính còn chạy, và hai máy cùng mạng.</li>
+    <li>Link có kèm mã bảo mật riêng của phiên này — không chia sẻ cho người ngoài.</li>
+  </ol>
+
+  <div class="foot">© Lê Minh Thắng — MTHANGLEE STUDIO. Bản quyền thuộc về tác giả.</div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var $=function(id){return document.getElementById(id)};
+  function qrImg(url){return '/api/qr?d='+encodeURIComponent(url);}
+  function copyBtnRow(url){
+    var box=document.createElement("div"); box.className="urlrow";
+    var inp=document.createElement("input"); inp.readOnly=true; inp.value=url;
+    var b=document.createElement("button"); b.className="ghost"; b.textContent="Sao chép";
+    b.addEventListener("click",function(){inp.select();try{document.execCommand("copy");}catch(e){}
+      if(navigator.clipboard)navigator.clipboard.writeText(url).catch(function(){});
+      b.textContent="Đã chép ✓"; setTimeout(function(){b.textContent="Sao chép";},1500);});
+    box.appendChild(inp); box.appendChild(b); return box;
+  }
+  function section(url){
+    var wrap=document.createElement("div");
+    var q=document.createElement("div"); q.className="qrbox";
+    var im=document.createElement("img"); im.src=qrImg(url); im.alt="QR"; q.appendChild(im);
+    wrap.appendChild(q);
+    wrap.appendChild(copyBtnRow(url));
+    return wrap;
+  }
+  fetch("/api/net",{credentials:"same-origin"}).then(function(r){return r.json();}).then(function(d){
+    if(d.url_lan){ $("lanBody").innerHTML=""; $("lanBody").appendChild(section(d.url_lan)); }
+    else { $("lanBody").innerHTML='<div class="none">Không tìm thấy địa chỉ mạng LAN. Máy tính có đang nối Wi-Fi/LAN không?</div>'; }
+    if(d.url_ts){ $("tsBody").innerHTML='<div style="margin-bottom:8px;color:var(--green);font-size:13px">Tailscale đang bật — địa chỉ: <code>'+d.ts+'</code></div>'; $("tsBody").appendChild(section(d.url_ts)); }
+    else { $("tsBody").innerHTML='<div class="none">Chưa thấy Tailscale trên máy này. Cài tại <code>tailscale.com/download</code>, đăng nhập, rồi mở lại trang này. Khi đó QR dùng khi đi xa sẽ hiện ở đây.</div>'; }
+  }).catch(function(){
+    $("lanBody").innerHTML='<div class="none">Không lấy được thông tin kết nối.</div>';
+    $("tsBody").innerHTML="";
+  });
+})();
+</script>
+</body>
+</html>

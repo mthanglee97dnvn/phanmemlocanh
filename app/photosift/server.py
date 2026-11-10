@@ -290,6 +290,66 @@ def _local_ip():
         return ""
 
 
+_PRIV_NETS = None
+
+
+def _is_private_ip(name: str) -> bool:
+    """IP nội bộ (LAN), loopback, link-local, hoặc dải Tailscale (100.64/10). Chỉ các dải này mới cho điện thoại kết nối."""
+    import ipaddress
+    global _PRIV_NETS
+    if _PRIV_NETS is None:
+        _PRIV_NETS = [ipaddress.ip_network(c) for c in (
+            "127.0.0.0/8", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16",
+            "169.254.0.0/16", "100.64.0.0/10", "::1/128", "fc00::/7", "fe80::/10")]
+    try:
+        ip = ipaddress.ip_address(name)
+    except ValueError:
+        return False
+    return any(ip in net for net in _PRIV_NETS)
+
+
+def _host_ok(host: str, port: int) -> bool:
+    """Chấp nhận Host khi truy cập cục bộ, trong mạng LAN, hoặc qua Tailscale; chặn tên miền lạ (chống DNS rebinding)."""
+    if not host:
+        return False
+    h = host.strip()
+    if h.startswith("["):   # IPv6 có ngoặc: [::1]:port
+        hp = h.rsplit("]", 1)
+        name = hp[0][1:]
+        tail = hp[1]
+        if tail and not tail.startswith(":"):
+            return False
+        p = tail[1:] if tail.startswith(":") else ""
+    else:
+        name, _, p = h.partition(":")
+    if p and p != str(port):
+        return False
+    name = name.lower()
+    if name in ("localhost",) or name.endswith(".local") or name.endswith(".ts.net"):
+        return True
+    return _is_private_ip(name)
+
+
+def _tailscale_ip() -> str:
+    """Địa chỉ Tailscale (100.x) của máy này nếu đã cài Tailscale; rỗng nếu không."""
+    exes = ["tailscale"]
+    if os.name == "nt":
+        exes += [r"C:\Program Files\Tailscale\tailscale.exe", r"C:\Program Files (x86)\Tailscale\tailscale.exe"]
+    else:
+        exes += ["/usr/bin/tailscale", "/usr/local/bin/tailscale", "/Applications/Tailscale.app/Contents/MacOS/Tailscale"]
+    for exe in exes:
+        try:
+            out = subprocess.run([exe, "ip", "-4"], capture_output=True, text=True, timeout=3,
+                                 creationflags=_NOWIN).stdout.strip()
+        except (OSError, subprocess.SubprocessError):
+            continue
+        for line in out.splitlines():
+            line = line.strip()
+            if _is_private_ip(line) and line.startswith("100."):
+                return line
+    return ""
+
+
 def _has_smb(ip):
     try:
         with socket.create_connection((ip, 445), timeout=0.5):
@@ -408,7 +468,6 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
     threading.Thread(target=fonts.scan, daemon=True).start()   # đọc sẵn danh sách font để hộp chọn mở ngay
 
     previews = _Preview(32)
-    allowed_hosts = {f"127.0.0.1:{port}", f"localhost:{port}"}
 
     class H(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
@@ -433,7 +492,7 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                        {"Cache-Control": "no-store"})
 
         def _authed(self):
-            if self.headers.get("Host", "") not in allowed_hosts:
+            if not _host_ok(self.headers.get("Host", ""), port):
                 return False  # chống DNS rebinding
             ck = self.headers.get("Cookie", "")
             return f"ps={token}" in [c.strip() for c in ck.split(";")]
@@ -447,12 +506,19 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
             u = urlparse(self.path)
             q = {k: v[0] for k, v in parse_qs(u.query).items()}
             try:
-                if u.path == "/":
-                    if self.headers.get("Host", "") not in allowed_hosts:
+                if u.path in ("/", "/m", "/connect"):
+                    if not _host_ok(self.headers.get("Host", ""), port):
                         return self._send(403, b"forbidden", "text/plain")
                     if q.get("t") == token or self._authed():
-                        html = _web("shell.html" if lic.ok() else "activate.html")   # chưa có key: bảng kích hoạt
-                        return self._send(200, html, "text/html; charset=utf-8",
+                        if u.path == "/" and not lic.ok():
+                            page = "activate.html"   # chưa có key: bảng kích hoạt
+                        elif u.path == "/m":
+                            page = "mobile.html"      # giao diện lọc cảm ứng cho điện thoại
+                        elif u.path == "/connect":
+                            page = "connect.html"     # trang hiện QR để điện thoại quét
+                        else:
+                            page = "shell.html"
+                        return self._send(200, _web(page), "text/html; charset=utf-8",
                                           {"Set-Cookie": f"ps={token}; HttpOnly; SameSite=Strict; Path=/",
                                            "Cache-Control": "no-store"})
                     return self._send(403, "Mở ứng dụng bằng lối tắt MThanglee Cull&Collage.".encode(), "text/plain; charset=utf-8")
@@ -528,6 +594,22 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                     return self._send(200, png, "image/png", {"Cache-Control": "max-age=300"})
                 if u.path == "/api/diag":
                     return self._json(dict(text=lib.diag(int(q["id"]))))
+                if u.path == "/api/net":   # thông tin để điện thoại kết nối (QR)
+                    lan = _local_ip()
+                    ts = _tailscale_ip()
+                    base_lan = f"http://{lan}:{port}" if lan else ""
+                    base_ts = f"http://{ts}:{port}" if ts else ""
+                    return self._json(dict(
+                        port=port, token=token, lan=lan, ts=ts,
+                        url_lan=f"{base_lan}/m?t={token}" if base_lan else "",
+                        url_ts=f"{base_ts}/m?t={token}" if base_ts else ""))
+                if u.path == "/api/qr":   # mã QR (SVG) cho địa chỉ kết nối điện thoại
+                    d = q.get("d", "")[:512]
+                    if not d:
+                        return self._send(404, b"", "text/plain")
+                    from . import qr as _qr
+                    return self._send(200, _qr.svg(d).encode("utf-8"), "image/svg+xml; charset=utf-8",
+                                      {"Cache-Control": "no-store"})
                 if u.path == "/api/lan":
                     return self._json(lan_scan())
                 if u.path == "/api/lan/shares":
@@ -763,7 +845,7 @@ def serve(port: int = 8765, open_browser: bool = True, folder: str | None = None
             pass
     for p in cands:
         try:
-            httpd = _Srv(("127.0.0.1", p), make_handler(lib, token, p, lic))
+            httpd = _Srv(("0.0.0.0", p), make_handler(lib, token, p, lic))   # 0.0.0.0: cho phép điện thoại trong LAN/Tailscale kết nối (vẫn cần token)
             port = p
             if default_port:
                 try:
@@ -778,7 +860,12 @@ def serve(port: int = 8765, open_browser: bool = True, folder: str | None = None
         print("Không mở được cổng nào", file=sys.stderr)
         sys.exit(1)
     url = f"http://127.0.0.1:{port}/?t={token}"
+    _lan = _local_ip()
     print("=" * 60, flush=True)
+    if _lan:
+        print(f" Lọc ảnh bằng điện thoại (cùng Wi-Fi): http://{_lan}:{port}/m?t={token}", flush=True)
+        print(" (Hoặc mở mục 'Kết nối điện thoại' trong app để quét mã QR)", flush=True)
+        print("=" * 60, flush=True)
     print(" MThanglee Cull&Collage đã chạy. Nếu trình duyệt không tự mở, hãy copy", flush=True)
     print(" TOÀN BỘ đường dẫn dưới đây dán vào Chrome/Edge:", flush=True)
     print("\n " + url + "\n", flush=True)

@@ -63,7 +63,7 @@ dialog button:focus-visible,#mode button:focus-visible{outline:2px solid #F2B01E
     <img src="/logo.png" alt="MTHANGLEE STUDIO">
     <button role="tab" id="tFilter" aria-selected="true" title="Lọc ảnh (Ctrl+1)" aria-keyshortcuts="Control+1">Lọc ảnh</button>
     <button role="tab" id="tLayout" aria-selected="false" title="Dàn trang (Ctrl+2)" aria-keyshortcuts="Control+2">Dàn trang</button>
-    <span class="sp"></span><button id="tUpd" hidden></button><button id="tFont" title="Đổi phông chữ của app">Aa Phông chữ</button><span id="tName">MThanglee Cull&amp;Collage</span>
+    <span class="sp"></span><button id="tUpd" hidden></button><button id="tPhone" title="Lọc ảnh bằng điện thoại (quét QR)">📱 Điện thoại</button><button id="tFont" title="Đổi phông chữ của app">Aa Phông chữ</button><span id="tName">MThanglee Cull&amp;Collage</span>
     <button id="tVer" title="Kiểm tra cập nhật"></button>
     <button id="tLic" title="Thông tin bản quyền"></button>
   </nav>
@@ -85,6 +85,12 @@ dialog button:focus-visible,#mode button:focus-visible{outline:2px solid #F2B01E
   <div id="uBar" hidden><i></i></div>
   <div id="uMsg" role="status"></div>
   <div class="btns"><button id="uClose">Để sau</button><button id="uAgain">Kiểm tra lại</button><button class="pri" id="uGo">Cập nhật ngay</button></div>
+</dialog>
+<dialog id="phoneDlg" style="width:min(960px,calc(100vw - 24px));padding:0;overflow:hidden">
+  <div style="display:flex;align-items:center;justify-content:flex-end;padding:6px 8px;background:#14161A;border-bottom:1px solid #383D47">
+    <button id="phClose" style="background:#2A2E36;border:1px solid #4A505C">Đóng</button>
+  </div>
+  <iframe id="phFrame" title="Kết nối điện thoại" style="width:100%;height:min(78vh,720px);border:0;background:#16181D;display:block"></iframe>
 </dialog>
 <dialog id="licDlg">
   <h2>Bản quyền</h2>
@@ -139,6 +145,8 @@ $('uGo').onclick=async()=>{const m=$('uMsg'),bar=$('uBar'),go=$('uGo'),stop=t=>{
     if(s.state==='ready')break}
   m.textContent='Đang cài đặt. App sẽ tự mở lại, không cần làm gì thêm.';
   const i=await post('/api/update/install');if(i.error)return stop(i.error);setTimeout(()=>window.close(),1500)};
+$('tPhone').onclick=()=>{const fr=$('phFrame');if(fr.src.indexOf('/connect')<0)fr.src='/connect';$('phoneDlg').showModal()};
+$('phClose').onclick=()=>$('phoneDlg').close();
 $('tLic').onclick=()=>{$('licErr').textContent='';$('lKey').value='';$('licDlg').showModal()};$('lClose').onclick=()=>$('licDlg').close();
 $('lGo').onclick=async()=>{const r=await post('/api/license/activate',{key:$('lKey').value});if(r.ok){$('licDlg').close();lic()}else $('licErr').textContent=r.reason};
 let armed=false;$('lRemove').onclick=async e=>{if(!armed){armed=true;e.target.textContent='Bấm lần nữa để gỡ key';return}await post('/api/license/remove');location.reload()};
