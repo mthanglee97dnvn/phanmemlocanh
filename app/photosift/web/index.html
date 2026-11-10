@@ -140,7 +140,10 @@ body.cat #catalog{display:flex}
 .sc:hover{border-color:rgba(255,255,255,.35)}.sc.cur{border-color:#ffca28;background:rgba(255,202,40,.14)}
 .sc img{width:100%;height:78px;object-fit:contain;display:block;background:rgba(0,0,0,.35)}
 .sc .nm{font-size:10px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--mut);padding:2px 2px 0}
-.sc .rt{position:absolute;top:2px;left:4px;font-size:10px;color:#ffca28;text-shadow:0 0 3px #000;letter-spacing:-1px}
+.sc .rt{position:absolute;top:3px;left:3px;font-size:10px;font-weight:700;line-height:1;padding:2px 4px;border-radius:4px;background:rgba(0,0,0,.72);color:#ffca28;font-variant-numeric:tabular-nums}
+#vrate{position:absolute;left:12px;bottom:12px;z-index:2;display:none;align-items:center;gap:6px;padding:5px 10px;border-radius:8px;background:rgba(0,0,0,.66);color:#ffca28;font-size:20px;line-height:1;letter-spacing:1px;pointer-events:none}
+#vrate.on{display:flex}#vrate.rej{color:#ff6b6b;font-size:14px;font-weight:600;letter-spacing:0}#vrate small{font-size:12px;color:#e8e8e8;letter-spacing:0;font-weight:600}
+#vstage.zoom #vrate{display:none}
 .sc .lb{position:absolute;top:4px;right:4px;width:9px;height:9px;border-radius:50%;box-shadow:0 0 0 1px rgba(0,0,0,.5)}
 .sc.rej img{opacity:.3}.sc.rej:after{content:'✕';position:absolute;left:0;right:0;top:22px;text-align:center;color:#ff6b6b;font-size:26px;line-height:1}
 .fbox{position:absolute;transform:translate(-50%,-100%);pointer-events:none;font-size:11px;line-height:1.6;white-space:nowrap;padding:0 7px;border-radius:999px;background:rgba(4,14,30,.72);color:#fff}
@@ -352,7 +355,7 @@ details.adv{margin:6px 0;border-top:1px solid var(--line);padding-top:6px}detail
 
 <div id="viewer">
   <div id="vback"><button id="vbGrid" title="Quay lại lưới ảnh (Esc)">← Lưới ảnh</button><button id="vbCat" title="Về Catalog thư mục"><svg class="ic" aria-hidden="true"><use href="#i-lib"/></svg>Catalog</button><span class="chip" id="vzoom" hidden></span></div>
-  <div id="vstage"><div id="vwrap"><img id="vimg" alt=""><img id="vmask" alt=""><div id="vfaces"></div></div></div>
+  <div id="vstage"><div id="vwrap"><img id="vimg" alt=""><img id="vmask" alt=""><div id="vfaces"></div><div id="vrate" aria-live="polite"></div></div></div>
   <div id="vinfo"></div>
   <div id="strip"><div id="stripin"></div></div>
   <div id="vbadge"></div>
@@ -682,7 +685,7 @@ function renderStrip(center){
   let html='';
   for(let i=lo;i<=hi;i++){ const p=S.view[i];
     html+=`<div class="sc${p.id===S.cur?' cur':''}${p.rating<0?' rej':''}" data-id="${p.id}" style="left:${4+i*SC_W}px" title="${esc(p.name)}"><img loading="lazy" src="/thumb/${p.id}.jpg?v=${p.tv}" alt="">`+
-      (p.rating>0?`<span class="rt">${'★'.repeat(p.rating)}</span>`:'')+(p.label?`<span class="lb l-${p.label}"></span>`:'')+`<div class="nm">${esc(p.name)}</div></div>`; }
+      (p.rating>0?`<span class="rt" aria-label="${p.rating} sao">${p.rating}★</span>`:'')+(p.label?`<span class="lb l-${p.label}"></span>`:'')+`<div class="nm">${esc(p.name)}</div></div>`; }
   inn.innerHTML=html;
 }
 { const st=$('#strip'); let raf=0;
@@ -787,7 +790,7 @@ async function showViewer(){
     if(VPRE.has(u)){ const v=VPRE.get(u); VPRE.delete(u); VPRE.set(u,v); continue; }
     const pre=new Image(); pre.decoding='async'; VPRE.set(u,pre); pre.src=u; }
   while(VPRE.size>24) VPRE.delete(VPRE.keys().next().value);
-  renderInfo(p, ix); renderBadge(p); loadBoxes(p, tok); updateMask(); renderStrip(true); sendAhead();
+  renderInfo(p, ix); renderBadge(p); renderRate(p); loadBoxes(p, tok); updateMask(); renderStrip(true); sendAhead();
 }
 $('#vimg').addEventListener('click', e=>zoomToggle(e.clientX,e.clientY));
 { const st=$('#vstage'); let pan=null;
@@ -814,6 +817,9 @@ function placeBadge(){
 }
 new ResizeObserver(placeBadge).observe($('#vimg'));
 addEventListener('resize',placeBadge);
+function renderRate(p){   // số sao / dấu loại hiện ngay trên ảnh lớn
+  const r=$('#vrate'); r.className=p.rating>0?'on':(p.rating<0?'on rej':'');
+  r.innerHTML=p.rating>0?`${'★'.repeat(p.rating)}<small>${p.rating} sao</small>`:(p.rating<0?'✕ Đã loại':''); }
 function renderBadge(p){
   $('#vbadge').innerHTML=(p.grp&&p.best?`<span class="chip topdup" title="${bestWhy(p)}">Tốt nhất trong ${gsize(p.grp)} ảnh trùng</span>`:'')+(p.flags.includes('dup')?`<span class="chip dup">${FLAG.dup}</span>`:'')
     +(stacked(p)?`<button class="chip stk" id="vstk">${S.open.has(p.grp)?'Thu gọn nhóm':'Xem cả nhóm'} <span class="kbd">G</span></button>`:'');
