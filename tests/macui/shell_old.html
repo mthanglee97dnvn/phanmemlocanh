@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="google" content="notranslate">
+<title>MThanglee Cull&amp;Collage</title>
+<link rel="icon" type="image/png" href="/favicon.png">
+<style>
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:#14161A;color:#ECEEF2;font:13px/1.4 "Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;overflow:hidden}
+#shell{display:grid;grid-template-rows:38px minmax(0,1fr);height:100%}
+#mode{display:flex;align-items:center;gap:6px;padding:0 12px;background:#14161A;border-bottom:1px solid #383D47}
+#mode img{height:22px;width:auto;margin-right:8px}
+#mode button{background:none;border:0;border-bottom:2px solid transparent;color:#A1A8B4;font:inherit;font-weight:600;height:38px;padding:0 14px;cursor:pointer}
+#mode button:hover{color:#fff}
+#mode button[aria-selected=true]{color:#ECEEF2;border-bottom-color:#F2B01E}
+#mode button:focus-visible{outline:2px solid #F2B01E;outline-offset:-3px}
+#mode kbd{display:none}
+#mode .sp{flex:1}
+#mode #tName{font-weight:600;color:#A1A8B4;font-size:12.5px;white-space:nowrap}
+#mode #tLic{height:26px;padding:0 10px;border:1px solid #383D47;border-radius:13px;color:#A1A8B4;font-weight:500;font-size:12px}
+#mode #tLic.warn{color:#F7C757;border-color:#F2B01E}
+#mode #tVer{height:26px;padding:0 8px;border:0;color:#A1A8B4;font-weight:500;font-size:12px}
+#mode #tUpd{height:26px;padding:0 11px;border:0;border-radius:13px;background:#F2B01E;color:#1A1405;font-weight:700;font-size:12px}
+#mode #tUpd:hover{color:#1A1405;background:#F7C757}
+#uNotes{white-space:pre-wrap;max-height:220px;overflow:auto;font-size:13px;line-height:1.5;margin:0 0 10px;color:#d5e2f0}
+#uBar{height:6px;border-radius:3px;background:#2A2E36;overflow:hidden;margin:6px 0}#uBar i{display:block;height:100%;width:0;background:#F2B01E}
+#uMsg{color:#A1A8B4;font-size:12.5px;min-height:18px}
+dialog{background:#1E2127;color:#ECEEF2;border:1px solid #383D47;border-radius:10px;padding:18px;width:min(480px,calc(100vw - 24px))}
+dialog::backdrop{background:#000a}
+dialog h2{font-size:17px;margin:0 0 10px}
+dialog dl{display:grid;grid-template-columns:96px 1fr;gap:5px 10px;margin:0 0 12px;font-size:13px}
+dialog dt{color:#A1A8B4}dialog dd{margin:0;font-family:Consolas,monospace;word-break:break-all}
+dialog textarea{width:100%;min-height:74px;background:#14161A;color:#ECEEF2;border:1px solid #383D47;border-radius:6px;padding:7px;font:12px Consolas,monospace}
+dialog .btns{display:flex;gap:8px;justify-content:flex-end;margin-top:10px;flex-wrap:wrap}
+dialog button{background:#2A2E36;color:#ECEEF2;border:1px solid #4A505C;border-radius:6px;padding:6px 12px;cursor:pointer;font:inherit}
+dialog button.pri{background:#F2B01E;border-color:#F2B01E;color:#1A1405;font-weight:700}
+dialog button.dg{color:#ff9d9b}
+#licErr{color:#ff9d9b;font-size:12.5px;min-height:18px;margin-top:6px}
+#stage{position:relative;min-height:0}
+iframe{position:absolute;inset:0;width:100%;height:100%;border:0;visibility:hidden}
+iframe.on{visibility:visible}
+::selection{background:rgba(242,176,30,.32)}
+dialog button:focus-visible,#mode button:focus-visible{outline:2px solid #F2B01E;outline-offset:1px}
+#mode #tFont{height:26px;padding:0 9px;border:0;color:#A1A8B4;font-weight:600;font-size:12.5px}
+#mode #tFont:hover,#mode #tVer:hover{color:#ECEEF2}
+#fontDlg{width:min(560px,calc(100vw - 24px))}
+#fQ{width:100%;background:#14161A;color:#ECEEF2;border:1px solid #383D47;border-radius:6px;padding:7px 10px;font:inherit;margin-bottom:8px}
+#fList{height:340px;overflow:auto;border:1px solid #383D47;border-radius:8px;background:#14161A}
+#fList button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid #22252B;border-radius:0;padding:8px 12px;color:#ECEEF2}
+#fList button:hover{background:#2A2E36}#fList button[aria-pressed=true]{background:rgba(242,176,30,.14);box-shadow:inset 3px 0 0 #F2B01E}
+#fList small{color:#A1A8B4;font:12px "Segoe UI",system-ui,sans-serif}#fList span{font-size:16px}
+#fMsg{color:#A1A8B4;font-size:12.5px;min-height:18px;margin-top:6px}
+</style>
+<link id="uiFont" rel="stylesheet" href="/ui.css">
+</head>
+<body>
+<div id="shell">
+  <nav id="mode" role="tablist" aria-label="Chế độ làm việc">
+    <img src="/logo.png" alt="MTHANGLEE STUDIO">
+    <button role="tab" id="tFilter" aria-selected="true" title="Lọc ảnh (Ctrl+1)" aria-keyshortcuts="Control+1">Lọc ảnh</button>
+    <button role="tab" id="tLayout" aria-selected="false" title="Dàn trang (Ctrl+2)" aria-keyshortcuts="Control+2">Dàn trang</button>
+    <span class="sp"></span><button id="tUpd" hidden></button><button id="tFont" title="Đổi phông chữ của app">Aa Phông chữ</button><span id="tName">MThanglee Cull&amp;Collage</span>
+    <button id="tVer" title="Kiểm tra cập nhật"></button>
+    <button id="tLic" title="Thông tin bản quyền"></button>
+  </nav>
+  <div id="stage">
+    <iframe id="fFilter" class="on" src="/filter" title="Lọc ảnh"></iframe>
+    <iframe id="fLayout" src="/layout" title="Dàn trang" allow="local-fonts; clipboard-read; clipboard-write"></iframe>
+  </div>
+</div>
+<dialog id="fontDlg">
+  <h2>Phông chữ giao diện</h2>
+  <input id="fQ" type="search" placeholder="Tìm phông trên máy…" aria-label="Tìm phông">
+  <div id="fList" role="listbox" aria-label="Phông chữ đủ dấu tiếng Việt"></div>
+  <div id="fMsg" role="status"></div>
+  <div class="btns"><button id="fClose">Xong</button></div>
+</dialog>
+<dialog id="updDlg">
+  <h2 id="uHead"></h2>
+  <p id="uNotes"></p>
+  <div id="uBar" hidden><i></i></div>
+  <div id="uMsg" role="status"></div>
+  <div class="btns"><button id="uClose">Để sau</button><button id="uAgain">Kiểm tra lại</button><button class="pri" id="uGo">Cập nhật ngay</button></div>
+</dialog>
+<dialog id="licDlg">
+  <h2>Bản quyền</h2>
+  <dl><dt>Trạng thái</dt><dd id="lState"></dd><dt>Mã máy</dt><dd id="lMach"></dd></dl>
+  <textarea id="lKey" placeholder="Dán key mới để gia hạn hoặc đổi key" aria-label="Key mới"></textarea>
+  <div id="licErr" role="status"></div>
+  <div class="btns"><button class="dg" id="lRemove">Gỡ key khỏi máy này</button><button id="lClose">Đóng</button><button class="pri" id="lGo">Kích hoạt key mới</button></div>
+</dialog>
+<script>
+"use strict";
+const f=document.getElementById('fFilter'),l=document.getElementById('fLayout'),a=document.getElementById('tFilter'),b=document.getElementById('tLayout');
+window.PS={
+  show(name){const on=name==='layout';l.classList.toggle('on',on);f.classList.toggle('on',!on);b.setAttribute('aria-selected',on);a.setAttribute('aria-selected',!on);(on?l:f).contentWindow.focus();
+    if(on)try{l.contentWindow.dispatchEvent(new Event('resize'))}catch(e){}},
+  layout(){return l.contentWindow.vuotBridge||null}};
+a.onclick=()=>PS.show('filter');b.onclick=()=>PS.show('layout');
+addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&(e.key==='1'||e.key==='2')){e.preventDefault();PS.show(e.key==='1'?'filter':'layout')}});
+addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&!e.altKey&&e.key.toLowerCase()==='y'){e.preventDefault();const f=document.querySelector('iframe[src="/filter"]');if(f&&f.offsetParent!==null&&!document.querySelector('dialog[open]')){try{f.contentWindow.openExportKey()}catch(_){}}}});
+const $=i=>document.getElementById(i),post=(u,b)=>fetch(u,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(b||{})}).then(r=>r.json());
+async function lic(){let s;try{s=await fetch('/api/license').then(r=>r.json())}catch(e){return}if(!s.ok){location.reload();return}
+  const t=$('tLic'),low=!s.permanent&&s.days_left<=14;t.textContent=s.permanent?'Bản quyền vĩnh viễn':`Còn ${s.days_left} ngày`;t.classList.toggle('warn',low);
+  $('lState').textContent=s.permanent?'Vĩnh viễn':`Đến ${s.expires}, còn ${s.days_left} ngày`;$('lMach').textContent=s.machine}
+lic();setInterval(lic,600000);
+/* phông chữ: chỉ liệt kê phông đã cài trên máy có đủ dấu tiếng Việt; áp dụng ngay cho cả hai tab */
+let FL=null,FCUR='';
+const SAMPLE='Lọc ảnh cưới Gia Huy & Thùy Trân, đã chọn 128 ảnh';
+function reloadUiCss(){const v=Date.now();for(const d of[document,f.contentDocument,l.contentDocument]){const k=d&&d.getElementById('uiFont');if(k)k.href='/ui.css?v='+v}}
+function drawFonts(){const q=$('fQ').value.trim().toLowerCase(),box=$('fList');box.replaceChildren();
+  const vi=(FL||[]).filter(x=>x.vi),items=[{family:'',label:'Mặc định của Windows (Segoe UI)'},...vi.filter(x=>!q||x.family.toLowerCase().includes(q))];
+  for(const it of items){const b=document.createElement('button'),n=document.createElement('small'),p=document.createElement('span');
+    n.textContent=it.label||it.family;p.textContent=SAMPLE;p.style.fontFamily=it.family?`"${it.family}",sans-serif`:'"Segoe UI",system-ui,sans-serif';
+    b.append(n,p);b.setAttribute('role','option');b.setAttribute('aria-pressed',String(it.family===FCUR));b.onclick=()=>pickUiFont(it.family);box.append(b)}
+  $('fMsg').textContent=FL?`${vi.length} phông đủ dấu tiếng Việt trên máy, đã ẩn ${FL.length-vi.length} phông thiếu dấu.`:'Đang đọc phông trên máy…'}
+async function pickUiFont(name){const r=await post('/api/ui',{font:name});if(r.error){$('fMsg').textContent=r.error;return}FCUR=r.font;reloadUiCss();drawFonts()}
+$('tFont').onclick=async()=>{$('fQ').value='';$('fontDlg').showModal();drawFonts();
+  try{FCUR=(await fetch('/api/ui').then(r=>r.json())).font;FL=await fetch('/api/fonts').then(r=>r.json())}catch(e){$('fMsg').textContent='Chưa đọc được phông trên máy. Hãy thử lại.';return}drawFonts();$('fQ').focus()};
+$('fQ').oninput=drawFonts;$('fClose').onclick=()=>$('fontDlg').close();
+let U=null,busy=false;
+const showU=(r,msg)=>{U=r;const av=r.available;$('tVer').textContent='Bản '+r.current;$('tUpd').hidden=!av;$('tUpd').textContent='Cập nhật lên bản '+r.latest;
+  $('uHead').textContent=av?'Có bản mới '+r.latest:'Bản '+r.current;$('uNotes').textContent=av?r.notes:(r.error||'Bạn đang dùng bản mới nhất.');$('uGo').hidden=!av;$('uAgain').hidden=av;$('uMsg').textContent=msg||''};
+async function checkUpd(force){try{showU(await fetch('/api/update/check'+(force?'?force=1':'')).then(r=>r.json()));return true}catch(e){return false}}
+setTimeout(()=>checkUpd(),3000);setInterval(()=>checkUpd(),21600000);
+$('tVer').onclick=$('tUpd').onclick=()=>{if(U)$('updDlg').showModal()};$('uClose').onclick=()=>{if(!busy)$('updDlg').close()};
+$('uAgain').onclick=async()=>{const b=$('uAgain'),m=$('uMsg'),t=performance.now();b.disabled=true;m.textContent='Đang kiểm tra…';
+  const ok=await checkUpd(true);b.disabled=false;m.textContent=ok?`Đã kiểm tra trong ${((performance.now()-t)/1000).toFixed(1).replace('.',',')} giây`:'Mất kết nối với app. Hãy mở lại app rồi thử lại.'};
+$('uGo').onclick=async()=>{const m=$('uMsg'),bar=$('uBar'),go=$('uGo'),stop=t=>{busy=false;go.disabled=false;bar.hidden=true;m.textContent=t};
+  busy=true;go.disabled=true;bar.hidden=false;m.textContent='Đang tải bản mới…';
+  const r=await post('/api/update/start');if(r.error)return stop(r.error);
+  for(;;){await new Promise(z=>setTimeout(z,400));let s;try{s=await fetch('/api/update/status').then(x=>x.json())}catch(e){return stop('Mất kết nối. Hãy thử lại.')}
+    if(s.state==='error')return stop(s.error);
+    bar.firstChild.style.width=(s.total?100*s.got/s.total:0)+'%';m.textContent=`Đang tải ${(s.got/1e6).toFixed(0)}/${(s.total/1e6).toFixed(0)} MB`;
+    if(s.state==='ready')break}
+  m.textContent='Đang cài đặt. App sẽ tự mở lại, không cần làm gì thêm.';
+  const i=await post('/api/update/install');if(i.error)return stop(i.error);setTimeout(()=>window.close(),1500)};
+$('tLic').onclick=()=>{$('licErr').textContent='';$('lKey').value='';$('licDlg').showModal()};$('lClose').onclick=()=>$('licDlg').close();
+$('lGo').onclick=async()=>{const r=await post('/api/license/activate',{key:$('lKey').value});if(r.ok){$('licDlg').close();lic()}else $('licErr').textContent=r.reason};
+let armed=false;$('lRemove').onclick=async e=>{if(!armed){armed=true;e.target.textContent='Bấm lần nữa để gỡ key';return}await post('/api/license/remove');location.reload()};
+// thả file/thư mục lỡ rơi ra ngoài khung (thanh tab): không để cửa sổ mở file đó thay cho app
+addEventListener('dragover',e=>e.preventDefault()); addEventListener('drop',e=>e.preventDefault());
+</script>
+</body>
+</html>

@@ -1,0 +1,37 @@
+name: Thu giao dien tren Mac
+on:
+  push:
+    branches: [claude/mac-ui-test]
+jobs:
+  ui:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-15, macos-15-intel]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Chuẩn bị
+        run: |
+          mkdir -p shots
+          cd tests/macui && npm init -y >/dev/null && npm i playwright@1.49.1 >/dev/null && npx playwright install webkit
+          python3 -m pip install --break-system-packages pywebview || python3 -m pip install pywebview
+      - name: Chạy máy chủ giả (shell cũ 8801, shell mới 8802)
+        run: |
+          W=app/photosift/web
+          nohup python3 tests/macui/srv.py $W tests/macui/shell_old.html 8801 >/dev/null 2>&1 &
+          nohup python3 tests/macui/srv.py $W tests/macui/shell_new.html 8802 >/dev/null 2>&1 &
+          sleep 2; curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8802/
+      - name: Chụp bằng WebKit (Playwright)
+        run: cd tests/macui && node shot.mjs
+      - name: Chụp bằng cửa sổ thật (pywebview + WKWebView)
+        continue-on-error: true
+        run: |
+          python3 tests/macui/native.py 8801 old
+          python3 tests/macui/native.py 8802 new
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shots-${{ matrix.runner }}
+          path: shots/
