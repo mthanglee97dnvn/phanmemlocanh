@@ -86,11 +86,14 @@ dialog button:focus-visible,#mode button:focus-visible{outline:2px solid #F2B01E
   <div id="uMsg" role="status"></div>
   <div class="btns"><button id="uClose">Để sau</button><button id="uAgain">Kiểm tra lại</button><button class="pri" id="uGo">Cập nhật ngay</button></div>
 </dialog>
-<dialog id="phoneDlg" style="width:min(960px,calc(100vw - 24px));padding:0;overflow:hidden">
-  <div style="display:flex;align-items:center;justify-content:flex-end;padding:6px 8px;background:#14161A;border-bottom:1px solid #383D47">
-    <button id="phClose" style="background:#2A2E36;border:1px solid #4A505C">Đóng</button>
+<dialog id="phoneDlg" style="width:min(900px,calc(100vw - 24px));max-height:92vh;padding:0;overflow:hidden;background:#16181D;color:#eceff4;border:1px solid #2c313c;border-radius:16px">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #2c313c">
+    <b style="font-size:16px">📱 Lọc ảnh bằng điện thoại</b>
+    <button id="phClose" style="background:#2A2E36;border:1px solid #4A505C;color:#eceff4">Đóng</button>
   </div>
-  <iframe id="phFrame" title="Kết nối điện thoại" style="width:100%;height:min(78vh,720px);border:0;background:#16181D;display:block"></iframe>
+  <div id="phBody" style="padding:16px;overflow:auto;max-height:calc(92vh - 58px)">
+    <div style="color:#9aa3b2">Đang lấy địa chỉ…</div>
+  </div>
 </dialog>
 <dialog id="licDlg">
   <h2>Bản quyền</h2>
@@ -145,7 +148,35 @@ $('uGo').onclick=async()=>{const m=$('uMsg'),bar=$('uBar'),go=$('uGo'),stop=t=>{
     if(s.state==='ready')break}
   m.textContent='Đang cài đặt. App sẽ tự mở lại, không cần làm gì thêm.';
   const i=await post('/api/update/install');if(i.error)return stop(i.error);setTimeout(()=>window.close(),1500)};
-$('tPhone').onclick=()=>{const fr=$('phFrame');if(fr.src.indexOf('/connect')<0)fr.src='/connect';$('phoneDlg').showModal()};
+function phCard(title,tag,tagColor,tagBg,desc,url,extra){
+  var qr='/api/qr?d='+encodeURIComponent(url);
+  return '<div style="background:#1e2128;border:1px solid #2c313c;border-radius:16px;padding:18px;flex:1;min-width:280px">'
+    +'<div style="font-size:16px;font-weight:700;margin-bottom:4px">'+title
+    +' <span style="font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px;color:'+tagColor+';background:'+tagBg+';border:1px solid '+tagColor+'55;margin-left:6px">'+tag+'</span></div>'
+    +'<div style="color:#9aa3b2;font-size:13px;margin:6px 0 12px">'+desc+'</div>'
+    +(extra||'')
+    +'<div style="background:#fff;border-radius:14px;padding:12px;display:inline-block;line-height:0"><img src="'+qr+'" alt="QR" style="width:240px;height:240px;display:block"></div>'
+    +'<div style="display:flex;gap:8px;margin-top:12px"><input readonly value="'+url+'" style="flex:1;background:#12141a;border:1px solid #2c313c;color:#eceff4;border-radius:10px;padding:9px 11px;font:12px ui-monospace,Consolas,monospace;min-width:0">'
+    +'<button data-copy="'+url+'" style="background:#222734;border:1px solid #2c313c;color:#eceff4">Sao chép</button></div></div>';
+}
+function phNone(title,msg){
+  return '<div style="background:#1e2128;border:1px solid #2c313c;border-radius:16px;padding:18px;flex:1;min-width:280px">'
+    +'<div style="font-size:16px;font-weight:700;margin-bottom:8px">'+title+'</div>'
+    +'<div style="color:#9aa3b2;font-size:14px">'+msg+'</div></div>';
+}
+$('tPhone').onclick=async()=>{
+  $('phoneDlg').showModal();
+  var body=$('phBody'); body.innerHTML='<div style="color:#9aa3b2">Đang lấy địa chỉ…</div>';
+  var d; try{d=await fetch('/api/net').then(r=>r.json())}catch(e){body.innerHTML='<div style="color:#ff5c6c">Không lấy được thông tin kết nối. Hãy đóng rồi mở lại.</div>';return}
+  var html='';
+  if(d.url_lan) html+=phCard('Cùng Wi-Fi','Trong studio','#3ecf8e','#15271f','Mở Camera trên iPhone (cùng Wi-Fi với máy này), hướng vào mã QR rồi chạm thông báo.',d.url_lan,'');
+  else html+=phNone('Cùng Wi-Fi','Không tìm thấy địa chỉ mạng LAN của máy tính. Máy có đang nối Wi-Fi/dây mạng không?');
+  if(d.url_ts) html+=phCard('Khi đi xa','Qua Tailscale','#4c8dff','#1c2434','Lọc ảnh từ bất cứ đâu qua internet, có mã hoá.',d.url_ts,'<div style="color:#3ecf8e;font-size:13px;margin-bottom:8px">Tailscale đang bật — '+d.ts+'</div>');
+  else html+=phNone('Khi đi xa (Tailscale)','Chưa thấy Tailscale trên máy này. Cài miễn phí tại tailscale.com/download, đăng nhập, rồi mở lại bảng này để có QR dùng khi đi xa.');
+  body.innerHTML='<div style="display:flex;gap:14px;flex-wrap:wrap">'+html+'</div>'
+    +'<div style="color:#9aa3b2;font-size:13px;margin-top:14px;line-height:1.5">Trên iPhone: quét QR → trang lọc mở ra → bấm nút <b>Chia sẻ</b> → <b>Thêm vào MH chính</b> để cài thành app. Giữ app trên máy tính luôn chạy khi lọc.</div>';
+  body.querySelectorAll('[data-copy]').forEach(function(btn){btn.onclick=function(){var u=btn.getAttribute('data-copy');if(navigator.clipboard)navigator.clipboard.writeText(u);btn.textContent='Đã chép ✓';setTimeout(function(){btn.textContent='Sao chép'},1500)}});
+};
 $('phClose').onclick=()=>$('phoneDlg').close();
 $('tLic').onclick=()=>{$('licErr').textContent='';$('lKey').value='';$('licDlg').showModal()};$('lClose').onclick=()=>$('licDlg').close();
 $('lGo').onclick=async()=>{const r=await post('/api/license/activate',{key:$('lKey').value});if(r.ok){$('licDlg').close();lic()}else $('licErr').textContent=r.reason};
