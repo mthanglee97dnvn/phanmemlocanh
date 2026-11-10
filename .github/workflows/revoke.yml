@@ -18,8 +18,8 @@ jobs:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           REPO: ${{ github.repository_owner }}/cullcollage-releases
         run: |
-          grep -E '^[0-9a-fA-F]{16}$' license/revoked.txt > revoked.txt || true
-          echo "Số key thu hồi: $(wc -l < revoked.txt)"
+          { echo "# MThanglee Cull&Collage - revoked key ids"; grep -E '^[0-9a-fA-F]{16}$' license/revoked.txt || true; } > revoked.txt
+          echo "Số key thu hồi: $(grep -cE '^[0-9a-fA-F]{16}$' revoked.txt)"
           gh release view license --repo "$REPO" >/dev/null 2>&1 || \
             gh release create license --repo "$REPO" --prerelease --title "Danh sách key thu hồi" --notes "Dùng nội bộ cho app, không phải bản cài."
           gh release upload license revoked.txt --repo "$REPO" --clobber
