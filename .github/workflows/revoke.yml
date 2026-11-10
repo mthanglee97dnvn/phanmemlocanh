@@ -1,0 +1,25 @@
+name: Dang danh sach key thu hoi
+
+# Chủ phần mềm thêm mã key vào license/revoked.txt (python tools/thu_hoi_key.py "<key>") rồi đẩy lên main:
+# workflow này đăng file lên kho phát hành công khai, app trên mọi máy tự tải về (khi có mạng) và khoá key đó.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [license/revoked.txt]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Đăng license/revoked.txt lên kho phát hành
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          REPO: ${{ github.repository_owner }}/cullcollage-releases
+        run: |
+          grep -E '^[0-9a-fA-F]{16}$' license/revoked.txt > revoked.txt || true
+          echo "Số key thu hồi: $(wc -l < revoked.txt)"
+          gh release view license --repo "$REPO" >/dev/null 2>&1 || \
+            gh release create license --repo "$REPO" --prerelease --title "Danh sách key thu hồi" --notes "Dùng nội bộ cho app, không phải bản cài."
+          gh release upload license revoked.txt --repo "$REPO" --clobber

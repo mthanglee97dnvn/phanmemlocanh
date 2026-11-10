@@ -27,6 +27,22 @@ from .library import COVERS, FACES, PREVIEWS, THUMBS, Library, ui_ping
 from .license import License
 
 WEB = Path(__file__).parent / "web"
+_WEBC: dict[str, bytes] = {}
+
+
+def _web(name: str) -> bytes:
+    """Giao diện: bản phát hành nhúng sẵn trong lõi đã biên dịch (đã làm rối, không có file rời); bản mã nguồn đọc từ thư mục web."""
+    b = _WEBC.get(name)
+    if b is None:
+        try:
+            from . import _webpack   # chỉ có trong bản build
+            b = _webpack.get(name)
+        except ImportError:
+            b = None
+        if b is None:
+            b = (WEB / name).read_bytes()
+        _WEBC[name] = b
+    return b
 LAST_SEEN = [time.time()]   # lần cuối giao diện hỏi trạng thái (để tự thoát khi đóng trình duyệt)
 IDLE_EXIT_S = 240
 WEB_SAFE = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
@@ -435,7 +451,7 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                     if self.headers.get("Host", "") not in allowed_hosts:
                         return self._send(403, b"forbidden", "text/plain")
                     if q.get("t") == token or self._authed():
-                        html = (WEB / ("shell.html" if lic.ok() else "activate.html")).read_bytes()   # chưa có key: bảng kích hoạt
+                        html = _web("shell.html" if lic.ok() else "activate.html")   # chưa có key: bảng kích hoạt
                         return self._send(200, html, "text/html; charset=utf-8",
                                           {"Set-Cookie": f"ps={token}; HttpOnly; SameSite=Strict; Path=/",
                                            "Cache-Control": "no-store"})
@@ -452,7 +468,7 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
 
                 if u.path in ("/filter", "/layout"):
                     name = "index.html" if u.path == "/filter" else "layout.html"
-                    return self._send(200, (WEB / name).read_bytes(), "text/html; charset=utf-8", {"Cache-Control": "no-store"})
+                    return self._send(200, _web(name), "text/html; charset=utf-8", {"Cache-Control": "no-store"})
                 if u.path == "/api/file":
                     p = os.path.abspath(q.get("path", ""))
                     ext = Path(p).suffix.lower()
@@ -471,7 +487,7 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                         return self._send(404, b"", "text/plain")
                     return self._send(200, data, "image/jpeg", {"Cache-Control": "max-age=3600"})
                 if u.path in ("/logo.png", "/favicon.png"):
-                    return self._send(200, (WEB / u.path[1:]).read_bytes(), "image/png", {"Cache-Control": "max-age=86400"})
+                    return self._send(200, _web(u.path[1:]), "image/png", {"Cache-Control": "max-age=86400"})
                 if u.path == "/api/status":
                     idle = time.time() - LAST_SEEN[0]
                     LAST_SEEN[0] = time.time()
@@ -771,6 +787,12 @@ def serve(port: int = 8765, open_browser: bool = True, folder: str | None = None
     if not lib.an.has_eyes:
         print("Ghi chú: chưa có lbfmodel.yaml nên chưa phát hiện được ảnh nhắm mắt (chạy: python -m photosift.models).")
     lib.online.start()
+    try:   # danh sách key bị thu hồi (kho phát hành công khai)
+        from .license import start_revocation
+        from .update import build_info
+        start_revocation(build_info().get("repo", ""))
+    except Exception as e:  # noqa: BLE001
+        print("revoke:", e, file=sys.stderr)
     # Ghi thông tin phiên để bộ khởi chạy có thể mở lại cửa sổ đang chạy
     from .db import HOME
     run_file = HOME / "running.json"

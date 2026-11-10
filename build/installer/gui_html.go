@@ -28,6 +28,8 @@ li:before{content:"◆";position:absolute;left:0;color:#d6ae5c;font-size:10px;to
 .pct{display:flex;justify-content:space-between;color:#b9ac90;font-size:12px;margin-top:6px}
 pre{margin:14px 0 0;height:96px;overflow:auto;background:rgba(0,0,0,.4);border-radius:10px;padding:8px 10px;font:11px/1.45 Consolas,monospace;color:#a89d84;white-space:pre-wrap;word-break:break-all}
 .big{font-size:44px;text-align:center;color:#d6ae5c;margin:8px 0}.err{color:#ff9d8a}
+.eula{height:110px;overflow:auto;border:1px solid rgba(214,174,92,.35);border-radius:8px;padding:8px 10px;font-size:11.5px;line-height:1.5;color:#cfc4ad;background:rgba(0,0,0,.25);margin:10px 0 6px}
+.agree{display:flex;gap:8px;align-items:center;font-size:12.5px;margin:4px 0 0}.agree input{width:16px;height:16px}
 .hide{display:none}.note{color:#b9ac90;font-size:12.5px;text-align:center;margin-top:10px}
 </style></head><body><div class="card">
 <img class="logo" src="/logo.png" alt="MTHANGLEE STUDIO">
@@ -39,7 +41,9 @@ pre{margin:14px 0 0;height:96px;overflow:auto;background:rgba(0,0,0,.4);border-r
  <ul><li>Cần kết nối Internet khi cài đặt (khoảng 3–5 phút, chỉ một lần).</li>
  <li>Cài riêng cho tài khoản của bạn, không cần quyền Admin.</li>
  <li>Tạo lối tắt trên Desktop và Start Menu; gỡ cài đặt trong Settings › Apps.</li></ul>
- <div class="btns"><button id="cancel">Thoát</button><button class="pri" id="go">Cài đặt</button></div>
+<div class="eula" id="eula">ĐIỀU KHOẢN SỬ DỤNG PHẦN MỀM MTHANGLEE CULL&amp;COLLAGE<br><br>Phần mềm MThanglee Cull&amp;Collage (gồm chương trình, giao diện, mô hình xử lý, tài liệu và các bản cập nhật) là tác phẩm thuộc quyền tác giả của ông LÊ MINH THẮNG (MTHANGLEE STUDIO). Mọi quyền được bảo lưu.<br><br>1. Cấp phép: Người dùng được cấp quyền sử dụng phần mềm trên đúng máy tính đã kích hoạt bằng key hợp lệ do MTHANGLEE STUDIO cấp. Quyền sử dụng không phải là quyền sở hữu phần mềm.<br>2. Không được: sao chép, bán, cho thuê, cho mượn, chia sẻ key; dịch ngược, giải mã, tháo gỡ, chỉnh sửa, bẻ khoá hay vô hiệu hoá cơ chế bản quyền; trích xuất mã, giao diện, thuật toán để tạo sản phẩm khác; gỡ bỏ thông tin bản quyền.<br>3. Thu hồi: Key bị chia sẻ, mua bán hoặc dùng trái phép có thể bị thu hồi từ xa mà không cần báo trước. Phần mềm định kỳ kiểm tra danh sách key bị thu hồi khi có kết nối mạng; việc kiểm tra không gửi ảnh hay dữ liệu cá nhân của người dùng.<br>4. Dữ liệu: Ảnh và dữ liệu của người dùng được xử lý trên máy của người dùng. Phần mềm chỉ sao chép, không xoá hay sửa ảnh gốc.<br>5. Bảo đảm: Phần mềm được cung cấp theo hiện trạng. Người dùng tự sao lưu dữ liệu quan trọng.<br>6. Vi phạm: Hành vi vi phạm sẽ được xử lý theo Luật Sở hữu trí tuệ và pháp luật Việt Nam hiện hành.<br><br>Bằng việc cài đặt hoặc sử dụng phần mềm, bạn đồng ý với các điều khoản trên.<br>© 2026 Lê Minh Thắng — MTHANGLEE STUDIO.</div>
+ <label class="agree"><input type="checkbox" id="agree"> Tôi đã đọc và đồng ý với Điều khoản sử dụng</label>
+ <div class="btns"><button id="cancel">Thoát</button><button class="pri" id="go" disabled>Cài đặt</button></div>
  <div class="err" id="e1"></div>
 </div>
 <div id="p2" class="hide">
@@ -71,6 +75,7 @@ $("steps").innerHTML=NAMES.map(function(n,i){return '<div class="st" id="s'+(i+1
 function fin(d){d=d.trim().replace(/[\\\/]+$/,"");var m=d.split(/[\\\/]/).pop();return m.toLowerCase()==="mthanglee cullcollage"?d:d+"\\MThanglee CullCollage"}
 function upd(){$("final").textContent=fin($("dir").value||"")}
 $("dir").oninput=upd;
+$("agree").onchange=function(){$("go").disabled=!$("agree").checked};
 var init=false,t4=null,lastStep=0;
 $("pick").onclick=function(){$("pick").disabled=true;api("/api/pick",{}).then(function(r){$("pick").disabled=false;if(r.path){$("dir").value=r.path;upd()}})};
 $("go").onclick=function(){$("e1").textContent="";api("/api/start",{dir:$("dir").value}).then(function(r){if(r.error)$("e1").textContent=r.error})};

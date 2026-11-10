@@ -1,0 +1,1 @@
+# Mã nhận diện các key đã thu hồi (mỗi dòng 16 ký tự). Thêm bằng: python tools/thu_hoi_key.py "<key>"

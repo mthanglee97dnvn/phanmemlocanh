@@ -23,4 +23,5 @@ with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
                                            "repo": release_repo}))
     for f in ("README.md", "HUONG_DAN.txt"):
         z.write(os.path.join(root, "app", f), f); n += 1
+    z.write(os.path.join(root, "legal", "DIEU_KHOAN_SU_DUNG.txt"), "DIEU_KHOAN_SU_DUNG.txt"); n += 1
 print(f"{n} file -> {out} ({os.path.getsize(out)/1e6:.0f} MB)")

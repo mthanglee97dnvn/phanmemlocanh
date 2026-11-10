@@ -16,6 +16,33 @@ from .license_pub import PUB_HEX
 EPOCH = dt.date(2024, 1, 1)
 PERMANENT = 0xFFFF
 FILE = HOME / "license.json"
+REVOKED_FILE = HOME / "revoked.txt"   # bản lưu gần nhất của danh sách key bị thu hồi (dùng khi mất mạng)
+REVOKE_EVERY = 6 * 3600
+
+
+def _raw_key(text: str) -> bytes | None:
+    t = re.sub(r"[^A-Za-z2-7]", "", text or "").upper()
+    if t.startswith("MTCC"):
+        t = t[4:]
+    try:
+        raw = base64.b32decode(t + "=" * (-len(t) % 8))
+    except ValueError:
+        return None
+    return raw if len(raw) == 78 else None
+
+
+def key_id(text: str) -> str:
+    """Mã nhận diện của một key (16 ký tự hex). Danh sách thu hồi chỉ chứa mã này, không chứa key."""
+    raw = _raw_key(text)
+    return hashlib.sha256(b"MTCC-REVOKE|" + raw).hexdigest()[:16] if raw else ""
+
+
+def _revoked_ids() -> set[str]:
+    try:
+        return {ln.strip().lower() for ln in REVOKED_FILE.read_text(encoding="utf-8").splitlines()
+                if re.fullmatch(r"[0-9a-fA-F]{16}", ln.strip())}
+    except OSError:
+        return set()
 
 # ---- Ed25519 (RFC 8032), phần xác minh, thuần Python để không thêm thư viện vào gói cài
 _P = 2 ** 255 - 19
@@ -194,6 +221,8 @@ class License:
             self.state = dict(ok=False, reason="")
             return self.state
         st = parse(d["key"])
+        if st.get("ok") and key_id(d["key"]) in _revoked_ids():
+            st = dict(ok=False, reason="Key này đã bị thu hồi. Hãy liên hệ MTHANGLEE STUDIO để được cấp key mới.", revoked=True)
         now = today_num()
         if st.get("ok") and not st["permanent"]:
             if now < int(d.get("seen", 0)) - 1:   # chống vặn lùi đồng hồ để kéo dài key có hạn
@@ -220,6 +249,8 @@ class License:
 
     def activate(self, key: str) -> dict:
         st = parse(key)
+        if st.get("ok") and key_id(key) in _revoked_ids():
+            return dict(ok=False, reason="Key này đã bị thu hồi. Hãy liên hệ MTHANGLEE STUDIO để được cấp key mới.")
         if st.get("ok"):
             self._write(dict(key=key.strip(), seen=today_num()))
             self.reload()
@@ -231,3 +262,29 @@ class License:
         except OSError:
             pass
         self.reload()
+
+
+def start_revocation(repo: str):
+    """Định kỳ tải danh sách key bị thu hồi từ kho phát hành (chỉ mã nhận diện, không gửi gì lên mạng).
+    Mất mạng thì dùng bản lưu gần nhất, không khoá app."""
+    if not repo or not re.fullmatch(r"[\w.-]+/[\w.-]+", repo):
+        return
+    url = f"https://github.com/{repo}/releases/download/license/revoked.txt"
+
+    def loop():
+        import threading as _t  # noqa: F401
+        import time
+        import urllib.request
+        while True:
+            try:
+                req = urllib.request.Request(url, headers={"User-Agent": "MThanglee-CullCollage"})
+                with urllib.request.urlopen(req, timeout=15) as r:
+                    txt = r.read(1 << 20).decode("utf-8", "replace")
+                ids = [ln.strip().lower() for ln in txt.splitlines() if re.fullmatch(r"[0-9a-fA-F]{16}", ln.strip())]
+                HOME.mkdir(parents=True, exist_ok=True)
+                REVOKED_FILE.write_text("\n".join(ids) + "\n", encoding="utf-8")
+            except Exception:  # noqa: BLE001  mất mạng / chưa có danh sách: giữ bản cũ
+                pass
+            time.sleep(REVOKE_EVERY)
+    import threading
+    threading.Thread(target=loop, daemon=True).start()
