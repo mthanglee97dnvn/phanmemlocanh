@@ -159,6 +159,18 @@ def _lr_exe():
         for base in (os.environ.get("ProgramFiles", r"C:\Program Files"), os.environ.get("ProgramW6432", r"C:\Program Files")):
             for d in ("Adobe Lightroom Classic", "Adobe Lightroom Classic CC", "Adobe Lightroom"):
                 cands.append(os.path.join(base, "Adobe", d, "Lightroom.exe"))
+    if sys.platform == "darwin":
+        for base in ("/Applications", os.path.expanduser("~/Applications")):
+            try:
+                for n in sorted(os.listdir(base)):
+                    if n.startswith("Adobe Lightroom Classic"):
+                        d = os.path.join(base, n)
+                        app = d if d.endswith(".app") else os.path.join(d, "Adobe Lightroom Classic.app")
+                        if os.path.isdir(app):
+                            return app
+            except OSError:
+                pass
+        return None
     for c in cands:
         if c and os.path.isfile(c.strip('"')):
             return c.strip('"')
@@ -166,6 +178,12 @@ def _lr_exe():
 
 
 def _lr_running():
+    if sys.platform == "darwin":
+        try:
+            return subprocess.run(["/usr/bin/pgrep", "-f", "Adobe Lightroom Classic.app/Contents/MacOS"],
+                                  capture_output=True, timeout=5).returncode == 0
+        except Exception:  # noqa: BLE001
+            return False
     if os.name != "nt":
         return False
     try:
@@ -215,11 +233,16 @@ def lightroom_import(folder: str, reveal: bool = True):
         return dict(error="Không tìm thấy Lightroom Classic trên máy này")
     running = _lr_running()
     smart = False
-    if not running:
+    if not running and os.name == "nt":   # macOS lưu cài đặt Lightroom dạng plist riêng: chưa tự tick được
         try:
             smart = _lr_prefs_smart(folder)
         except Exception as e:  # noqa: BLE001
             print("lightroom prefs:", e, file=sys.stderr)
+    if sys.platform == "darwin":
+        if reveal:
+            subprocess.Popen(["/usr/bin/open", folder])
+        subprocess.Popen(["/usr/bin/open", "-a", exe, folder])   # thả thư mục vào Lightroom = mở hộp Import
+        return dict(ok=True, running=running, smart=False, mac=True)
     if reveal and os.name == "nt":
         os.startfile(folder)  # noqa: S606
     subprocess.Popen([exe, folder], close_fds=True)   # truyền thư mục cho Lightroom = mở hộp Import với nguồn là thư mục đó

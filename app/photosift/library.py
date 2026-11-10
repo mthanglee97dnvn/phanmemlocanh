@@ -393,6 +393,13 @@ class Library:
         home = os.path.expanduser("~")
         for sub in ("Desktop", "Downloads", "Pictures", "Documents", "Videos"):
             add(os.path.join(home, sub), 2)
+        if sys.platform == "darwin":   # ổ ngoài, thẻ nhớ, NAS đã kết nối
+            try:
+                for e in os.scandir("/Volumes"):
+                    if e.is_dir():
+                        add(e.path, 2)
+            except OSError:
+                pass
         if sys.platform == "win32":
             import string
             for c in string.ascii_uppercase[2:]:

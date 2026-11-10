@@ -27,4 +27,6 @@ jobs:
         run: |
           exe=$(find out -name '*.exe' | head -1)
           test -n "$exe"
-          gh release create "$TAG" "$exe" --repo "${{ github.repository_owner }}/cullcollage-releases" --title "$TAG" --notes "$NOTES"
+          dmgs=$(find out -name '*.dmg')   # bản macOS (nếu build được) — đi kèm cùng bản phát hành
+          echo "Windows: $exe"; echo "macOS: $dmgs"
+          gh release create "$TAG" "$exe" $dmgs --repo "${{ github.repository_owner }}/cullcollage-releases" --title "$TAG" --notes "$NOTES"

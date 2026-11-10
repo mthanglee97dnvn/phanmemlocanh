@@ -94,3 +94,117 @@ jobs:
           name: MTHANGLEE_PhotoSift_Setup
           path: MTHANGLEE_PhotoSift_Setup.exe
           compression-level: 0
+
+  # ---------------- macOS: 2 bản riêng cho chip Apple (M1–M4…) và chip Intel, chạy từ macOS 11 Big Sur trở lên ----------------
+  mac:
+    name: macOS ${{ matrix.label }}
+    continue-on-error: true          # bản Mac lỗi không chặn bản Windows được phát hành
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            label: arm64
+            runner: macos-14
+          - arch: x86_64
+            label: intel
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    env:
+      APP: MThanglee CullCollage
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Python 3.12 của python.org (chạy được trên macOS cũ, không phụ thuộc bản macOS của máy build)
+        run: |
+          curl -fL --retry 3 -o py.pkg https://www.python.org/ftp/python/3.12.10/python-3.12.10-macos11.pkg
+          sudo installer -pkg py.pkg -target /
+          echo "PY=/Library/Frameworks/Python.framework/Versions/3.12/bin/python3.12" >> "$GITHUB_ENV"
+
+      - name: Cài thư viện (chọn đúng bản dựng cho macOS 11 để máy cũ vẫn chạy)
+        run: |
+          $PY -m pip install --upgrade pip
+          # OpenCV 4.8+ mới đọc được model nhận diện mặt YuNet 2023; 4.9/4.10 là bản cuối còn hỗ trợ macOS 11.
+          $PY -m pip download --only-binary=:all: --platform macosx_11_0_${{ matrix.arch }} --python-version 3.12 \
+            -d wh "opencv-contrib-python>=4.8,<4.11" "numpy<2" rawpy pillow pillow-heif
+          ls wh
+          $PY -m pip install --no-index --find-links wh opencv-contrib-python numpy rawpy pillow pillow-heif
+          $PY -m pip install pyinstaller
+          $PY -c "import cv2, numpy; print('opencv', cv2.__version__, 'numpy', numpy.__version__)"
+
+      - name: Tải model nhận diện
+        run: |
+          mkdir -p app/models
+          curl -fL --retry 3 -o app/models/yunet.onnx \
+            https://media.githubusercontent.com/media/opencv/opencv_zoo/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx
+          curl -fL --retry 3 -o app/models/sface.onnx \
+            https://media.githubusercontent.com/media/opencv/opencv_zoo/main/models/face_recognition_sface/face_recognition_sface_2021dec.onnx
+          curl -fL --retry 3 -o app/models/lbfmodel.yaml \
+            https://raw.githubusercontent.com/kurnianggoro/GSOC2017/master/data/lbfmodel.yaml
+          curl -fL --retry 3 -o app/models/ferplus.onnx \
+            https://media.githubusercontent.com/media/onnx/models/main/validated/vision/body_analysis/emotion_ferplus/model/emotion-ferplus-8.onnx
+          test $(wc -c < app/models/sface.onnx) -gt 1000000
+          test $(wc -c < app/models/ferplus.onnx) -gt 1000000
+          ls -la app/models
+
+      - name: Đóng gói .app
+        run: |
+          VER="1.1.${GITHUB_RUN_NUMBER}"
+          echo "VER=$VER" >> "$GITHUB_ENV"
+          printf '{"version": "%s", "repo": "mthanglee97dnvn/cullcollage-releases"}' "$VER" > version.json
+          $PY -m PyInstaller --noconfirm --clean --windowed --name "$APP" \
+            --osx-bundle-identifier vn.mthanglee.cullcollage --icon build/mac/app.icns \
+            --add-data "app/photosift/web:photosift/web" --add-data "app/models:models" --add-data "version.json:." \
+            --paths app --collect-all pillow_heif --collect-binaries rawpy \
+            --exclude-module tkinter --exclude-module matplotlib --exclude-module scipy --exclude-module pandas \
+            app/mac_main.py
+          P="dist/$APP.app/Contents/Info.plist"
+          plutil -replace LSUIElement -bool YES "$P"                       # chạy nền, không chiếm Dock; cửa sổ là trình duyệt
+          plutil -replace CFBundleDisplayName -string "MThanglee Cull&Collage" "$P"
+          plutil -replace CFBundleShortVersionString -string "$VER" "$P"
+          plutil -replace CFBundleVersion -string "$VER" "$P"
+          plutil -replace LSMinimumSystemVersion -string "11.0" "$P"
+          codesign --force --deep --sign - "dist/$APP.app"                 # ký ad-hoc (bắt buộc với chip Apple)
+          du -sh "dist/$APP.app"
+
+      - name: Kiểm tra gói (selftest + chạy thử máy chủ)
+        run: |
+          BIN="dist/$APP.app/Contents/MacOS/$APP"
+          "$BIN" --selftest
+          export PHOTOSIFT_HOME="$RUNNER_TEMP/psh"
+          "$BIN" --no-browser > smoke.log 2>&1 &
+          OK=0
+          for i in $(seq 1 60); do
+            if [ -f "$PHOTOSIFT_HOME/running.json" ]; then OK=1; break; fi
+            sleep 1
+          done
+          cat smoke.log
+          pkill -f "Contents/MacOS/$APP" || true
+          if [ "$OK" != "1" ]; then echo "May chu khong khoi dong duoc"; exit 1; fi
+          echo "May chu khoi dong OK"
+
+      - name: Tạo file cài .dmg
+        run: |
+          mkdir -p dmg
+          cp -R "dist/$APP.app" dmg/
+          ln -s /Applications dmg/Applications
+          cat > "dmg/Cach mo lan dau.txt" <<'TXT'
+          MThanglee Cull&Collage cho macOS
+
+          1. Kéo "MThanglee CullCollage" vào thư mục Applications.
+          2. Lần đầu mở: app chưa được Apple ký, macOS sẽ chặn.
+             - macOS 13 trở về trước: chuột phải (Control + bấm) vào app > Open > Open.
+             - macOS 14, 15 trở lên: mở app 1 lần, rồi vào System Settings > Privacy & Security,
+               kéo xuống, bấm "Open Anyway" bên cạnh dòng MThanglee CullCollage, nhập mật khẩu máy.
+          3. App mở trong cửa sổ Chrome / Edge (nếu máy có), không có thì mở bằng Safari.
+             Đóng cửa sổ khoảng 4 phút thì app tự tắt.
+          TXT
+          DMG="MThanglee_CullCollage-${VER}-macos-${{ matrix.label }}.dmg"
+          hdiutil create -volname "MThanglee Cull&Collage" -srcfolder dmg -ov -format UDZO "$DMG"
+          ls -la "$DMG"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MThanglee_CullCollage-macos-${{ matrix.label }}
+          path: "*.dmg"
+          compression-level: 0

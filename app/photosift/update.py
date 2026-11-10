@@ -7,6 +7,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import sys
 import subprocess
 import threading
 import time
@@ -28,6 +29,14 @@ def build_info() -> dict:
         return dict(version=str(d.get("version") or __version__), repo=str(d.get("repo") or ""))
     except (OSError, ValueError):
         return dict(version=__version__, repo="")
+
+
+def _asset_suffix() -> str:
+    """Windows: bộ cài .exe; macOS: file .dmg đúng loại chip (Apple Silicon / Intel)."""
+    if sys.platform == "darwin":
+        import platform
+        return "-macos-arm64.dmg" if platform.machine() == "arm64" else "-macos-intel.dmg"
+    return ".exe"
 
 
 def _key(v: str):
@@ -65,7 +74,8 @@ class Updater:
                 return dict(base, error="Chưa có bản phát hành nào trên GitHub.")
             rel = max(rels, key=lambda x: _key(str(x.get("tag_name", ""))))
             prefix = f"https://github.com/{repo}/releases/download/"
-            asset = next((a for a in rel.get("assets", []) if a["name"].lower().endswith(".exe")
+            want = _asset_suffix()
+            asset = next((a for a in rel.get("assets", []) if a["name"].lower().endswith(want)
                           and a["browser_download_url"].startswith(prefix)), None)
             tag = str(rel.get("tag_name", "")).lstrip("vV")
             out = dict(base, latest=tag or cur, notes=str(rel.get("body") or "")[:2000])
@@ -133,6 +143,9 @@ class Updater:
         d = os.environ.get("PHOTOSIFT_APPDIR", "")
         if not self.file or not self.file.exists() or not d:
             return dict(error="Chưa có file cài để chạy.")
+        if sys.platform == "darwin":   # mở file .dmg: kéo app mới vào thư mục Applications để thay bản cũ
+            subprocess.Popen(["/usr/bin/open", str(self.file)])
+            return dict(ok=True)
         self._spawn([str(self.file), "--update-dir", d])
         return dict(ok=True)
 
