@@ -529,8 +529,21 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                     return self._json(lic.info())
                 if u.path == "/ui.css":
                     return self._send(200, fonts.ui_css().encode("utf-8"), "text/css; charset=utf-8", {"Cache-Control": "no-store"})
-                if not lic.ok() and u.path not in ("/logo.png", "/favicon.png", "/api/status"):
+                if not lic.ok() and u.path not in ("/logo.png", "/favicon.png", "/api/status",
+                                                   "/apple-touch-icon.png", "/m-icon-512.png", "/m.webmanifest"):
                     return self._json(dict(error="Chưa kích hoạt key", license=False), 402)
+                if u.path == "/m.webmanifest":   # để iPhone cài trang lọc thành app riêng
+                    man = {
+                        "name": "Lọc ảnh — MThanglee", "short_name": "Lọc ảnh",
+                        "start_url": "/m", "scope": "/m", "display": "standalone",
+                        "background_color": "#16181D", "theme_color": "#16181D",
+                        "icons": [
+                            {"src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png"},
+                            {"src": "/m-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"},
+                        ],
+                    }
+                    return self._send(200, json.dumps(man).encode("utf-8"),
+                                      "application/manifest+json; charset=utf-8", {"Cache-Control": "max-age=3600"})
 
                 if u.path in ("/filter", "/layout"):
                     name = "index.html" if u.path == "/filter" else "layout.html"
@@ -552,7 +565,7 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                     if not data:
                         return self._send(404, b"", "text/plain")
                     return self._send(200, data, "image/jpeg", {"Cache-Control": "max-age=3600"})
-                if u.path in ("/logo.png", "/favicon.png"):
+                if u.path in ("/logo.png", "/favicon.png", "/apple-touch-icon.png", "/m-icon-512.png"):
                     return self._send(200, _web(u.path[1:]), "image/png", {"Cache-Control": "max-age=86400"})
                 if u.path == "/api/status":
                     idle = time.time() - LAST_SEEN[0]
