@@ -129,7 +129,7 @@ jobs:
             -d wh "opencv-contrib-python>=4.8,<4.11" "numpy<2" rawpy pillow pillow-heif
           ls wh
           $PY -m pip install --no-index --find-links wh opencv-contrib-python numpy rawpy pillow pillow-heif
-          $PY -m pip install pyinstaller
+          $PY -m pip install pyinstaller pywebview   # pywebview: cửa sổ app riêng bằng WebKit của macOS (không cần trình duyệt)
           $PY -c "import cv2, numpy; print('opencv', cv2.__version__, 'numpy', numpy.__version__)"
 
       - name: Tải model nhận diện
@@ -155,11 +155,13 @@ jobs:
           $PY -m PyInstaller --noconfirm --clean --windowed --name "$APP" \
             --osx-bundle-identifier vn.mthanglee.cullcollage --icon build/mac/app.icns \
             --add-data "app/photosift/web:photosift/web" --add-data "app/models:models" --add-data "version.json:." \
-            --paths app --collect-all pillow_heif --collect-binaries rawpy \
+            --paths app --collect-all pillow_heif --collect-binaries rawpy --collect-all webview \
             --exclude-module tkinter --exclude-module matplotlib --exclude-module scipy --exclude-module pandas \
+            --exclude-module PyQt5 --exclude-module PyQt6 --exclude-module PySide6 --exclude-module gi \
             app/mac_main.py
           P="dist/$APP.app/Contents/Info.plist"
-          plutil -replace LSUIElement -bool YES "$P"                       # chạy nền, không chiếm Dock; cửa sổ là trình duyệt
+          plutil -replace NSAppTransportSecurity -json '{"NSAllowsLocalNetworking": true, "NSAllowsArbitraryLoadsInWebContent": true}' "$P"   # cửa sổ app nạp giao diện từ máy chủ cục bộ 127.0.0.1
+          plutil -replace NSHighResolutionCapable -bool YES "$P"
           plutil -replace CFBundleDisplayName -string "MThanglee Cull&Collage" "$P"
           plutil -replace CFBundleShortVersionString -string "$VER" "$P"
           plutil -replace CFBundleVersion -string "$VER" "$P"
@@ -170,7 +172,8 @@ jobs:
       - name: Kiểm tra gói (selftest + chạy thử máy chủ)
         run: |
           BIN="dist/$APP.app/Contents/MacOS/$APP"
-          "$BIN" --selftest
+          "$BIN" --selftest | tee st.txt
+          grep -q "webview ok" st.txt
           export PHOTOSIFT_HOME="$RUNNER_TEMP/psh"
           "$BIN" --no-browser > smoke.log 2>&1 &
           OK=0
@@ -182,6 +185,22 @@ jobs:
           pkill -f "Contents/MacOS/$APP" || true
           if [ "$OK" != "1" ]; then echo "May chu khong khoi dong duoc"; exit 1; fi
           echo "May chu khoi dong OK"
+          # Chạy thử đúng như người dùng mở app: cửa sổ riêng + máy chủ trong cùng tiến trình
+          export PHOTOSIFT_HOME="$RUNNER_TEMP/psh2"
+          "$BIN" &
+          APID=$!
+          OK=0
+          for i in $(seq 1 60); do
+            if [ -f "$PHOTOSIFT_HOME/running.json" ]; then OK=1; break; fi
+            sleep 1
+          done
+          sleep 6
+          ALIVE=0; kill -0 $APID 2>/dev/null && ALIVE=1
+          echo "---- mac.log ----"; cat "$PHOTOSIFT_HOME/mac.log" || true
+          kill $APID 2>/dev/null || true
+          if [ "$OK" != "1" ] || [ "$ALIVE" != "1" ]; then echo "Cua so app khong chay duoc (OK=$OK ALIVE=$ALIVE)"; exit 1; fi
+          if grep -q "Traceback" "$PHOTOSIFT_HOME/mac.log"; then echo "Co loi trong mac.log"; exit 1; fi
+          echo "Cua so app chay OK"
 
       - name: Tạo file cài .dmg
         run: |
