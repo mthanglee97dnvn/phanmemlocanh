@@ -99,6 +99,23 @@ def _low_prio():
     _thread_prio(-1)   # THREAD_PRIORITY_BELOW_NORMAL
 
 
+
+def _num(v, miss=-1.0):
+    """Giá trị số đọc từ DB; bản 1.1.46 lỡ lưu điểm cười dạng bytes (float32) → đọc lại thành số."""
+    if v is None:
+        return miss
+    if isinstance(v, (bytes, bytearray)):
+        import struct
+        try:
+            return round(struct.unpack("<f", bytes(v)[:4])[0], 3) if len(v) >= 4 else miss
+        except struct.error:
+            return miss
+    return v
+
+
+EXPORT_WORKERS = 2       # chép ổ trong máy → ổ trong máy
+EXPORT_WORKERS_NET = 3   # nguồn hoặc đích là ổ mạng / NAS (nhiều hơn dễ làm ổ cứng NAS phải nhảy đầu đọc)
+
 class Library:
     def __init__(self, db: DB | None = None):
         THUMBS.mkdir(parents=True, exist_ok=True)
@@ -133,6 +150,7 @@ class Library:
                     self._vsides.add(int(a[1]))
         except OSError:
             pass
+        self._view_reset()
         for k in range(2):
             threading.Thread(target=self._view_worker, args=(k == 0,), daemon=True).start()
 
@@ -209,6 +227,15 @@ class Library:
 
     def _migrate(self):
         db = self.db
+        try:   # sửa dữ liệu bản 1.1.46: điểm cười lưu nhầm dạng bytes làm danh sách ảnh báo lỗi (Catalog "chưa có ảnh")
+            bad = db.q("SELECT id, smile FROM photos WHERE typeof(smile)='blob'")
+            if bad:
+                db.many("UPDATE photos SET smile=? WHERE id=?", [(_num(b["smile"]), b["id"]) for b in bad])
+            bad = db.q("SELECT id, smile FROM faces WHERE typeof(smile)='blob'")
+            if bad:
+                db.many("UPDATE faces SET smile=? WHERE id=?", [(_num(b["smile"]), b["id"]) for b in bad])
+        except Exception as e:  # noqa: BLE001
+            print("smile fix:", e, file=sys.stderr)
         r = db.one("SELECT v FROM meta WHERE k='cache_version'")
         if r and int(r["v"]) == CACHE_VERSION:
             return
@@ -318,6 +345,92 @@ class Library:
                             covers=json.loads(c["covers"] or "[]"),
                             missing=not root.startswith("\\\\") and not os.path.isdir(root)))  # không dò ổ mạng: có thể treo lâu
         return out
+
+    def locate(self, name: str, samples: list, budget: float = 10.0):
+        """Kéo thả thư mục từ Windows vào app: trình duyệt không cho biết đường dẫn thật, chỉ có tên thư mục và vài file bên trong.
+        Tìm thư mục cùng tên quanh các thư mục đã có trong Catalog (cùng ổ / cùng NAS, thường là anh em hoặc họ hàng gần),
+        rồi xác nhận bằng tên + dung lượng file mẫu. Trả về đường dẫn hoặc None."""
+        name = (name or "").strip()
+        smp = [(str(x.get("p", "")).replace("/", os.sep), int(x.get("s", -1))) for x in (samples or [])[:12] if x.get("p")]
+        end = time.time() + budget
+
+        def ok(d):
+            if name and os.path.basename(d.rstrip("\\/")).lower() != name.lower():
+                return False
+            if not smp:
+                return bool(name)
+            hit = 0
+            for rel, sz in smp[:6]:
+                try:
+                    st = os.stat(os.path.join(d, rel))
+                except OSError:
+                    continue
+                if sz < 0 or st.st_size == sz:
+                    hit += 1
+            return hit >= min(2, len(smp[:6]))
+
+        roots = [r["root"] for r in self.db.q("SELECT root FROM catalog ORDER BY opened DESC")]
+        if self.status.get("root"):
+            roots.insert(0, self.status["root"])
+        bases, seen = [], set()
+
+        def add(p, depth):
+            k = os.path.normcase(os.path.abspath(p)) if p else ""
+            if p and k not in seen:
+                seen.add(k)
+                bases.append((p, depth))
+        for lvl in range(1, 4):   # anh em trước, rồi họ hàng xa dần
+            for r in roots:
+                p = r.rstrip("\\/")
+                for _ in range(lvl):
+                    q = os.path.dirname(p)
+                    if not q or q == p:
+                        p = ""
+                        break
+                    p = q
+                if p and not (p.startswith("\\\\") and p.count("\\") <= 3):   # không quét cả máy chủ NAS
+                    add(p, lvl)
+        home = os.path.expanduser("~")
+        for sub in ("Desktop", "Downloads", "Pictures", "Documents", "Videos"):
+            add(os.path.join(home, sub), 2)
+        if sys.platform == "darwin":   # ổ ngoài, thẻ nhớ, NAS đã kết nối
+            try:
+                for e in os.scandir("/Volumes"):
+                    if e.is_dir():
+                        add(e.path, 2)
+            except OSError:
+                pass
+        if sys.platform == "win32":
+            import string
+            for c in string.ascii_uppercase[2:]:
+                d = f"{c}:\\"
+                if os.path.isdir(d):
+                    add(d, 2)
+        visited = set()
+        for base, depth in bases:   # tìm theo chiều rộng, giới hạn thời gian để ổ mạng chậm không làm treo
+            level = [base]
+            for _ in range(depth + 1):
+                nxt = []
+                for d in level:
+                    if time.time() > end:
+                        return None
+                    k = os.path.normcase(d)
+                    if k in visited:
+                        continue
+                    visited.add(k)
+                    if ok(d):
+                        return d
+                    try:
+                        with os.scandir(d) as it:
+                            for e in it:
+                                if not e.name.startswith((".", "$")) and e.is_dir(follow_symlinks=False):
+                                    if name and e.name.lower() == name.lower() and ok(e.path):
+                                        return e.path
+                                    nxt.append(e.path)
+                    except OSError:
+                        pass
+                level = nxt
+        return None
 
     def catalog_remove(self, root: str):
         self.db.x("DELETE FROM catalog WHERE root=?", (root,))
@@ -524,7 +637,7 @@ class Library:
                 k = ANALYSIS_SIDE / max(h, w)
                 img = cv2.resize(img, (max(1, round(w * k)), max(1, round(h * k))), interpolation=cv2.INTER_AREA)
             try:
-                return pid, self.an.smile_only(img)
+                return pid, float(self.an.smile_only(img))
             except Exception:  # noqa: BLE001
                 return pid, -1.0
         n = os.cpu_count() or 4
@@ -579,12 +692,12 @@ class Library:
                 """UPDATE photos SET sharp=?,fsharp=?,lum=?,lo=?,hi=?,dhash=?,
                    nfaces=?,ear_min=?,smile=?,analyzed=1,err=NULL WHERE id=?""",
                 (r["sharp"], r["fsharp"], r["lum"], r["lo"], r["hi"], r["dhash"], r["nfaces"], r["ear_min"],
-                 r.get("smile", -1.0) if self.an.has_smile else None, pid))
+                 float(r.get("smile", -1.0)) if self.an.has_smile else None, pid))
             for fc in r["faces"]:
                 cur = self.db.con.execute(
                     "INSERT INTO faces(photo_id,fx,fy,fw,fh,det,px,ear,emb,yaw,vert,smile) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                     (pid, fc["fx"], fc["fy"], fc["fw"], fc["fh"], fc["det"], fc["px"], fc["ear"], fc["emb"],
-                     fc.get("yaw", -1.0), fc.get("vert", -1.0), fc.get("smile", -1.0)))
+                     fc.get("yaw", -1.0), fc.get("vert", -1.0), float(fc.get("smile", -1.0))))
                 if fc["crop"]:
                     crops.append((cur.lastrowid, fc["crop"]))
             self.db.con.commit()
@@ -838,7 +951,7 @@ class Library:
                 id=r["id"], name=os.path.basename(r["path"]), dir=r["dir"], w=r["w"], h=r["h"],
                 taken=r["taken"], sharp=round(r["sharp"] or 0, 1), fsharp=round(r["fsharp"] or 0, 1),
                 lum=round(r["lum"] or 0, 3), nf=r["nfaces"], ear=round(r["ear_min"], 3),
-                smile=r["smile"] if r["smile"] is not None else -1,
+                smile=_num(r["smile"]),
                 rating=r["rating"], label=r["label"], grp=r["grp"], best=r["best"], score=r["score"],
                 away=r["away"] or 0, people=pmap.get(r["id"], []), flags=flags, an=True, tv=r["tv"]))
         return out
@@ -971,6 +1084,25 @@ class Library:
         self.db.many("UPDATE photos SET label=? WHERE id=?", [(label, int(i)) for i in ids])
 
     # ------------------------------------------------------------------ ảnh nét cho trình xem
+    VIEW_VERSION = 2   # 2: khớp méo ống kính trước khi ghép chi tiết RAW (bản 1 bị viền đôi)
+
+    def _view_reset(self):
+        """Ảnh nét dựng bằng cách cũ thì bỏ đi (dựng lại khi xem). Đổi tên thư mục cũ ngay (tức thì, trình xem không thể
+        dùng nhầm ảnh cũ) rồi xoá nó ở nền để mở app không bị chậm."""
+        try:
+            r = self.db.one("SELECT v FROM meta WHERE k='view_version'")
+            if r and int(r["v"]) >= self.VIEW_VERSION:
+                return
+            old = VIEWS.with_name(f"view_old_{int(time.time())}")
+            if VIEWS.exists():
+                VIEWS.rename(old)
+            VIEWS.mkdir(parents=True, exist_ok=True)
+            self._vsides = {self._vside} if self._vside else set()
+            self.db.x("INSERT OR REPLACE INTO meta(k,v) VALUES('view_version',?)", (str(self.VIEW_VERSION),))
+            threading.Thread(target=shutil.rmtree, args=(old,), kwargs=dict(ignore_errors=True), daemon=True).start()
+        except Exception as e:  # noqa: BLE001
+            print("view reset:", e, file=sys.stderr)
+
     @staticmethod
     def view_file(pid: int, side: int):
         return VIEWS / f"{pid}_{side}.jpg"
@@ -1098,40 +1230,149 @@ class Library:
         return n
 
     def start_export(self, ids, dest, by_person=False, template="{name}", xmp=False):
-        """Chạy xuất ảnh ở nền; tiến độ lấy qua export_status()."""
+        """Chạy xuất ảnh ở nền; tiến độ lấy qua export_status(), dừng / xoá qua export_cancel()."""
         j = getattr(self, "export_job", None)
-        if j and j.get("state") == "running":
-            return dict(error="Đang có một tác vụ xuất chạy — hãy đợi nó xong")
+        if j and j.get("state") in ("running", "deleting"):
+            return dict(error="Đang có một tác vụ xuất chạy — hãy đợi nó xong hoặc bấm Dừng ở bảng tác vụ", busy=True)
         ids = [int(i) for i in ids]
-        self.export_job = dict(state="running", total=len(ids), done=0, copied=0, n_errors=0, errors=[], cur="", dest=str(dest))
+        stop = threading.Event()
+        self._export_stop = stop
+        self._export_made = []   # file do lần xuất này tạo ra (để xoá được nếu xuất nhầm) — không bao giờ có ảnh gốc
+        self._export_dirs = []   # thư mục do lần xuất này tạo ra
+        self.export_job = dict(state="running", total=len(ids), done=0, copied=0, n_errors=0, errors=[], cur="",
+                               dest=str(dest), started=time.time(), removed=0)
 
         def work():
             try:
-                r = self.export(ids, dest, by_person, template, xmp, progress=self.export_job)
-                self.export_job.update(state="done", copied=r["copied"], errors=r["errors"], n_errors=r["n_errors"])
+                r = self.export(ids, dest, by_person, template, xmp, progress=self.export_job, stop=stop)
+                self.export_job.update(copied=r["copied"], errors=r["errors"], n_errors=r["n_errors"],
+                                       state="stopped" if stop.is_set() else "done", ended=time.time())
+                self._export_log(ids, dest, r["copied"], "stopped" if stop.is_set() else "done")
             except Exception as e:  # noqa: BLE001
-                self.export_job.update(state="error", message=friendly(e))
+                self.export_job.update(state="error", message=friendly(e), ended=time.time())
+            if getattr(self, "_export_wipe", False):
+                self._export_delete()
+        self._export_wipe = False
         threading.Thread(target=work, daemon=True).start()
         return dict(ok=True, total=len(ids))
 
-    def export_status(self):
-        return dict(getattr(self, "export_job", None) or dict(state="idle"))
+    def _export_log(self, ids, dest, copied, state):
+        """Ghi lịch sử xuất (hiện dưới Catalog để Add vào Lightroom sau)."""
+        try:
+            if not copied:
+                return
+            n5 = 0
+            for i in range(0, len(ids), 900):
+                part = ids[i:i + 900]
+                n5 += self.db.one(f"SELECT COUNT(*) c FROM photos WHERE rating=5 AND id IN ({','.join('?' * len(part))})", part)["c"]
+            dest = os.path.abspath(str(dest))
+            self.db.x("DELETE FROM export_log WHERE dest=?", (dest,))   # xuất lại cùng thư mục: giữ một dòng mới nhất
+            cur = self.db.con.execute("INSERT INTO export_log(time,src,dest,n,copied,n5,state) VALUES(?,?,?,?,?,?,?)",
+                                      (time.time(), self.status.get("root") or "", dest, len(ids), copied, n5, state))
+            self.db.con.commit()
+            self.export_job["log_id"] = cur.lastrowid
+        except Exception as e:  # noqa: BLE001
+            print("export log:", e, file=sys.stderr)
 
-    def export(self, ids, dest: str, by_person=False, template="{name}", xmp=False, progress=None):
+    def export_history(self):
+        out = []
+        for r in self.db.q("SELECT * FROM export_log ORDER BY time DESC LIMIT 200"):
+            d = r["dest"]
+            out.append(dict(id=r["id"], time=r["time"], src=r["src"], dest=d, name=os.path.basename(d.rstrip("\\/")) or d,
+                            parent=os.path.basename(os.path.dirname(d.rstrip("\\/"))), n=r["n"], copied=r["copied"],
+                            n5=r["n5"], state=r["state"],
+                            missing=not d.startswith("\\\\") and not os.path.isdir(d)))   # không dò ổ mạng: có thể treo lâu
+        return out
+
+    def export_history_add(self, dest, src=""):
+        """Thêm tay một thư mục đã xuất từ trước (khi chưa có lịch sử)."""
+        dest = os.path.abspath(str(dest))
+        if not os.path.isdir(dest):
+            return dict(error="Không tìm thấy thư mục")
+        n = 0
+        try:
+            n = sum(1 for e in os.scandir(dest) if Path(e.name).suffix.lower() in ALL_EXT)
+        except OSError:
+            pass
+        self.db.x("DELETE FROM export_log WHERE dest=?", (dest,))
+        self.db.x("INSERT INTO export_log(time,src,dest,n,copied,n5,state) VALUES(?,?,?,?,?,?,?)",
+                  (os.path.getmtime(dest), src, dest, n, n, -1, "manual"))
+        return dict(ok=True)
+
+    def export_status(self):
+        j = dict(getattr(self, "export_job", None) or dict(state="idle"))
+        if j.get("state") != "idle":
+            j["files"] = len(getattr(self, "_export_made", []))
+        return j
+
+    def export_cancel(self, delete=False):
+        """Dừng lần xuất đang chạy; delete=True thì xoá luôn các file lần xuất này đã chép (ảnh gốc không bị đụng tới)."""
+        j = getattr(self, "export_job", None)
+        if not j:
+            return dict(state="idle")
+        if j.get("state") == "running":
+            self._export_stop.set()
+            if delete:
+                self._export_wipe = True   # luồng xuất sẽ xoá ngay khi dừng hẳn (tránh xoá lúc đang chép dở một file)
+        elif delete and j.get("state") in ("done", "stopped", "error"):
+            j["state"] = "deleting"
+            threading.Thread(target=self._export_delete, daemon=True).start()
+        return self.export_status()
+
+    def _export_delete(self):
+        j = self.export_job
+        j["state"] = "deleting"
+        n = 0
+        for f in reversed(getattr(self, "_export_made", [])):
+            try:
+                f.unlink()
+                n += 1
+            except OSError:
+                pass
+            j["removed"] = n
+        for d in sorted(getattr(self, "_export_dirs", []), key=lambda p: len(str(p)), reverse=True):
+            try:
+                d.rmdir()   # chỉ xoá được khi trống: thư mục có file khác của bạn vẫn giữ nguyên
+            except OSError:
+                pass
+        self._export_made = []
+        j.update(state="deleted", removed=n, ended=time.time())
+        lid = j.get("log_id")
+        if lid:
+            self.db.x("DELETE FROM export_log WHERE id=?", (lid,))   # đã xoá file xuất nhầm: bỏ khỏi lịch sử
+
+    def export_dismiss(self):
+        j = getattr(self, "export_job", None)
+        if j and j.get("state") not in ("running", "deleting"):
+            self.export_job = None
+        return dict(ok=True)
+
+    def export(self, ids, dest: str, by_person=False, template="{name}", xmp=False, progress=None, stop=None):
         """Sao chép (không bao giờ di chuyển/xoá file gốc)."""
         dest_p = Path(dest)
-        dest_p.mkdir(parents=True, exist_ok=True)
+        made = getattr(self, "_export_made", None) if progress is not None else None
+        mdirs = getattr(self, "_export_dirs", None) if progress is not None else None
+
+        def mkdir(p):
+            if mdirs is not None:
+                q, new = p, []
+                while not q.exists() and q != q.parent:
+                    new.append(q)
+                    q = q.parent
+                mdirs.extend(new)
+            p.mkdir(parents=True, exist_ok=True)
+        mkdir(dest_p)
         names = self._names()
         seq, copied, errors = 0, 0, []
         rows = [self.db.one("SELECT * FROM photos WHERE id=?", (int(i),)) for i in ids]
         rows = sorted([r for r in rows if r], key=lambda r: (r["taken"] or 0, r["path"]))
         if progress is not None:
             progress["total"] = len(rows)
+        # Bước 1 (nhanh, tuần tự): đặt tên file đích cho từng ảnh — giữ đúng thứ tự {seq}, không trùng tên.
+        jobs, taken_names = [], set()
         for r in rows:
             seq += 1
             src = Path(r["path"])
-            if progress is not None:
-                progress["cur"] = src.name
             people = [x["person_id"] for x in self.db.q(
                 "SELECT DISTINCT person_id FROM faces WHERE photo_id=? AND person_id IS NOT NULL", (r["id"],))]
             labels = [self.person_label(p, names) for p in people]
@@ -1143,19 +1384,54 @@ class Library:
             fname = _safe(stem) + src.suffix
             targets = [dest_p / _safe(l) for l in labels] if by_person and labels else \
                       ([dest_p / "Khong_xac_dinh"] if by_person else [dest_p])
+            outs = []
             for t in targets:
+                out, i = t / fname, 1
+                while os.path.normcase(str(out)) in taken_names or out.exists():
+                    out = t / f"{Path(fname).stem}_{i}{src.suffix}"
+                    i += 1
+                taken_names.add(os.path.normcase(str(out)))
+                outs.append(out)
+            jobs.append((r, src, labels, outs))
+        for t in {o.parent for _, _, _, outs in jobs for o in outs}:
+            try:
+                mkdir(t)
+            except OSError:
+                pass
+        # Bước 2: chép song song vài file một lúc. Một luồng chép qua mạng LAN / NAS thường không dùng hết băng thông
+        # (mỗi file phải chờ mở / đóng / xác nhận qua SMB); 3–4 luồng chồng lên nhau lấp khoảng chờ đó.
+        lock = threading.Lock()
+        state = dict(done=0, copied=0)
+
+        def one(job):
+            r, src, labels, outs = job
+            if stop is not None and stop.is_set():
+                return
+            if progress is not None:
+                progress["cur"] = src.name
+            for out in outs:
                 try:
-                    t.mkdir(parents=True, exist_ok=True)
-                    out, i = t / fname, 1
-                    while out.exists():
-                        out = t / f"{Path(fname).stem}_{i}{src.suffix}"
-                        i += 1
+                    if made is not None:
+                        with lock:
+                            made.append(out)   # ghi trước khi chép: chép dở rồi bị dừng thì vẫn dọn được
                     shutil.copy2(src, out)
                     if xmp:
-                        out.with_suffix(".xmp").write_text(self._xmp(r["rating"], r["label"], labels), encoding="utf-8")
-                    copied += 1
+                        x = out.with_suffix(".xmp")
+                        if made is not None and not x.exists():
+                            with lock:
+                                made.append(x)
+                        x.write_text(self._xmp(r["rating"], r["label"], labels), encoding="utf-8")
+                    with lock:
+                        state["copied"] += 1
                 except Exception as e:  # noqa: BLE001
-                    errors.append(f"{src.name}: {friendly(e)}")
-            if progress is not None:
-                progress.update(done=seq, copied=copied, n_errors=len(errors), errors=errors[:20])
+                    with lock:
+                        errors.append(f"{src.name}: {friendly(e)}")
+            with lock:
+                state["done"] += 1
+                if progress is not None:
+                    progress.update(done=state["done"], copied=state["copied"], n_errors=len(errors), errors=errors[:20])
+        net = any(_is_network(str(j[1])) for j in jobs[:1]) or _is_network(str(dest_p))
+        with ThreadPoolExecutor(max_workers=EXPORT_WORKERS_NET if net else EXPORT_WORKERS) as ex:
+            list(ex.map(one, jobs))
+        copied = state["copied"]
         return dict(copied=copied, errors=errors[:20], n_errors=len(errors))

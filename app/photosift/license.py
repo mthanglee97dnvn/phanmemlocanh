@@ -6,6 +6,7 @@ import datetime as dt
 import hashlib
 import json
 import os
+import sys
 import re
 import secrets
 
@@ -102,6 +103,16 @@ def _guid() -> str:
                                 winreg.KEY_READ | winreg.KEY_WOW64_64KEY) as k:
                 return str(winreg.QueryValueEx(k, "MachineGuid")[0])
         except OSError:
+            pass
+    if sys.platform == "darwin":   # mã phần cứng của máy Mac (giữ nguyên khi cài lại app / macOS)
+        try:
+            import subprocess
+            out = subprocess.run(["/usr/sbin/ioreg", "-rd1", "-c", "IOPlatformExpertDevice"], capture_output=True,
+                                 text=True, timeout=5).stdout
+            m = re.search(r'"IOPlatformUUID"\s*=\s*"([^"]+)"', out)
+            if m:
+                return m.group(1)
+        except Exception:  # noqa: BLE001
             pass
     f = HOME / "machine.id"
     try:

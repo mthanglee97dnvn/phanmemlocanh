@@ -140,7 +140,10 @@ body.cat #catalog{display:flex}
 .sc:hover{border-color:rgba(255,255,255,.35)}.sc.cur{border-color:#ffca28;background:rgba(255,202,40,.14)}
 .sc img{width:100%;height:78px;object-fit:contain;display:block;background:rgba(0,0,0,.35)}
 .sc .nm{font-size:10px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--mut);padding:2px 2px 0}
-.sc .rt{position:absolute;top:2px;left:4px;font-size:10px;color:#ffca28;text-shadow:0 0 3px #000;letter-spacing:-1px}
+.sc .rt{position:absolute;top:3px;left:3px;font-size:10px;font-weight:700;line-height:1;padding:2px 4px;border-radius:4px;background:rgba(0,0,0,.72);color:#ffca28;font-variant-numeric:tabular-nums}
+#vrate{position:absolute;left:12px;bottom:12px;z-index:2;display:none;align-items:center;gap:6px;padding:5px 10px;border-radius:8px;background:rgba(0,0,0,.66);color:#ffca28;font-size:20px;line-height:1;letter-spacing:1px;pointer-events:none}
+#vrate.on{display:flex}#vrate.rej{color:#ff6b6b;font-size:14px;font-weight:600;letter-spacing:0}#vrate small{font-size:12px;color:#e8e8e8;letter-spacing:0;font-weight:600}
+#vstage.zoom #vrate{display:none}
 .sc .lb{position:absolute;top:4px;right:4px;width:9px;height:9px;border-radius:50%;box-shadow:0 0 0 1px rgba(0,0,0,.5)}
 .sc.rej img{opacity:.3}.sc.rej:after{content:'✕';position:absolute;left:0;right:0;top:22px;text-align:center;color:#ff6b6b;font-size:26px;line-height:1}
 .fbox{position:absolute;transform:translate(-50%,-100%);pointer-events:none;font-size:11px;line-height:1.6;white-space:nowrap;padding:0 7px;border-radius:999px;background:rgba(4,14,30,.72);color:#fff}
@@ -265,6 +268,45 @@ details.adv{margin:6px 0;border-top:1px solid var(--line);padding-top:6px}detail
 #vbadge .chip.topdup{background:#101216;color:#F2B01E;box-shadow:inset 0 0 0 1px #F2B01E}
 #vbadge .chip.stk{font-size:12px;padding:3px 9px;margin-left:6px}
 #vbadge .chip.stk .kbd{font-size:10px;padding:0 4px;margin-left:4px}
+#dropzone{position:fixed;inset:10px;z-index:98;display:none;align-items:center;justify-content:center;flex-direction:column;gap:8px;border:2px dashed var(--pri,#F2B01E);border-radius:16px;background:rgba(10,12,16,.82);pointer-events:none;text-align:center}
+#dropzone.on{display:flex}#dropzone b{font-size:20px;color:var(--pri,#F2B01E)}#dropzone span{color:var(--mut,#9aa3ad)}
+#xjob{position:fixed;inset:0;z-index:60;background:rgba(6,8,12,.62);display:none;align-items:center;justify-content:center}
+#xjob.on{display:flex}
+#xjcard{width:min(420px,calc(100vw - 32px));background:var(--panel,#1E2127);border:1px solid var(--line);border-radius:16px;box-shadow:0 24px 70px rgba(0,0,0,.55);padding:26px 24px 20px;text-align:center}
+#xjcard h3{margin:14px 0 2px;font-size:17px}
+#xjcard .dest{color:var(--mut);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#xjcard .ring{position:relative;width:180px;height:180px;margin:0 auto}
+#xjcard .ring svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg)}
+#xjcard .trk{stroke:rgba(255,255,255,.09)}
+#xjcard .bar{stroke:#F2B01E;stroke-linecap:round;transition:stroke-dashoffset .35s ease,stroke .3s}
+#xjcard .spin{position:absolute;inset:-7px;border-radius:50%;border:3px solid transparent;border-top-color:rgba(242,176,30,.75);border-right-color:rgba(242,176,30,.18);animation:xjsp 1.1s linear infinite}
+@keyframes xjsp{to{transform:rotate(360deg)}}
+#xjcard .mid{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+#xjcard .pct{font-size:44px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}#xjcard .pct small{font-size:20px;font-weight:600;margin-left:2px}
+#xjcard .cnt{color:var(--mut);margin-top:6px;font-variant-numeric:tabular-nums}#xjcard .ico{font-size:58px;line-height:1}
+#xjcard .cur{margin:10px 0 0;font-size:12px;color:var(--mut);min-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#xjcard .meta{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 18px;margin-top:8px;font-size:12px;color:var(--mut)}#xjcard .meta b{color:var(--tx);font-weight:600}
+#xjcard .btns{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:18px}
+#xjcard button.danger{color:#ff8a80;border-color:rgba(255,107,107,.45)}
+#xjcard.done .bar{stroke:#3fb950}#xjcard.done .ico{color:#3fb950}
+#xjcard.del .bar{stroke:#ef5350}#xjcard.del .ico{color:#ef5350}#xjcard.del .spin{border-top-color:rgba(239,83,80,.8);border-right-color:rgba(239,83,80,.2)}
+#xjcard.stop .bar,#xjcard.err .bar{stroke:#8b93a1}
+#xjmini{position:fixed;right:18px;bottom:46px;z-index:59;display:none;align-items:center;gap:10px;padding:8px 14px 8px 8px;background:var(--panel,#1E2127);border:1px solid var(--line);border-radius:999px;box-shadow:0 10px 30px rgba(0,0,0,.5);cursor:pointer;color:var(--tx);font:inherit;text-align:left}
+#xjmini.on{display:flex}#xjmini .r{position:relative;width:40px;height:40px}#xjmini svg{width:40px;height:40px;transform:rotate(-90deg)}
+#xjmini .r span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
+#xjmini .t{font-size:12px}#xjmini .t small{display:block;color:var(--mut)}
+@media (prefers-reduced-motion:reduce){#xjcard .spin{animation-duration:3s}}
+.lrop{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;margin-bottom:8px;border:1px solid var(--line);border-radius:10px;cursor:pointer;line-height:1.5}
+.lrop:has(input:checked){border-color:var(--acc);background:rgba(242,176,30,.08)}.lrop input{margin-top:4px}
+.chist{margin-top:22px}.chist .hh{display:flex;align-items:center;gap:10px;margin:0 0 8px}.chist .hh h3{margin:0;font-size:15px}.chist .hh .sp{flex:1}
+.chist .hh button{font-size:12px;padding:5px 10px}
+.hrow{display:grid;grid-template-columns:28px minmax(160px,1.4fr) minmax(90px,.6fr) minmax(150px,.9fr) 130px auto;align-items:center;gap:10px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel);margin-bottom:6px;cursor:pointer}
+.hrow:hover{border-color:var(--mut)}.hrow.on{border-color:var(--acc);background:rgba(242,176,30,.07)}.hrow.gone{opacity:.55}
+.hrow input{width:16px;height:16px;margin:0;cursor:pointer}.hrow .hn b{display:block}.hrow .hn span,.hrow .hs,.hrow .hd{font-size:12px;color:var(--mut)}
+.hrow .hn span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hrow .hc{font-variant-numeric:tabular-nums;font-size:12px}.hrow .hc b{color:#ffca28}
+.hrow .hb{display:flex;gap:4px}.hrow .hb button{font-size:12px;padding:4px 9px}.hrow .hb .cdel{position:static;width:auto;height:auto;border-radius:6px;background:var(--panel2);color:var(--mut);opacity:0}.hrow:hover .cdel,.hrow:focus-within .cdel{opacity:1}
+.chist .hnone{color:var(--mut);font-size:12px;padding:10px 12px;border:1px dashed var(--line);border-radius:10px}
+@media (max-width:900px){.hrow{grid-template-columns:28px 1fr auto}.hrow .hs,.hrow .hd,.hrow .hc{display:none}}
 </style>
 <link id="uiFont" rel="stylesheet" href="/ui.css">
 </head>
@@ -310,11 +352,14 @@ details.adv{margin:6px 0;border-top:1px solid var(--line);padding-top:6px}detail
  <svg class="cb" viewBox="0 0 100 115" style="left:36%;bottom:-70px;width:150px"><use href="#cube"/></svg>
  <svg class="cb" viewBox="0 0 100 115" style="right:-24px;bottom:-30px;width:240px;transform:rotate(-8deg)"><use href="#cube"/></svg>
 </div>
+<div id="xjob"><div id="xjcard" role="dialog" aria-modal="true" aria-labelledby="xjh"></div></div><button id="xjmini" aria-label="Mở lại bảng tiến độ xuất ảnh"></button>
+<div id="dropzone" aria-hidden="true"><svg class="ic" style="width:40px;height:40px" aria-hidden="true"><use href="#i-folder"/></svg><b>Thả thư mục vào để mở</b><span>Thư mục ảnh từ máy tính, ổ cứng ngoài hoặc NAS</span></div>
 <div id="catalog">
   <div class="chead">
     <h2>Catalog thư mục</h2>
-    <button class="pri" id="catAdd"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Thêm thư mục</button>
+    <button class="pri" id="catAdd" title="Hoặc kéo thả thư mục ảnh từ máy tính vào cửa sổ app"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Thêm thư mục</button>
     <button id="catBack" hidden>← Về thư mục đang mở</button>
+    <button class="pri" id="catLr" hidden disabled title="Tick các thư mục đã lọc trong Lịch sử xuất ảnh bên dưới">Add vào Lightroom</button>
     <span class="sp"></span>
     <input type="text" id="catQ" placeholder="Tìm thư mục…" aria-label="Tìm thư mục">
     <select id="catSort" aria-label="Sắp xếp"><option value="opened">Mở gần nhất</option><option value="name">Tên thư mục</option><option value="t1">Ngày chụp mới nhất</option><option value="n">Nhiều ảnh nhất</option><option value="size">Dung lượng lớn nhất</option></select>
@@ -349,7 +394,7 @@ details.adv{margin:6px 0;border-top:1px solid var(--line);padding-top:6px}detail
 
 <div id="viewer">
   <div id="vback"><button id="vbGrid" title="Quay lại lưới ảnh (Esc)">← Lưới ảnh</button><button id="vbCat" title="Về Catalog thư mục"><svg class="ic" aria-hidden="true"><use href="#i-lib"/></svg>Catalog</button><span class="chip" id="vzoom" hidden></span></div>
-  <div id="vstage"><div id="vwrap"><img id="vimg" alt=""><img id="vmask" alt=""><div id="vfaces"></div></div></div>
+  <div id="vstage"><div id="vwrap"><img id="vimg" alt=""><img id="vmask" alt=""><div id="vfaces"></div><div id="vrate" aria-live="polite"></div></div></div>
   <div id="vinfo"></div>
   <div id="strip"><div id="stripin"></div></div>
   <div id="vbadge"></div>
@@ -679,7 +724,7 @@ function renderStrip(center){
   let html='';
   for(let i=lo;i<=hi;i++){ const p=S.view[i];
     html+=`<div class="sc${p.id===S.cur?' cur':''}${p.rating<0?' rej':''}" data-id="${p.id}" style="left:${4+i*SC_W}px" title="${esc(p.name)}"><img loading="lazy" src="/thumb/${p.id}.jpg?v=${p.tv}" alt="">`+
-      (p.rating>0?`<span class="rt">${'★'.repeat(p.rating)}</span>`:'')+(p.label?`<span class="lb l-${p.label}"></span>`:'')+`<div class="nm">${esc(p.name)}</div></div>`; }
+      (p.rating>0?`<span class="rt" aria-label="${p.rating} sao">${p.rating}★</span>`:'')+(p.label?`<span class="lb l-${p.label}"></span>`:'')+`<div class="nm">${esc(p.name)}</div></div>`; }
   inn.innerHTML=html;
 }
 { const st=$('#strip'); let raf=0;
@@ -731,7 +776,7 @@ function needHQ(p){   // ảnh cache có đủ nét cho khung xem không
   if(!p) return false; const raw=RAWX.test(p.name), W=p.w||1600, H=p.h||1067, L=Math.max(W,H);
   const cl=raw?Math.min(L,2048):Math.min(L,1600), [mw,mh]=vBox(), k=Math.min(mw/(W*cl/L),mh/(H*cl/L)), need=cl*k*(window.devicePixelRatio||1);
   return need>cl*1.04; }   // chỉ giải mã RAW khi màn hình thật sự cần nhiều điểm ảnh hơn ảnh nhúng (giữ đúng màu máy ảnh)
-const hqUrl=id=>`/api/preview?id=${id}&s=${vSide()}&hq=1`;
+const hqUrl=id=>`/api/preview?id=${id}&s=${vSide()}&hq=1&v=2`;   // v=2: ảnh nét dựng lại sau khi sửa viền đôi (bỏ bản cũ trình duyệt còn giữ)
 let hqCtl=null, preCtl=null, aheadT=0, aheadKey='';
 function hqKeep(u,im){ VHQ.set(u,im); while(VHQ.size>8){ const [k,o]=VHQ.entries().next().value; VHQ.delete(k); try{ URL.revokeObjectURL(o.src); }catch(e){} } }
 async function hqLoad(u,ctl){   // tải + giải mã sẵn; trả về Image hoặc null
@@ -784,7 +829,7 @@ async function showViewer(){
     if(VPRE.has(u)){ const v=VPRE.get(u); VPRE.delete(u); VPRE.set(u,v); continue; }
     const pre=new Image(); pre.decoding='async'; VPRE.set(u,pre); pre.src=u; }
   while(VPRE.size>24) VPRE.delete(VPRE.keys().next().value);
-  renderInfo(p, ix); renderBadge(p); loadBoxes(p, tok); updateMask(); renderStrip(true); sendAhead();
+  renderInfo(p, ix); renderBadge(p); renderRate(p); loadBoxes(p, tok); updateMask(); renderStrip(true); sendAhead();
 }
 $('#vimg').addEventListener('click', e=>zoomToggle(e.clientX,e.clientY));
 { const st=$('#vstage'); let pan=null;
@@ -811,6 +856,9 @@ function placeBadge(){
 }
 new ResizeObserver(placeBadge).observe($('#vimg'));
 addEventListener('resize',placeBadge);
+function renderRate(p){   // số sao / dấu loại hiện ngay trên ảnh lớn
+  const r=$('#vrate'); r.className=p.rating>0?'on':(p.rating<0?'on rej':'');
+  r.innerHTML=p.rating>0?`${'★'.repeat(p.rating)}<small>${p.rating} sao</small>`:(p.rating<0?'✕ Đã loại':''); }
 function renderBadge(p){
   $('#vbadge').innerHTML=(p.grp&&p.best?`<span class="chip topdup" title="${bestWhy(p)}">Tốt nhất trong ${gsize(p.grp)} ảnh trùng</span>`:'')+(p.flags.includes('dup')?`<span class="chip dup">${FLAG.dup}</span>`:'')
     +(stacked(p)?`<button class="chip stk" id="vstk">${S.open.has(p.grp)?'Thu gọn nhóm':'Xem cả nhóm'} <span class="kbd">G</span></button>`:'');
@@ -961,7 +1009,8 @@ const catDate=t=>t?new Date(t*1000).toLocaleDateString('vi-VN'):'—';
 const catSize=b=>b>=1e9?(b/1e9).toFixed(1).replace('.',',')+' GB':b>=1e6?Math.round(b/1e6)+' MB':b?Math.max(1,Math.round(b/1e3))+' KB':'—';
 const catRange=c=>{ const a=catDate(c.t0),b=catDate(c.t1); return a===b?a:a+' – '+b; };
 async function showCatalog(){ document.body.classList.add('cat'); $('#catBack').hidden=!S.status.root; $('#catSort').value=Cat.sort;
-  try{ Cat.list=await api('/api/catalog'); paintCache(await api('/api/cache')); }catch(e){ toast(e.message,4000); } drawCatalog(); }
+  try{ Cat.list=await api('/api/catalog'); paintCache(await api('/api/cache')); }catch(e){ toast(e.message,4000); }
+  try{ Cat.hist=await api('/api/export/history'); }catch(e){ Cat.hist=[]; } drawCatalog(); }
 const paintCache=c=>{ Cat.cache=c; $('#catCache').innerHTML='<svg class="ic" aria-hidden="true"><use href="#i-disk"/></svg>Bộ nhớ đệm '+catSize(c.bytes); };
 $('#catCache').onclick=()=>{ const c=Cat.cache, opts=[5,10,20,50,100].map(g=>`<option value="${g}"${g===c.limit_gb?' selected':''}>${g} GB</option>`).join('');
   const m=modal(`<h3>Bộ nhớ đệm</h3><div class="hint" style="margin-bottom:10px">Đang dùng <b>${catSize(c.bytes)}</b>. Nhờ đó, mở lại thư mục đã đọc là có ngay. Dọn bộ nhớ đệm không ảnh hưởng ảnh gốc, số sao, nhãn màu và dấu ✕, chỉ là thư mục đó phải đọc lại khi mở.</div>
@@ -978,7 +1027,7 @@ function drawCatalog(){
   const cur=S.status.root, cov=(c,n)=>`/cover/${n}?v=${c.ver}`, img=c=>c.covers.map(n=>`<img loading="lazy" src="${cov(c,n)}" alt="" onerror="this.remove()">`).join('');
   const del=c=>`<button class="cdel" data-del="${esc(c.root)}" title="Gỡ khỏi Catalog" aria-label="Gỡ ${esc(c.name)} khỏi catalog">✕</button>`;
   const num=c=>c.n?fmt(c.n)+' ảnh':'Chưa đọc lại'; const stat=c=>`${num(c)} · ${fmt(c.stars)} ★ · ${fmt(c.rej)} ✕`;
-  if(!l.length){ box.innerHTML=`<div class="cnone">${Cat.list.length?'Không có thư mục nào khớp.':'<h2>Chưa có thư mục nào</h2><div>Bấm “Thêm thư mục” để chọn thư mục ảnh đầu tiên.</div>'}</div>`; return; }
+  if(!l.length){ box.innerHTML=`<div class="cnone">${Cat.list.length?'Không có thư mục nào khớp.':'<h2>Chưa có thư mục nào</h2><div>Bấm “Thêm thư mục” hoặc kéo thả thư mục ảnh từ máy tính vào đây.</div>'}</div>`; return; }
   if(Cat.view==='det'){
     const th=(k,t,c='')=>`<th class="${c}" data-s="${k}">${t}</th>`;
     box.innerHTML=`<table class="ctable"><thead><tr>${th('name','Thư mục')}<th>Đường dẫn</th>${th('n','Số ảnh','num')}<th class="num">★</th><th class="num">✕</th>${th('size','Dung lượng','num')}${th('t1','Ngày chụp')}${th('opened','Mở gần nhất')}<th>Trạng thái</th><th></th></tr></thead><tbody>`+
@@ -999,6 +1048,81 @@ $('#catBody').onkeydown=e=>{ if(e.key==='Enter'&&e.target.dataset.root) catOpen(
 $('#catView').onclick=e=>{ const v=e.target.dataset.v; if(v){ Cat.view=v; lsSet('ps.catView',v); drawCatalog(); } };
 $('#catSort').onchange=e=>{ Cat.sort=e.target.value; lsSet('ps.catSort',Cat.sort); drawCatalog(); };
 $('#catQ').oninput=drawCatalog; $('#catAdd').onclick=()=>pickFolder(); $('#catBack').onclick=hideCatalog; $('#bCat').onclick=showCatalog;
+/* ---------- kéo thả thư mục từ Windows vào app ----------
+   Trình duyệt không cho biết đường dẫn thật của thư mục được thả, chỉ cho tên và các file bên trong.
+   App gửi tên + vài file mẫu (tên, dung lượng) để lõi tìm đúng thư mục quanh các thư mục đã có trong Catalog. */
+const DROP_IMG=/\.(jpe?g|png|heic|heif|tiff?|webp|arw|cr2|cr3|nef|nrw|dng|raf|orf|rw2|pef|srw|x3f|3fr|iiq|rwl|erf|kdc|mrw|mef|mos|sr2|srf)$/i;
+const readAll=dir=>new Promise(res=>{ const r=dir.createReader(), out=[]; const step=()=>r.readEntries(b=>{ if(!b.length||out.length>400) return res(out); out.push(...b); step(); },()=>res(out)); step(); });
+const fileOf=e=>new Promise(res=>e.file(res,()=>res(null)));
+async function dropSamples(dir){   // tối đa 8 file ảnh mẫu, tìm sâu tối đa 2 cấp thư mục con
+  const out=[]; let level=[[dir,'']];
+  for(let d=0; d<3 && level.length && out.length<8; d++){ const nxt=[];
+    for(const [e,pre] of level){ for(const c of await readAll(e)){
+      if(c.isFile&&DROP_IMG.test(c.name)&&out.length<8){ const f=await fileOf(c); out.push({p:pre+c.name,s:f?f.size:-1}); }
+      else if(c.isDirectory&&nxt.length<6) nxt.push([c,pre+c.name+'/']); }
+      if(out.length>=8) break; }
+    level=nxt; }
+  return out; }
+async function dropOpen(dt){
+  const it=[...(dt.items||[])].map(i=>i.webkitGetAsEntry&&i.webkitGetAsEntry()).filter(Boolean);
+  if(!it.length){ toast('Hãy kéo một thư mục ảnh vào đây.',3000); return; }
+  let name='', samples=[];
+  const dir=it.find(e=>e.isDirectory);
+  if(dir){ name=dir.name; samples=await dropSamples(dir); }
+  else{ for(const e of it.filter(e=>e.isFile&&DROP_IMG.test(e.name)).slice(0,8)){ const f=await fileOf(e); samples.push({p:e.name,s:f?f.size:-1}); }   // thả file ảnh → mở thư mục chứa chúng
+    if(!samples.length){ toast('Không phải thư mục ảnh. Hãy kéo một thư mục vào đây.',3500); return; } }
+  if(dir&&!samples.length){ toast(`Thư mục «${name}» không có ảnh nào (JPG/PNG/RAW/HEIC).`,4000); return; }
+  toast(`Đang tìm thư mục «${name||'chứa ảnh vừa thả'}»…`,15000);
+  let r; try{ r=await api('/api/locate',{name,samples}); }catch(e){ toast(e.message,4000); return; }
+  if(r&&r.path){ toast(`Đang mở ${r.path}`,2500); openFolder(r.path,$('#cRec').checked).catch(e=>toast(e.message,4000)); return; }
+  toast(`Chưa tìm được «${name||'thư mục'}» tự động. Hãy chọn thư mục đó trong hộp chọn.`,5000); pickFolder(); }
+{ let n=0; const z=$('#dropzone'), has=e=>[...(e.dataTransfer&&e.dataTransfer.types||[])].includes('Files');
+  addEventListener('dragenter',e=>{ if(!has(e)) return; e.preventDefault(); n++; z.classList.add('on'); });
+  addEventListener('dragover',e=>{ if(!has(e)) return; e.preventDefault(); e.dataTransfer.dropEffect='copy'; });
+  addEventListener('dragleave',e=>{ if(!has(e)) return; if(--n<=0){ n=0; z.classList.remove('on'); } });
+  addEventListener('drop',e=>{ if(!has(e)) return; e.preventDefault(); n=0; z.classList.remove('on'); if(document.querySelector('.back')) return; dropOpen(e.dataTransfer); });
+}
+/* ---------- Catalog: lịch sử xuất ảnh đã lọc (vd. ảnh 5 sao) → tick chọn để Add vào Lightroom ---------- */
+Cat.hist=[]; Cat.lrSel=new Set();
+const _drawCatalog0=drawCatalog;
+drawCatalog=function(){ _drawCatalog0(); drawHist(); };
+$('#catQ').oninput=()=>drawCatalog();
+function drawHist(){
+  const box=$('#catBody'); let h=box.querySelector('.chist'); if(h) h.remove();
+  const q=$('#catQ').value.trim().toLowerCase(), l=(Cat.hist||[]).filter(x=>!q||x.dest.toLowerCase().includes(q)||(x.src||'').toLowerCase().includes(q));
+  for(const id of [...Cat.lrSel]) if(!(Cat.hist||[]).some(x=>x.id===id)) Cat.lrSel.delete(id);
+  const srcName=p=>(p||'').replace(/[\\/]+$/,'').split(/[\\/]/).pop()||'—';
+  const when=t=>t?new Date(t*1000).toLocaleString('vi-VN',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
+  const rows=l.map(x=>`<div class="hrow ${Cat.lrSel.has(x.id)?'on':''} ${x.missing?'gone':''}" data-hid="${x.id}" title="${esc(x.dest)}">
+     <input type="checkbox" ${Cat.lrSel.has(x.id)?'checked':''} ${x.missing?'disabled':''} aria-label="Chọn ${esc(x.name)} để Add vào Lightroom">
+     <div class="hn"><b>${esc(x.parent?x.parent+' / ':'')}${esc(x.name)}</b><span>${esc(x.dest)}</span></div>
+     <div class="hs">từ <b>${esc(srcName(x.src))}</b></div>
+     <div class="hc">${fmt(x.n)} ảnh${x.n5>0?` · <b>${fmt(x.n5)} ★5</b>`:''}${x.state==='stopped'?' · <span class="warn">đã dừng giữa chừng</span>':''}${x.missing?' · <span class="warn">không tìm thấy</span>':''}</div>
+     <div class="hd">${when(x.time)}</div>
+     <div class="hb"><button data-hopen="${x.id}" ${x.missing?'disabled':''}>Mở</button><button class="cdel" data-hdel="${x.id}" title="Bỏ khỏi lịch sử (không xoá file)" aria-label="Bỏ ${esc(x.name)} khỏi lịch sử">✕</button></div></div>`).join('');
+  box.insertAdjacentHTML('beforeend',`<section class="chist" aria-label="Lịch sử xuất ảnh"><div class="hh"><h3>Lịch sử xuất ảnh đã lọc</h3><span class="hint">${l.length?'Tick thư mục rồi bấm “Add vào Lightroom” ở trên':''}</span><span class="sp"></span><button id="hAdd">+ Thêm thư mục đã xuất</button></div>
+    ${rows||'<div class="hnone">Chưa có lần xuất nào. Ảnh xuất bằng nút “Xuất ảnh” sẽ hiện ở đây, hoặc bấm “Thêm thư mục đã xuất” để thêm thư mục đã lọc từ trước.</div>'}</section>`);
+  const b=$('#catLr'); b.hidden=!(Cat.hist||[]).length; b.disabled=!Cat.lrSel.size;
+  b.textContent=Cat.lrSel.size?`Add vào Lightroom (${Cat.lrSel.size})`:'Add vào Lightroom';
+  $('#hAdd').onclick=()=>pickFolder(lsGet('ps_xd',''),async p=>{ try{ await api('/api/export/history/add',{path:p,src:S.status.root||''}); Cat.hist=await api('/api/export/history'); drawHist(); toast('Đã thêm vào lịch sử'); }catch(e){ toast(e.message,4000); } },'Chọn thư mục ảnh đã lọc');
+}
+$('#catBody').addEventListener('click',async e=>{
+  const o=e.target.closest('[data-hopen]'); if(o){ e.stopPropagation(); const x=Cat.hist.find(h=>h.id===+o.dataset.hopen); if(x){ const r=await api('/api/reveal',{path:x.dest}).catch(err=>({error:err.message})); if(r.error) toast(r.error); } return; }
+  const d=e.target.closest('[data-hdel]'); if(d){ e.stopPropagation(); await api('/api/export/history/remove',{id:+d.dataset.hdel}); Cat.hist=Cat.hist.filter(h=>h.id!==+d.dataset.hdel); Cat.lrSel.delete(+d.dataset.hdel); drawHist(); return; }
+  const r=e.target.closest('[data-hid]'); if(r){ e.stopPropagation(); const id=+r.dataset.hid, x=Cat.hist.find(h=>h.id===id); if(!x||x.missing) return;
+    Cat.lrSel.has(id)?Cat.lrSel.delete(id):Cat.lrSel.add(id); drawHist(); }
+},true);
+$('#catLr').onclick=()=>{
+  const sel=Cat.hist.filter(x=>Cat.lrSel.has(x.id)); if(!sel.length) return;
+  if(sel.length===1){ lrRun(sel[0].dest); return; }
+  const sp=p=>p.replace(/[\\/]+$/,'').split(/[\\/]/), parts=sel.map(x=>sp(x.dest));
+  let k=0; while(parts.every(a=>a.length>k+1&&a[k]===parts[0][k])) k++;
+  const sep=sel[0].dest.includes('\\')?'\\':'/', common=parts[0].slice(0,k).join(sep);
+  const tooHigh=k<2||/^[A-Za-z]:$/.test(common)||(common.startsWith('\\\\')&&k<5);
+  if(tooHigh){ toast('Lightroom chỉ nhận một thư mục nguồn mỗi lần: hãy tick các thư mục nằm chung một thư mục tổng (vd. MTH và MH của cùng buổi chụp).',6000); return; }
+  const m=modal(`<h3>Add vào Lightroom</h3><div class="hint" style="margin-bottom:10px">Lightroom nhận một thư mục nguồn mỗi lần, nên app sẽ mở Import cho thư mục tổng<br><b>${esc(common)}</b><br>gồm ${sel.map(x=>'<b>'+esc(x.name)+'</b>').join(', ')} (Include Subfolders). Nếu thư mục tổng còn thư mục con khác, bạn có thể bỏ tick chúng trong hộp Import.</div><div class="btns"><button onclick="this.closest('.back').remove()">Huỷ</button><button class="pri" id="lrAll">Mở Lightroom</button></div>`);
+  m.querySelector('#lrAll').onclick=()=>{ m.close(); lrRun(common); };
+};
 const mainDirNav={hist:[],idx:-1};  // nhớ qua các lần mở hộp chọn, để lùi được cả khi đã lỡ bấm "Chọn thư mục này"
 function pickFolder(start, onPick, title='Chọn thư mục'){
   const nav = onPick ? {hist:[],idx:-1} : mainDirNav;
@@ -1132,7 +1256,79 @@ function paintAdvInit(){ paintStack(); $('#sStack').onclick=()=>{ S.stack=!S.sta
   paintAdvInit2(); }
 function paintAdvInit2(){ paintAdv(); $('#sAdv').onclick=()=>{ S.adv=!S.adv; try{ localStorage.setItem('ps_adv2',S.adv?'1':'0'); }catch(e){} paintAdv(); }; }
 paintAdvInit();
-function openExportKey(){ const b=$('#bExport'); if(b&&!b.disabled&&b.offsetParent!==null) b.click(); }
+/* ---------- bảng tiến độ xuất ảnh giữa màn hình: vòng tròn %, thu nhỏ, dừng, xoá file đã chép nếu xuất nhầm ---------- */
+const XJ={t:0,st:null,mini:false};
+const XC=2*Math.PI*80, XMC=2*Math.PI*16;
+function xjMini(v){ XJ.mini=v; xjPaint(XJ.st); if(!v) setTimeout(()=>{ const b=$('#xjcard button'); b&&b.focus(); },0); }
+function xjPaint(st){ XJ.st=st; const box=$('#xjob'), card=$('#xjcard'), mini=$('#xjmini');
+  if(!st||!st.state||st.state==='idle'){ box.className=''; mini.className=''; card.innerHTML=''; return; }
+  const s=st.state, run=s==='running', tot=st.total||0, done=st.done||0, pct=tot?Math.min(100,Math.round(100*done/tot)):0;
+  const delAll=(st.files||0)+(st.removed||0), p=s==='deleting'?(st.removed||0)/Math.max(1,delAll):s==='deleted'?1:(tot?done/tot:0);
+  const head={running:'Đang xuất ảnh',done:'Đã xuất xong',stopped:'Đã dừng xuất ảnh',error:'Xuất ảnh bị lỗi',deleting:'Đang xoá file đã xuất',deleted:'Đã xoá file đã xuất'}[s]||'Xuất ảnh';
+  const el=Math.max(0.1,((st.ended||Date.now()/1000)-(st.started||Date.now()/1000))), rate=done/el, left=rate>0?Math.round((tot-done)/rate):0;
+  const mid=s==='done'?`<div class="ico">✓</div><div class="cnt">${fmt(done)} / ${fmt(tot)} ảnh</div>`
+    :s==='deleted'?`<div class="ico">✕</div><div class="cnt">Đã xoá ${fmt(st.removed||0)} file</div>`
+    :s==='deleting'?`<div class="pct">${Math.round(100*p)}<small>%</small></div><div class="cnt">đang xoá ${fmt(st.removed||0)} file</div>`
+    :`<div class="pct">${pct}<small>%</small></div><div class="cnt">${fmt(done)} / ${fmt(tot)} ảnh</div>`;
+  const cur=run?(st.cur?'Đang chép '+esc(st.cur):'Đang chuẩn bị…'):s==='stopped'?`Đã chép ${fmt(st.copied||0)} file trước khi dừng — các file này được giữ lại`
+    :s==='deleted'?'Ảnh gốc, số sao và các file khác trong thư mục vẫn nguyên':s==='error'?`<span class="warn">${esc(st.message||'')}</span>`:'';
+  const meta=run&&done?`<span>Tốc độ <b>${rate.toFixed(1)}</b> ảnh/giây</span><span>Còn khoảng <b>${left>=60?Math.ceil(left/60)+' phút':left+' giây'}</b></span>`
+    :s==='done'?`<span>Thời gian <b>${el>=60?Math.round(el/60)+' phút':Math.round(el)+' giây'}</b></span><span><b>${fmt(st.copied||0)}</b> file</span>`:'';
+  const err=st.n_errors&&!s.startsWith('del')?`<div class="warn" style="margin-top:6px;font-size:12px">${fmt(st.n_errors)} ảnh chưa chép được${(st.errors||[]).length?': '+esc(st.errors.slice(0,3).join('; '))+(st.n_errors>3?'…':''):''}</div>`:'';
+  const btn=run?`<button id="xjMin">Thu nhỏ</button><button id="xjStop">Dừng</button><button class="danger" id="xjWipe">Dừng &amp; xoá file đã chép</button>`
+    :s==='deleting'?'':s==='deleted'?`<button class="pri" id="xjClose">Đóng</button>`
+    :`<button id="xjOpen">Mở thư mục</button>${s!=='error'&&st.copied?'<button id="xjLr" title="Mở thư mục và hộp Import của Lightroom Classic, tự tick Build Smart Previews">Nhập vào Lightroom</button>':''}${st.files?`<button class="danger" id="xjWipe" title="${fmt(st.files)} file (gồm cả .xmp)">Xoá ${fmt(st.copied||0)} ảnh đã xuất</button>`:''}<button class="pri" id="xjClose">Đóng</button>`;
+  card.className={done:'done',stopped:'stop',error:'err',deleting:'del',deleted:'del'}[s]||'';
+  card.innerHTML=`<div class="ring" role="progressbar" aria-label="${head}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(100*p)}">${run||s==='deleting'?'<div class="spin"></div>':''}<svg viewBox="0 0 180 180"><circle class="trk" cx="90" cy="90" r="80" fill="none" stroke-width="12"/><circle class="bar" cx="90" cy="90" r="80" fill="none" stroke-width="12" stroke-dasharray="${XC}" stroke-dashoffset="${XC*(1-p)}"/></svg><div class="mid">${mid}</div></div>
+    <h3 id="xjh">${head}</h3><div class="dest" title="${esc(st.dest||'')}">→ ${esc(st.dest||'')}</div><div class="cur">${cur}</div><div class="meta">${meta}</div>${err}<div class="btns">${btn}</div>`;
+  const busy=run||s==='deleting', small=XJ.mini&&busy;   // xong / lỗi thì tự hiện lại giữa màn hình để báo
+  box.className=small?'':'on'; mini.className=small?'on':'';
+  mini.innerHTML=`<span class="r"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="16" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="5"/><circle cx="20" cy="20" r="16" fill="none" stroke="${s==='deleting'?'#ef5350':'#F2B01E'}" stroke-width="5" stroke-linecap="round" stroke-dasharray="${XMC}" stroke-dashoffset="${XMC*(1-p)}"/></svg><span>${Math.round(100*p)}%</span></span><span class="t"><b>${head}</b><small>${s==='deleting'?fmt(st.removed||0)+' file':fmt(done)+' / '+fmt(tot)+' ảnh'}</small></span>`;
+  const on=(id,f)=>{ const e=card.querySelector('#'+id); if(e) e.onclick=f; };
+  on('xjMin',()=>xjMini(true));
+  on('xjStop',async()=>{ xjPaint(await api('/api/export/cancel',{})); });
+  on('xjWipe',()=>{ const m=modal(`<h3>Xoá file đã xuất?</h3><div class="hint" style="margin-bottom:10px">${run?'Dừng xuất và x':'X'}oá <b>các file do lần xuất này chép sang</b> thư mục<br><b>${esc(st.dest||'')}</b>.<br>Ảnh gốc, số sao và các file khác trong thư mục đó không bị đụng tới.</div><div class="btns"><button onclick="this.closest('.back').remove()">Huỷ</button><button class="pri" id="xjYes">Xoá</button></div>`);
+    m.style.zIndex=70; m.querySelector('#xjYes').onclick=async()=>{ m.close(); xjPaint(await api('/api/export/cancel',{delete:true})); xjPoll(); }; });
+  on('xjOpen',async()=>{ const r=await api('/api/reveal',{path:st.dest}); if(r.error) toast(r.error); });
+  on('xjLr',()=>lrImport(st.dest));
+  on('xjClose',async()=>{ await api('/api/export/dismiss',{}); XJ.mini=false; xjPaint(null); });
+}
+$('#xjmini').onclick=()=>xjMini(false);
+addEventListener('keydown',e=>{   // bảng tiến độ đang mở: phím tắt lọc ảnh (1-5, X, mũi tên…) không tác động lên ảnh phía sau
+  if(!$('#xjob').classList.contains('on')||document.querySelector('.back')) return;
+  if(e.key==='Tab') return;
+  if(e.key==='Escape'){ const s=XJ.st&&XJ.st.state; if(s==='running'||s==='deleting') xjMini(true); else { const c=$('#xjcard #xjClose'); c&&c.click(); } }
+  if(e.key==='Enter'&&e.target.tagName==='BUTTON') return;
+  e.stopImmediatePropagation(); e.preventDefault(); },true);
+async function lrRun(path){
+  toast('Đang mở Lightroom…',4000);
+  try{ const r=await api('/api/lightroom',{path});
+    toast(r.running?'Lightroom đang mở sẵn: hộp Import sẽ hiện, nhớ tick “Build Smart Previews” (lần sau đóng Lightroom trước để app tự tick).'
+      :'Đã mở thư mục và Lightroom Import (đã bật Build Smart Previews, chọn Add).',r.running?7000:4500); }
+  catch(e){ toast(e.message,5000); } }
+async function lrImport(dest){   // hỏi: Import cả thư mục tổng (gồm các thư mục con đã lọc) hay chỉ thư mục này
+  const sep=dest.includes('\\')?'\\':'/', d=dest.replace(/[\\/]+$/,''), i=d.lastIndexOf(sep), parent=i>0?d.slice(0,i):'', me=d.slice(i+1);
+  let subs=[];
+  if(parent&&!/^[A-Za-z]:$/.test(parent)&&!/^\\\\[^\\]+\\[^\\]+$/.test(parent)){   // không đề nghị Import cả ổ đĩa / cả ổ chia sẻ NAS
+    try{ const l=await api('/api/ls?path='+encodeURIComponent(parent));
+      subs=(await Promise.all((l.dirs||[]).slice(0,12).map(async n=>{ try{ const x=await api('/api/ls?path='+encodeURIComponent(parent+sep+n)); return {n,c:x.images||0}; }catch(e){ return {n,c:0}; } }))).filter(x=>x.c>0);
+    }catch(e){ subs=[]; } }
+  if(subs.length<2){ lrRun(dest); return; }
+  const pname=parent.slice(parent.lastIndexOf(sep)+1), list=subs.map(x=>`<b>${esc(x.n)}</b> (${fmt(x.c)} ảnh)`).join(', ');
+  const cur=subs.find(x=>x.n===me);
+  const m=modal(`<h3>Import vào Lightroom</h3><div class="hint" style="margin:-4px 0 12px">Thư mục <b>${esc(pname)}</b> có ${subs.length} thư mục con chứa ảnh.</div>
+   <label class="lrop"><input type="radio" name="lrs" value="all" checked><span><b>Cả thư mục tổng</b> — ${esc(pname)}<br><span class="hint">Gồm ${list}. Lightroom nhập luôn các thư mục con.</span></span></label>
+   <label class="lrop"><input type="radio" name="lrs" value="one"><span><b>Chỉ thư mục này</b> — ${esc(me)}${cur?` (${fmt(cur.c)} ảnh)`:''}</span></label>
+   <div class="btns"><button onclick="this.closest('.back').remove()">Huỷ</button><button class="pri" id="lrGo">Mở Lightroom</button></div>`);
+  m.style.zIndex=70;
+  m.querySelector('#lrGo').onclick=()=>{ const all=m.querySelector('input[name=lrs]:checked').value==='all'; m.close(); lrRun(all?parent:dest); };
+  m.querySelector('#lrGo').focus(); }
+async function xjPoll(){ clearTimeout(XJ.t);
+  let st; try{ st=await api('/api/export/status'); }catch(e){ XJ.t=setTimeout(xjPoll,2000); return; }
+  xjPaint(st); if(st.state==='done'&&XJ.autoLr&&XJ.autoLr===st.dest&&st.copied){ XJ.autoLr=null; lrImport(st.dest); }
+  if(st.state==='running'||st.state==='deleting') XJ.t=setTimeout(xjPoll,400); }
+xjPoll();   // mở lại app khi đang xuất dở: bảng tiến độ hiện lại
+function openExportKey(){ if($('#xjob').classList.contains('on')) return; const b=$('#bExport'); if(b&&!b.disabled&&b.offsetParent!==null) b.click(); }
 window.openExportKey=openExportKey;
 $('#bExport').onclick=()=>{
   const m=modal(`<h3>Xuất ảnh</h3><div class="hint" style="margin:-6px 0 10px">Sao chép ảnh đã chọn sang thư mục đích. Ảnh gốc giữ nguyên.</div>
@@ -1142,12 +1338,14 @@ $('#bExport').onclick=()=>{
    <div class="hint" style="margin:-4px 0 6px 160px">{name} {date} {time} {seq} {person}</div>
    <div class="row"><label></label><label style="flex:1;color:var(--tx)"><input type="checkbox" id="xp"> Tách thư mục theo từng người (ảnh nhiều người được chép vào nhiều thư mục)</label></div>
    <div class="row"><label></label><label style="flex:1;color:var(--tx)"><input type="checkbox" id="xx" checked> Ghi sao/nhãn/tên người vào file .xmp (Lightroom, Bridge, Capture One đọc được với RAW)</label></div>
+   <div class="row"><label></label><label style="flex:1;color:var(--tx)"><input type="checkbox" id="xlr"> Xuất xong: mở thư mục và Import vào Lightroom Classic (tự tick Build Smart Previews)</label></div>
    <div id="xr" class="hint"></div>
    <div class="btns"><button onclick="this.closest('.back').remove()">Đóng</button><button class="pri" id="xgo">Sao chép</button></div>`);
   // mặc định: lựa chọn lần trước; lần đầu thì "tất cả trừ ảnh loại", hoặc đúng bộ đang lọc
   const xs=m.querySelector('#xs'), xgo=m.querySelector('#xgo'), ls=k=>{ try{ return localStorage.getItem(k)||''; }catch(e){ return ''; } };
   const last=ls('ps_xs'); xs.value=[...xs.options].some(o=>o.value===last)?last:(S.filter!=='all'?'view':'keep');
   m.querySelector('#xd').value=ls('ps_xd');
+  const xlr=m.querySelector('#xlr'); xlr.checked=ls('ps_xlr')==='1'; xlr.onchange=()=>{ try{ localStorage.setItem('ps_xlr',xlr.checked?'1':'0'); }catch(e){} };
   const pick=()=>{ const sc=xs.value; return sc==='sel'?targetsForExport():sc==='view'?S.viewFull.map(p=>p.id):sc==='keep'?S.photos.filter(p=>p.rating>=0).map(p=>p.id):sc==='r5'?S.photos.filter(p=>p.rating===5).map(p=>p.id):S.photos.filter(p=>p.rating>=3).map(p=>p.id); };
   const paintGo=()=>{ xgo.textContent=`Sao chép ${fmt(pick().length)} ảnh`; };
   xs.onchange=()=>{ try{ localStorage.setItem('ps_xs',xs.value); }catch(e){} paintGo(); }; paintGo();
@@ -1155,28 +1353,13 @@ $('#bExport').onclick=()=>{
   m.querySelector('#xgo').onclick=async()=>{
     const list=pick();
     const dest=m.querySelector('#xd').value.trim(); try{ localStorage.setItem('ps_xd',dest); }catch(e){} if(!dest){ toast('Chưa chọn thư mục đích'); return; } if(!list.length){ toast('Không có ảnh để xuất'); return; }
-    m.querySelector('#xgo').disabled=true;
-    const xr=m.querySelector('#xr');
-    xr.innerHTML=`<div class="xprog" style="height:14px;border-radius:8px;background:rgba(255,255,255,.12);overflow:hidden;margin:6px 0 4px"><i id="xbar" style="display:block;height:100%;width:0;background:linear-gradient(90deg,#f5a623,#ffd27a);transition:width .25s"></i></div><div id="xtx" style="color:var(--tx)">Đang chuẩn bị…</div>`;
-    const bar=xr.querySelector('#xbar'), tx=xr.querySelector('#xtx');
-    try{
-      await api('/api/export',{ids:list,dest,by_person:m.querySelector('#xp').checked,template:m.querySelector('#xt').value,xmp:m.querySelector('#xx').checked});
-      let st;
-      for(;;){
-        st=await api('/api/export/status'); const tot=st.total||list.length, pct=tot?Math.min(100,Math.round(100*st.done/tot)):0;
-        bar.style.width=pct+'%';
-        tx.innerHTML=`<b>${pct}%</b> &nbsp;•&nbsp; đã xuất <b>${fmt(st.done)}</b> / ${fmt(tot)} ảnh`+(st.state==='running'&&st.cur?` &nbsp;•&nbsp; <span class="hint">${esc(st.cur)}</span>`:'');
-        if(st.state!=='running') break;
-        if(!document.body.contains(m)) return;
-        await new Promise(r=>setTimeout(r,300));
-      }
-      if(st.state==='error') throw new Error(st.message||'Lỗi khi xuất');
-      bar.style.width='100%';
-      tx.innerHTML=`<span class="ok"><b>Xong.</b> Đã sao chép ${fmt(st.done)}/${fmt(st.total)} ảnh (${fmt(st.copied)} file).</span> <button id="xopen">Mở thư mục</button>`+(st.n_errors?`<div class="warn" style="margin-top:6px">${st.n_errors} ảnh chưa chép được: ${esc((st.errors||[]).slice(0,5).join('; '))}${st.n_errors>5?'…':''}</div>`:'');
-      tx.querySelector('#xopen').onclick=async()=>{ const r=await api('/api/reveal',{path:dest}); if(r.error) toast(r.error); };
-    }catch(err){ xr.innerHTML=`<span class="warn">${esc(err.message)}</span>`; }
-    m.querySelector('#xgo').disabled=false;
+    xgo.disabled=true;
+    try{ await api('/api/export',{ids:list,dest,by_person:m.querySelector('#xp').checked,template:m.querySelector('#xt').value,xmp:m.querySelector('#xx').checked});
+      XJ.autoLr=xlr.checked?dest:null; m.close(); XJ.mini=false; }
+    catch(err){ m.querySelector('#xr').innerHTML=`<span class="warn">${esc(err.message)}</span>`; xgo.disabled=false; }
+    xjPoll();
   };
+  if(XJ.st&&(XJ.st.state==='running'||XJ.st.state==='deleting')){ m.querySelector('#xr').innerHTML='<span class="warn">Đang có một lần xuất chạy. Bấm vào vòng tiến độ ở góc dưới bên phải, rồi bấm Dừng nếu muốn xuất lại.</span>'; }
 };
 /* Gửi ảnh đã lọc sang chế độ Dàn trang */
 if(window.parent!==window && window.parent.PS) $('#bLayout').hidden=false;

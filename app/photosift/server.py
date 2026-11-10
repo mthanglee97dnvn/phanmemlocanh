@@ -141,6 +141,114 @@ _USER_RE = re.compile(r"^[\w.@\\ -]{1,100}$")
 _NOWIN = 0x08000000 if os.name == "nt" else 0
 
 
+# ---------- Lightroom Classic: mở hộp Import cho thư mục vừa xuất, tự tick "Build Smart Previews" ----------
+def _lr_exe():
+    """Đường dẫn Lightroom.exe (Lightroom Classic) hoặc None."""
+    cands = []
+    if os.name == "nt":
+        try:   # đăng ký "App Paths" của Windows (đúng cả khi cài ở ổ khác)
+            import winreg
+            for hive in (winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER):
+                try:
+                    with winreg.OpenKey(hive, r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\Lightroom.exe") as k:
+                        cands.append(winreg.QueryValue(k, None))
+                except OSError:
+                    pass
+        except ImportError:
+            pass
+        for base in (os.environ.get("ProgramFiles", r"C:\Program Files"), os.environ.get("ProgramW6432", r"C:\Program Files")):
+            for d in ("Adobe Lightroom Classic", "Adobe Lightroom Classic CC", "Adobe Lightroom"):
+                cands.append(os.path.join(base, "Adobe", d, "Lightroom.exe"))
+    if sys.platform == "darwin":
+        for base in ("/Applications", os.path.expanduser("~/Applications")):
+            try:
+                for n in sorted(os.listdir(base)):
+                    if n.startswith("Adobe Lightroom Classic"):
+                        d = os.path.join(base, n)
+                        app = d if d.endswith(".app") else os.path.join(d, "Adobe Lightroom Classic.app")
+                        if os.path.isdir(app):
+                            return app
+            except OSError:
+                pass
+        return None
+    for c in cands:
+        if c and os.path.isfile(c.strip('"')):
+            return c.strip('"')
+    return None
+
+
+def _lr_running():
+    if sys.platform == "darwin":
+        try:
+            return subprocess.run(["/usr/bin/pgrep", "-f", "Adobe Lightroom Classic.app/Contents/MacOS"],
+                                  capture_output=True, timeout=5).returncode == 0
+        except Exception:  # noqa: BLE001
+            return False
+    if os.name != "nt":
+        return False
+    try:
+        r = subprocess.run(["tasklist", "/FI", "IMAGENAME eq Lightroom.exe", "/NH"], capture_output=True, text=True,
+                           timeout=5, creationflags=_NOWIN)
+        return "lightroom.exe" in (r.stdout or "").lower()
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _lr_prefs_smart(folder: str, root=None):
+    """Bật "Build Smart Previews" (AgImport_generateDNGProxies) trong file cài đặt Lightroom Classic.
+    Chỉ sửa được khi Lightroom đang tắt (Lightroom ghi đè file này lúc thoát). Trả về True nếu đã bật."""
+    root = Path(root) if root else Path(os.environ.get("APPDATA", "")) / "Adobe" / "Lightroom" / "Preferences"
+    files = [p for p in root.glob("Lightroom Classic*Preferences.agprefs") if "Startup" not in p.name]
+    files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    if not files:
+        return False
+    p = files[0]
+    raw = p.read_bytes()
+    txt = raw.decode("utf-8")
+    nl = "\r\n" if "\r\n" in txt else "\n"
+    esc = folder.replace("\\", "\\\\").replace('"', '\\"')
+    for k, v in (("AgImport_generateDNGProxies", "true"), ("AgImport_lastImportPath", f'"{esc}"')):
+        pat = re.compile(r"^(\t" + k + r" = )[^\r\n]*?(,?)(\r?)$", re.M)
+        if pat.search(txt):
+            txt = pat.sub(lambda m: m.group(1) + v + (m.group(2) or ",") + m.group(3), txt, count=1)
+        else:
+            txt = txt.replace("prefs = {" + nl, "prefs = {" + nl + "\t" + k + " = " + v + "," + nl, 1)
+    if txt.encode("utf-8") == raw:
+        return True
+    bak = p.with_name(p.name + ".mthanglee.bak")
+    if not bak.exists():
+        bak.write_bytes(raw)   # bản gốc trước lần sửa đầu tiên của app
+    tmp = p.with_name(p.name + ".tmp")
+    tmp.write_bytes(txt.encode("utf-8"))
+    os.replace(tmp, p)
+    return True
+
+
+def lightroom_import(folder: str, reveal: bool = True):
+    folder = os.path.abspath(folder)
+    if not os.path.isdir(folder):
+        return dict(error="Không tìm thấy thư mục")
+    exe = _lr_exe()
+    if not exe:
+        return dict(error="Không tìm thấy Lightroom Classic trên máy này")
+    running = _lr_running()
+    smart = False
+    if not running and os.name == "nt":   # macOS lưu cài đặt Lightroom dạng plist riêng: chưa tự tick được
+        try:
+            smart = _lr_prefs_smart(folder)
+        except Exception as e:  # noqa: BLE001
+            print("lightroom prefs:", e, file=sys.stderr)
+    if sys.platform == "darwin":
+        if reveal:
+            subprocess.Popen(["/usr/bin/open", folder])
+        subprocess.Popen(["/usr/bin/open", "-a", exe, folder])   # thả thư mục vào Lightroom = mở hộp Import
+        return dict(ok=True, running=running, smart=False, mac=True)
+    if reveal and os.name == "nt":
+        os.startfile(folder)  # noqa: S606
+    subprocess.Popen([exe, folder], close_fds=True)   # truyền thư mục cho Lightroom = mở hộp Import với nguồn là thư mục đó
+    return dict(ok=True, running=running, smart=smart)
+
+
 def _run(args, timeout=10):
     try:
         r = subprocess.run(args, capture_output=True, timeout=timeout, creationflags=_NOWIN)
@@ -385,6 +493,8 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                     return self._json(lib.catalog())
                 if u.path == "/api/cull/last":
                     return self._json(lib.cull_last())
+                if u.path == "/api/export/history":
+                    return self._json(lib.export_history())
                 if u.path == "/api/export/status":
                     return self._json(lib.export_status())
                 if u.path == "/api/photos":
@@ -468,6 +578,9 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                     return self._json(dict(ok=True))
                 if not lic.ok() and u.path != "/api/quit":
                     return self._json(dict(error="Chưa kích hoạt key", license=False), 402)
+                if u.path == "/api/locate":   # kéo thả thư mục: tìm đường dẫn thật từ tên + vài file mẫu
+                    p = lib.locate(str(b.get("name") or ""), b.get("samples") or [])
+                    return self._json(dict(path=p))
                 if u.path == "/api/open":
                     path = os.path.abspath(os.path.expanduser(b["path"]))
                     if not os.path.isdir(path):
@@ -514,6 +627,9 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                         return self._json(fonts.set_ui(b.get("font", "")))
                     except ValueError as e:
                         return self._json(dict(error=friendly(e)), 400)
+                if u.path == "/api/lightroom":   # mở thư mục + hộp Import của Lightroom Classic (Build Smart Previews)
+                    r = lightroom_import(str(b.get("path", "")), bool(b.get("reveal", True)))
+                    return self._json(r, 400 if r.get("error") else 200)
                 if u.path == "/api/reveal":   # mở thư mục đích sau khi xuất ảnh
                     d = os.path.abspath(str(b.get("path", "")))
                     if not os.path.isdir(d):
@@ -561,6 +677,16 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                     path = os.path.join(parent, name)
                     os.makedirs(path, exist_ok=True)
                     return self._json(dict(ok=True, path=path))
+                if u.path == "/api/export/cancel":
+                    return self._json(lib.export_cancel(bool(b.get("delete"))))
+                if u.path == "/api/export/history/remove":
+                    lib.db.x("DELETE FROM export_log WHERE id=?", (int(b["id"]),))
+                    return self._json(dict(ok=True))
+                if u.path == "/api/export/history/add":
+                    r = lib.export_history_add(str(b.get("path", "")), str(b.get("src", "")))
+                    return self._json(r, 400 if r.get("error") else 200)
+                if u.path == "/api/export/dismiss":
+                    return self._json(lib.export_dismiss())
                 if u.path == "/api/export":
                     r = lib.start_export(b["ids"], b["dest"], bool(b.get("by_person")),
                                          b.get("template") or "{name}", bool(b.get("xmp")))
