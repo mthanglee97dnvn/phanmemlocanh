@@ -140,6 +140,8 @@ $('uGo').onclick=async()=>{const m=$('uMsg'),bar=$('uBar'),go=$('uGo'),stop=t=>{
 $('tLic').onclick=()=>{$('licErr').textContent='';$('lKey').value='';$('licDlg').showModal()};$('lClose').onclick=()=>$('licDlg').close();
 $('lGo').onclick=async()=>{const r=await post('/api/license/activate',{key:$('lKey').value});if(r.ok){$('licDlg').close();lic()}else $('licErr').textContent=r.reason};
 let armed=false;$('lRemove').onclick=async e=>{if(!armed){armed=true;e.target.textContent='Bấm lần nữa để gỡ key';return}await post('/api/license/remove');location.reload()};
+// thả file/thư mục lỡ rơi ra ngoài khung (thanh tab): không để cửa sổ mở file đó thay cho app
+addEventListener('dragover',e=>e.preventDefault()); addEventListener('drop',e=>e.preventDefault());
 </script>
 </body>
 </html>

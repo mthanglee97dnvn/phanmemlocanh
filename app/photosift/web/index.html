@@ -265,6 +265,8 @@ details.adv{margin:6px 0;border-top:1px solid var(--line);padding-top:6px}detail
 #vbadge .chip.topdup{background:#101216;color:#F2B01E;box-shadow:inset 0 0 0 1px #F2B01E}
 #vbadge .chip.stk{font-size:12px;padding:3px 9px;margin-left:6px}
 #vbadge .chip.stk .kbd{font-size:10px;padding:0 4px;margin-left:4px}
+#dropzone{position:fixed;inset:10px;z-index:98;display:none;align-items:center;justify-content:center;flex-direction:column;gap:8px;border:2px dashed var(--pri,#F2B01E);border-radius:16px;background:rgba(10,12,16,.82);pointer-events:none;text-align:center}
+#dropzone.on{display:flex}#dropzone b{font-size:20px;color:var(--pri,#F2B01E)}#dropzone span{color:var(--mut,#9aa3ad)}
 </style>
 <link id="uiFont" rel="stylesheet" href="/ui.css">
 </head>
@@ -310,10 +312,11 @@ details.adv{margin:6px 0;border-top:1px solid var(--line);padding-top:6px}detail
  <svg class="cb" viewBox="0 0 100 115" style="left:36%;bottom:-70px;width:150px"><use href="#cube"/></svg>
  <svg class="cb" viewBox="0 0 100 115" style="right:-24px;bottom:-30px;width:240px;transform:rotate(-8deg)"><use href="#cube"/></svg>
 </div>
+<div id="dropzone" aria-hidden="true"><svg class="ic" style="width:40px;height:40px" aria-hidden="true"><use href="#i-folder"/></svg><b>Thả thư mục vào để mở</b><span>Thư mục ảnh từ máy tính, ổ cứng ngoài hoặc NAS</span></div>
 <div id="catalog">
   <div class="chead">
     <h2>Catalog thư mục</h2>
-    <button class="pri" id="catAdd"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Thêm thư mục</button>
+    <button class="pri" id="catAdd" title="Hoặc kéo thả thư mục ảnh từ máy tính vào cửa sổ app"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Thêm thư mục</button>
     <button id="catBack" hidden>← Về thư mục đang mở</button>
     <span class="sp"></span>
     <input type="text" id="catQ" placeholder="Tìm thư mục…" aria-label="Tìm thư mục">
@@ -978,7 +981,7 @@ function drawCatalog(){
   const cur=S.status.root, cov=(c,n)=>`/cover/${n}?v=${c.ver}`, img=c=>c.covers.map(n=>`<img loading="lazy" src="${cov(c,n)}" alt="" onerror="this.remove()">`).join('');
   const del=c=>`<button class="cdel" data-del="${esc(c.root)}" title="Gỡ khỏi Catalog" aria-label="Gỡ ${esc(c.name)} khỏi catalog">✕</button>`;
   const num=c=>c.n?fmt(c.n)+' ảnh':'Chưa đọc lại'; const stat=c=>`${num(c)} · ${fmt(c.stars)} ★ · ${fmt(c.rej)} ✕`;
-  if(!l.length){ box.innerHTML=`<div class="cnone">${Cat.list.length?'Không có thư mục nào khớp.':'<h2>Chưa có thư mục nào</h2><div>Bấm “Thêm thư mục” để chọn thư mục ảnh đầu tiên.</div>'}</div>`; return; }
+  if(!l.length){ box.innerHTML=`<div class="cnone">${Cat.list.length?'Không có thư mục nào khớp.':'<h2>Chưa có thư mục nào</h2><div>Bấm “Thêm thư mục” hoặc kéo thả thư mục ảnh từ máy tính vào đây.</div>'}</div>`; return; }
   if(Cat.view==='det'){
     const th=(k,t,c='')=>`<th class="${c}" data-s="${k}">${t}</th>`;
     box.innerHTML=`<table class="ctable"><thead><tr>${th('name','Thư mục')}<th>Đường dẫn</th>${th('n','Số ảnh','num')}<th class="num">★</th><th class="num">✕</th>${th('size','Dung lượng','num')}${th('t1','Ngày chụp')}${th('opened','Mở gần nhất')}<th>Trạng thái</th><th></th></tr></thead><tbody>`+
@@ -999,6 +1002,40 @@ $('#catBody').onkeydown=e=>{ if(e.key==='Enter'&&e.target.dataset.root) catOpen(
 $('#catView').onclick=e=>{ const v=e.target.dataset.v; if(v){ Cat.view=v; lsSet('ps.catView',v); drawCatalog(); } };
 $('#catSort').onchange=e=>{ Cat.sort=e.target.value; lsSet('ps.catSort',Cat.sort); drawCatalog(); };
 $('#catQ').oninput=drawCatalog; $('#catAdd').onclick=()=>pickFolder(); $('#catBack').onclick=hideCatalog; $('#bCat').onclick=showCatalog;
+/* ---------- kéo thả thư mục từ Windows vào app ----------
+   Trình duyệt không cho biết đường dẫn thật của thư mục được thả, chỉ cho tên và các file bên trong.
+   App gửi tên + vài file mẫu (tên, dung lượng) để lõi tìm đúng thư mục quanh các thư mục đã có trong Catalog. */
+const DROP_IMG=/\.(jpe?g|png|heic|heif|tiff?|webp|arw|cr2|cr3|nef|nrw|dng|raf|orf|rw2|pef|srw|x3f|3fr|iiq|rwl|erf|kdc|mrw|mef|mos|sr2|srf)$/i;
+const readAll=dir=>new Promise(res=>{ const r=dir.createReader(), out=[]; const step=()=>r.readEntries(b=>{ if(!b.length||out.length>400) return res(out); out.push(...b); step(); },()=>res(out)); step(); });
+const fileOf=e=>new Promise(res=>e.file(res,()=>res(null)));
+async function dropSamples(dir){   // tối đa 8 file ảnh mẫu, tìm sâu tối đa 2 cấp thư mục con
+  const out=[]; let level=[[dir,'']];
+  for(let d=0; d<3 && level.length && out.length<8; d++){ const nxt=[];
+    for(const [e,pre] of level){ for(const c of await readAll(e)){
+      if(c.isFile&&DROP_IMG.test(c.name)&&out.length<8){ const f=await fileOf(c); out.push({p:pre+c.name,s:f?f.size:-1}); }
+      else if(c.isDirectory&&nxt.length<6) nxt.push([c,pre+c.name+'/']); }
+      if(out.length>=8) break; }
+    level=nxt; }
+  return out; }
+async function dropOpen(dt){
+  const it=[...(dt.items||[])].map(i=>i.webkitGetAsEntry&&i.webkitGetAsEntry()).filter(Boolean);
+  if(!it.length){ toast('Hãy kéo một thư mục ảnh vào đây.',3000); return; }
+  let name='', samples=[];
+  const dir=it.find(e=>e.isDirectory);
+  if(dir){ name=dir.name; samples=await dropSamples(dir); }
+  else{ for(const e of it.filter(e=>e.isFile&&DROP_IMG.test(e.name)).slice(0,8)){ const f=await fileOf(e); samples.push({p:e.name,s:f?f.size:-1}); }   // thả file ảnh → mở thư mục chứa chúng
+    if(!samples.length){ toast('Không phải thư mục ảnh. Hãy kéo một thư mục vào đây.',3500); return; } }
+  if(dir&&!samples.length){ toast(`Thư mục «${name}» không có ảnh nào (JPG/PNG/RAW/HEIC).`,4000); return; }
+  toast(`Đang tìm thư mục «${name||'chứa ảnh vừa thả'}»…`,15000);
+  let r; try{ r=await api('/api/locate',{name,samples}); }catch(e){ toast(e.message,4000); return; }
+  if(r&&r.path){ toast(`Đang mở ${r.path}`,2500); openFolder(r.path,$('#cRec').checked).catch(e=>toast(e.message,4000)); return; }
+  toast(`Chưa tìm được «${name||'thư mục'}» tự động. Hãy chọn thư mục đó trong hộp chọn.`,5000); pickFolder(); }
+{ let n=0; const z=$('#dropzone'), has=e=>[...(e.dataTransfer&&e.dataTransfer.types||[])].includes('Files');
+  addEventListener('dragenter',e=>{ if(!has(e)) return; e.preventDefault(); n++; z.classList.add('on'); });
+  addEventListener('dragover',e=>{ if(!has(e)) return; e.preventDefault(); e.dataTransfer.dropEffect='copy'; });
+  addEventListener('dragleave',e=>{ if(!has(e)) return; if(--n<=0){ n=0; z.classList.remove('on'); } });
+  addEventListener('drop',e=>{ if(!has(e)) return; e.preventDefault(); n=0; z.classList.remove('on'); if(document.querySelector('.back')) return; dropOpen(e.dataTransfer); });
+}
 const mainDirNav={hist:[],idx:-1};  // nhớ qua các lần mở hộp chọn, để lùi được cả khi đã lỡ bấm "Chọn thư mục này"
 function pickFolder(start, onPick, title='Chọn thư mục'){
   const nav = onPick ? {hist:[],idx:-1} : mainDirNav;

@@ -342,6 +342,85 @@ class Library:
                             missing=not root.startswith("\\\\") and not os.path.isdir(root)))  # không dò ổ mạng: có thể treo lâu
         return out
 
+    def locate(self, name: str, samples: list, budget: float = 10.0):
+        """Kéo thả thư mục từ Windows vào app: trình duyệt không cho biết đường dẫn thật, chỉ có tên thư mục và vài file bên trong.
+        Tìm thư mục cùng tên quanh các thư mục đã có trong Catalog (cùng ổ / cùng NAS, thường là anh em hoặc họ hàng gần),
+        rồi xác nhận bằng tên + dung lượng file mẫu. Trả về đường dẫn hoặc None."""
+        name = (name or "").strip()
+        smp = [(str(x.get("p", "")).replace("/", os.sep), int(x.get("s", -1))) for x in (samples or [])[:12] if x.get("p")]
+        end = time.time() + budget
+
+        def ok(d):
+            if name and os.path.basename(d.rstrip("\\/")).lower() != name.lower():
+                return False
+            if not smp:
+                return bool(name)
+            hit = 0
+            for rel, sz in smp[:6]:
+                try:
+                    st = os.stat(os.path.join(d, rel))
+                except OSError:
+                    continue
+                if sz < 0 or st.st_size == sz:
+                    hit += 1
+            return hit >= min(2, len(smp[:6]))
+
+        roots = [r["root"] for r in self.db.q("SELECT root FROM catalog ORDER BY opened DESC")]
+        if self.status.get("root"):
+            roots.insert(0, self.status["root"])
+        bases, seen = [], set()
+
+        def add(p, depth):
+            k = os.path.normcase(os.path.abspath(p)) if p else ""
+            if p and k not in seen:
+                seen.add(k)
+                bases.append((p, depth))
+        for lvl in range(1, 4):   # anh em trước, rồi họ hàng xa dần
+            for r in roots:
+                p = r.rstrip("\\/")
+                for _ in range(lvl):
+                    q = os.path.dirname(p)
+                    if not q or q == p:
+                        p = ""
+                        break
+                    p = q
+                if p and not (p.startswith("\\\\") and p.count("\\") <= 3):   # không quét cả máy chủ NAS
+                    add(p, lvl)
+        home = os.path.expanduser("~")
+        for sub in ("Desktop", "Downloads", "Pictures", "Documents", "Videos"):
+            add(os.path.join(home, sub), 2)
+        if sys.platform == "win32":
+            import string
+            for c in string.ascii_uppercase[2:]:
+                d = f"{c}:\\"
+                if os.path.isdir(d):
+                    add(d, 2)
+        visited = set()
+        for base, depth in bases:   # tìm theo chiều rộng, giới hạn thời gian để ổ mạng chậm không làm treo
+            level = [base]
+            for _ in range(depth + 1):
+                nxt = []
+                for d in level:
+                    if time.time() > end:
+                        return None
+                    k = os.path.normcase(d)
+                    if k in visited:
+                        continue
+                    visited.add(k)
+                    if ok(d):
+                        return d
+                    try:
+                        with os.scandir(d) as it:
+                            for e in it:
+                                if not e.name.startswith((".", "$")) and e.is_dir(follow_symlinks=False):
+                                    if name and e.name.lower() == name.lower() and ok(e.path):
+                                        return e.path
+                                    nxt.append(e.path)
+                    except OSError:
+                        pass
+                level = nxt
+        return None
+
     def catalog_remove(self, root: str):
         self.db.x("DELETE FROM catalog WHERE root=?", (root,))
         for i in range(4):

@@ -468,6 +468,9 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                     return self._json(dict(ok=True))
                 if not lic.ok() and u.path != "/api/quit":
                     return self._json(dict(error="Chưa kích hoạt key", license=False), 402)
+                if u.path == "/api/locate":   # kéo thả thư mục: tìm đường dẫn thật từ tên + vài file mẫu
+                    p = lib.locate(str(b.get("name") or ""), b.get("samples") or [])
+                    return self._json(dict(path=p))
                 if u.path == "/api/open":
                     path = os.path.abspath(os.path.expanduser(b["path"]))
                     if not os.path.isdir(path):
