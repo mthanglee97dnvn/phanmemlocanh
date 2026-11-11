@@ -15,6 +15,11 @@ jobs:
     if: github.event.workflow_run.conclusion == 'success' || github.event.workflow_run.conclusion == 'failure'
     runs-on: ubuntu-latest
     steps:
+      - name: Lấy mã nguồn (để đọc ghi chú phát hành cho người dùng)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
       - name: Tải file cài từ lần build vừa xong
         env:
           GH_TOKEN: ${{ github.token }}
@@ -23,11 +28,18 @@ jobs:
       - name: Tạo bản phát hành
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-          NOTES: ${{ github.event.workflow_run.head_commit.message }}
           TAG: v1.1.${{ github.event.workflow_run.run_number }}
         run: |
           exe=$(find out -name '*.exe' | head -1)
           test -n "$exe"
           dmgs=$(find out -name '*.dmg')   # bản macOS (nếu build được) — đi kèm cùng bản phát hành
           echo "Windows: $exe"; echo "macOS: $dmgs"
-          gh release create "$TAG" "$exe" $dmgs --repo "${{ github.repository_owner }}/cullcollage-releases" --title "$TAG" --notes "$NOTES"
+          # Ghi chú phát hành dành cho NGƯỜI DÙNG: lấy từ WHATSNEW.txt (sạch, chuyên nghiệp),
+          # không dùng nội dung commit. Thiếu file thì dùng thông báo chung.
+          if [ -s WHATSNEW.txt ]; then
+            NF=WHATSNEW.txt
+          else
+            printf 'Phiên bản này cải thiện độ ổn định và sửa một số lỗi.\n\nCảm ơn bạn đã sử dụng MThanglee Cull & Collage.\n© Lê Minh Thắng — MTHANGLEE STUDIO\n' > _notes.txt
+            NF=_notes.txt
+          fi
+          gh release create "$TAG" "$exe" $dmgs --repo "${{ github.repository_owner }}/cullcollage-releases" --title "$TAG" --notes-file "$NF"

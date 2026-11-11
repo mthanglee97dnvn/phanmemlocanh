@@ -6,24 +6,36 @@
 <meta name="google" content="notranslate">
 <title>MThanglee Cull&amp;Collage</title>
 <link rel="icon" type="image/png" href="/favicon.png">
+<meta name="theme-color" content="#14161A">
 <style>
 *{box-sizing:border-box}
 html,body{height:100%;margin:0;background:#14161A;color:#ECEEF2;font:13px/1.4 "Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;overflow:hidden}
 #shell{display:grid;grid-template-rows:38px minmax(0,1fr);height:100%}
-#mode{display:flex;align-items:center;gap:6px;padding:0 12px;background:#14161A;border-bottom:1px solid #383D47}
-#mode img{height:22px;width:auto;margin-right:8px}
-#mode button{background:none;border:0;border-bottom:2px solid transparent;color:#A1A8B4;font:inherit;font-weight:600;height:38px;padding:0 14px;cursor:pointer}
-#mode button:hover{color:#fff}
-#mode button[aria-selected=true]{color:#ECEEF2;border-bottom-color:#F2B01E}
+#mode [hidden]{display:none!important}
+#mode{display:flex;align-items:center;gap:6px;padding:0 10px 0 12px;background:#14161A;border-bottom:1px solid #383D47}
+#mode img{height:22px;width:auto;margin-right:6px}
+#mode .vsep{width:1px;height:20px;background:#2E3440;margin:0 4px;flex:none}
+#mode button[role=tab]{display:inline-flex;align-items:center;gap:7px;background:none;border:0;border-bottom:2px solid transparent;color:#99A2B0;font:inherit;font-weight:600;height:38px;padding:0 13px;cursor:pointer}
+#mode button[role=tab]:hover{color:#E7ECF3}
+#mode button[role=tab][aria-selected=true]{color:#F7C757;border-bottom-color:#F2B01E}
+#mode button[role=tab] svg{width:16px;height:16px;flex:none}
 #mode button:focus-visible{outline:2px solid #F2B01E;outline-offset:-3px}
 #mode kbd{display:none}
 #mode .sp{flex:1}
-#mode #tName{font-weight:600;color:#A1A8B4;font-size:12.5px;white-space:nowrap}
-#mode #tLic{height:26px;padding:0 10px;border:1px solid #383D47;border-radius:13px;color:#A1A8B4;font-weight:500;font-size:12px}
-#mode #tLic.warn{color:#F7C757;border-color:#F2B01E}
-#mode #tVer{height:26px;padding:0 8px;border:0;color:#A1A8B4;font-weight:500;font-size:12px}
-#mode #tUpd{height:26px;padding:0 11px;border:0;border-radius:13px;background:#F2B01E;color:#1A1405;font-weight:700;font-size:12px}
+#mode .act{display:inline-flex;align-items:center;gap:7px;height:28px;padding:0 12px;border:1px solid #333A45;border-radius:8px;background:#1C2026;color:#C9D1DC;font:inherit;font-weight:600;font-size:12px;cursor:pointer}
+#mode .act:hover{background:#242B33;color:#fff;border-color:#4A515E}
+#mode .act svg{width:15px;height:15px;flex:none}
+#mode #tName{font-weight:600;color:#6B7483;font-size:12px;white-space:nowrap}
+#mode #tVer{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border:0;border-radius:8px;background:none;color:#8A93A1;font:inherit;font-weight:500;font-size:12px;cursor:pointer}
+#mode #tVer:hover{background:#1C2026;color:#ECEEF2}
+#mode #tVer svg{width:15px;height:15px;flex:none}
+#mode #tLic{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 11px;border:1px solid #2F5E43;border-radius:8px;background:#15241B;color:#54C78B;font:inherit;font-weight:600;font-size:12px;cursor:pointer}
+#mode #tLic:hover{background:#192D21}
+#mode #tLic.warn{color:#F7C757;border-color:#6B4E1A;background:#271F0E}
+#mode #tLic svg{width:15px;height:15px;flex:none}
+#mode #tUpd{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 12px;border:0;border-radius:8px;background:#F2B01E;color:#1A1405;font:inherit;font-weight:700;font-size:12px;cursor:pointer}
 #mode #tUpd:hover{color:#1A1405;background:#F7C757}
+#mode #tUpd svg{width:15px;height:15px;flex:none}
 #uNotes{white-space:pre-wrap;max-height:220px;overflow:auto;font-size:13px;line-height:1.5;margin:0 0 10px;color:#d5e2f0}
 #uBar{height:6px;border-radius:3px;background:#2A2E36;overflow:hidden;margin:6px 0}#uBar i{display:block;height:100%;width:0;background:#F2B01E}
 #uMsg{color:#A1A8B4;font-size:12.5px;min-height:18px}
@@ -45,8 +57,6 @@ iframe.on{visibility:visible;opacity:1;pointer-events:auto;z-index:1}
    (thanh công cụ cố định, ảnh có hiệu ứng) đè lên tab đang mở; thêm opacity + z-index để tab đang mở luôn nằm trên */
 ::selection{background:rgba(242,176,30,.32)}
 dialog button:focus-visible,#mode button:focus-visible{outline:2px solid #F2B01E;outline-offset:1px}
-#mode #tFont{height:26px;padding:0 9px;border:0;color:#A1A8B4;font-weight:600;font-size:12.5px}
-#mode #tFont:hover,#mode #tVer:hover{color:#ECEEF2}
 #fontDlg{width:min(560px,calc(100vw - 24px))}
 #fQ{width:100%;background:#14161A;color:#ECEEF2;border:1px solid #383D47;border-radius:6px;padding:7px 10px;font:inherit;margin-bottom:8px}
 #fList{height:340px;overflow:auto;border:1px solid #383D47;border-radius:8px;background:#14161A}
@@ -61,11 +71,17 @@ dialog button:focus-visible,#mode button:focus-visible{outline:2px solid #F2B01E
 <div id="shell">
   <nav id="mode" role="tablist" aria-label="Chế độ làm việc">
     <img src="/logo.png" alt="MTHANGLEE STUDIO">
-    <button role="tab" id="tFilter" aria-selected="true" title="Lọc ảnh (Ctrl+1)" aria-keyshortcuts="Control+1">Lọc ảnh</button>
-    <button role="tab" id="tLayout" aria-selected="false" title="Dàn trang (Ctrl+2)" aria-keyshortcuts="Control+2">Dàn trang</button>
-    <span class="sp"></span><button id="tUpd" hidden></button><button id="tPhone" title="Lọc ảnh bằng điện thoại (quét QR)">📱 Điện thoại</button><button id="tFont" title="Đổi phông chữ của app">Aa Phông chữ</button><span id="tName">MThanglee Cull&amp;Collage</span>
-    <button id="tVer" title="Kiểm tra cập nhật"></button>
-    <button id="tLic" title="Thông tin bản quyền"></button>
+    <span class="vsep"></span>
+    <button role="tab" id="tFilter" aria-selected="true" title="Lọc ảnh (Ctrl+1)" aria-keyshortcuts="Control+1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5h18l-7 8.5v6l-4 2v-8z"/></svg>Lọc ảnh</button>
+    <button role="tab" id="tLayout" aria-selected="false" title="Dàn trang (Ctrl+2)" aria-keyshortcuts="Control+2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2.5"/><path d="M3 9.5h18M10 9.5V21"/></svg>Dàn trang</button>
+    <span class="sp"></span>
+    <button id="tPhone" class="act" title="Lọc ảnh bằng điện thoại (quét QR)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2.5"/><path d="M11 18h2"/></svg>Điện thoại</button>
+    <button id="tFont" class="act" title="Đổi phông chữ của app"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20l5-15h2l5 15"/><path d="M7.5 14h7"/></svg>Phông chữ</button>
+    <span class="vsep"></span>
+    <span id="tName">MThanglee Cull&amp;Collage</span>
+    <button id="tUpd" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg><span class="t"></span></button>
+    <button id="tVer" title="Kiểm tra cập nhật"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg><span class="t"></span></button>
+    <button id="tLic" title="Thông tin bản quyền"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 3v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V5z"/><path d="M9 12l2 2 4-4"/></svg><span class="t"></span></button>
   </nav>
   <div id="stage">
     <iframe id="fFilter" class="on" src="/filter" title="Lọc ảnh"></iframe>
@@ -114,7 +130,7 @@ addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&(e.key==='1'||e.key===
 addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&!e.altKey&&e.key.toLowerCase()==='y'){e.preventDefault();const f=document.querySelector('iframe[src="/filter"]');if(f&&f.offsetParent!==null&&!document.querySelector('dialog[open]')){try{f.contentWindow.openExportKey()}catch(_){}}}});
 const $=i=>document.getElementById(i),post=(u,b)=>fetch(u,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(b||{})}).then(r=>r.json());
 async function lic(){let s;try{s=await fetch('/api/license').then(r=>r.json())}catch(e){return}if(!s.ok){location.reload();return}
-  const t=$('tLic'),low=!s.permanent&&s.days_left<=14;t.textContent=s.permanent?'Bản quyền vĩnh viễn':`Còn ${s.days_left} ngày`;t.classList.toggle('warn',low);
+  const t=$('tLic'),low=!s.permanent&&s.days_left<=14;t.querySelector('.t').textContent=s.permanent?'Vĩnh viễn':`Còn ${s.days_left} ngày`;t.classList.toggle('warn',low);
   $('lState').textContent=s.permanent?'Vĩnh viễn':`Đến ${s.expires}, còn ${s.days_left} ngày`;$('lMach').textContent=s.machine}
 lic();setInterval(lic,600000);
 /* phông chữ: chỉ liệt kê phông đã cài trên máy có đủ dấu tiếng Việt; áp dụng ngay cho cả hai tab */
@@ -132,7 +148,7 @@ $('tFont').onclick=async()=>{$('fQ').value='';$('fontDlg').showModal();drawFonts
   try{FCUR=(await fetch('/api/ui').then(r=>r.json())).font;FL=await fetch('/api/fonts').then(r=>r.json())}catch(e){$('fMsg').textContent='Chưa đọc được phông trên máy. Hãy thử lại.';return}drawFonts();$('fQ').focus()};
 $('fQ').oninput=drawFonts;$('fClose').onclick=()=>$('fontDlg').close();
 let U=null,busy=false;
-const showU=(r,msg)=>{U=r;const av=r.available;$('tVer').textContent='Bản '+r.current;$('tUpd').hidden=!av;$('tUpd').textContent='Cập nhật lên bản '+r.latest;
+const showU=(r,msg)=>{U=r;const av=r.available;$('tVer').querySelector('.t').textContent='Bản '+r.current;$('tVer').hidden=av;$('tUpd').hidden=!av;$('tUpd').querySelector('.t').textContent='Cập nhật '+r.latest;
   $('uHead').textContent=av?'Có bản mới '+r.latest:'Bản '+r.current;$('uNotes').textContent=av?r.notes:(r.error||'Bạn đang dùng bản mới nhất.');$('uGo').hidden=!av;$('uAgain').hidden=av;$('uMsg').textContent=msg||''};
 async function checkUpd(force){try{showU(await fetch('/api/update/check'+(force?'?force=1':'')).then(r=>r.json()));return true}catch(e){return false}}
 setTimeout(()=>checkUpd(),3000);setInterval(()=>checkUpd(),21600000);
