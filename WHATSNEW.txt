@@ -1,10 +1,13 @@
 Cảm ơn bạn đã sử dụng MThanglee Cull & Collage.
 
-✨ MỚI — Lọc ảnh bằng điện thoại
-Mở mục "Điện thoại" trên máy tính và quét mã QR bằng iPhone để lọc ảnh ngay trên điện thoại: vuốt để Giữ / Loại, chạm chọn sao 1–5. Mọi lựa chọn được lưu thẳng về máy tính. Dùng chung Wi-Fi trong studio, hoặc kết nối từ xa khi đi vắng.
+✨ Giao diện Dàn trang hoàn toàn mới
+Trình dàn trang được làm mới theo phong cách sang trọng: tông màu ấm, nhấn vàng champagne, tiêu đề chữ thanh lịch, bố cục thoáng và tinh tế hơn.
+• Công tắc Dính / Tách: xem các trang liền mạch để duyệt, hoặc tách ra xem từng trang một để dễ layout (có nút chuyển trang).
+• Thanh công cụ, panel mẫu, hộp thoại xuất ảnh… đều gọn gàng, dễ nhìn, dễ thao tác hơn.
 
-Cải thiện
-• Kết nối thiết bị mượt và ổn định hơn
-• Sửa một số lỗi nhỏ, thao tác nhanh hơn
+📱 Lọc ảnh bằng điện thoại
+Mở mục "Điện thoại" trên máy tính, quét mã QR bằng iPhone để lọc ảnh ngay trên điện thoại: vuốt để Giữ / Loại, chạm chọn sao 1–5. Mọi lựa chọn lưu thẳng về máy tính.
+
+Cải thiện độ ổn định và sửa một số lỗi nhỏ.
 
 © Lê Minh Thắng — MTHANGLEE STUDIO
