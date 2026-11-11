@@ -104,6 +104,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .hud{position:absolute;right:calc(10px + env(safe-area-inset-right,0px));bottom:10px;display:flex;gap:4px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:3px}
 .hud .btn{min-height:26px;min-width:26px;padding:1px 6px;border-color:transparent;background:none}
 .hud .btn.on{background:color-mix(in srgb,var(--accent) 22%,var(--panel-2));color:var(--fg)}
+.hud [hidden]{display:none!important}
 #zoomPct{font:12px var(--mono);min-width:44px;text-align:center;font-variant-numeric:tabular-nums}
 #cropBar{position:absolute;left:50%;top:10px;transform:translateX(-50%);display:flex;gap:8px;align-items:center;background:var(--panel);border:1px solid var(--accent);border-radius:4px;padding:5px 6px 5px 12px;font-size:13px;max-width:calc(100% - 20px)}
 
@@ -279,6 +280,172 @@ dialog h2{font:600 18px var(--display);margin:0 0 12px}
   .lbl{display:none}
 }
 @media (prefers-reduced-motion:reduce){#swiper{scroll-behavior:auto}}
+
+
+/* ============ REFRESH 2026 — modern dark editor ============ */
+:root{
+  --r-sm:6px; --r:9px; --r-lg:13px;
+  --sh-1:0 1px 1px rgba(0,0,0,.22),0 3px 10px -5px rgba(0,0,0,.4);
+  --sh-2:0 12px 36px -12px rgba(0,0,0,.62),0 2px 8px -4px rgba(0,0,0,.4);
+  --ease:cubic-bezier(.2,.7,.2,1);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --ground:#0E1116; --panel:#161A21; --panel-2:#20252F; --line:#2A313D;
+  --fg:#EDEFF3; --muted:#9AA4B4; --accent:#F7B628; --on-accent:#17120A; --sel:#F7B628;
+}}
+:root[data-theme="dark"]{
+  --ground:#0E1116; --panel:#161A21; --panel-2:#20252F; --line:#2A313D;
+  --fg:#EDEFF3; --muted:#9AA4B4; --accent:#F7B628; --on-accent:#17120A; --sel:#F7B628;
+}
+body{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+::selection{background:color-mix(in srgb,var(--accent) 32%,transparent)}
+input,textarea,[contenteditable]{caret-color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+
+/* themed scrollbars (browser surface) */
+*{scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+::-webkit-scrollbar{width:11px;height:11px}
+::-webkit-scrollbar-thumb{background:var(--line);border:3px solid transparent;background-clip:content-box;border-radius:9px}
+::-webkit-scrollbar-thumb:hover{background:color-mix(in srgb,var(--muted) 55%,var(--line));background-clip:content-box}
+::-webkit-scrollbar-track,::-webkit-scrollbar-corner{background:transparent}
+
+/* top bar — quiet elevation */
+#top{box-shadow:0 1px 0 var(--line),0 6px 16px -10px rgba(0,0,0,.6);z-index:3;position:relative;border-bottom:none}
+.brand{letter-spacing:-.01em}
+#docName{border-radius:var(--r-sm)}
+.badge{border-radius:var(--r-sm);letter-spacing:.02em}
+
+/* panels */
+#tabs{background:var(--ground);padding:10px 8px;gap:5px}
+#props h3,.pane h3{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:700}
+.pane h2,#props h2{letter-spacing:-.015em}
+
+/* left tabs → icon + label */
+#tabs button{position:relative;display:flex;flex-direction:column;align-items:center;gap:5px;padding:11px 2px 8px;border-radius:var(--r);font-size:11px;font-weight:600;letter-spacing:.01em;color:var(--muted);transition:background .15s var(--ease),color .15s var(--ease)}
+#tabs button svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.85;stroke-linecap:round;stroke-linejoin:round}
+#tabs button:hover{color:var(--fg);background:color-mix(in srgb,var(--panel-2) 70%,transparent)}
+#tabs button[aria-selected="true"]{background:color-mix(in srgb,var(--accent) 15%,var(--panel-2));color:var(--accent);box-shadow:none}
+#tabs button[aria-selected="true"]::before{content:"";position:absolute;left:-8px;top:50%;transform:translateY(-50%);width:3px;height:24px;border-radius:0 3px 3px 0;background:var(--accent)}
+
+/* buttons — softer, with motion + depth */
+.btn{border-radius:var(--r);min-height:34px;transition:background .14s var(--ease),border-color .14s var(--ease),color .14s var(--ease),box-shadow .14s var(--ease)}
+.btn:hover{border-color:color-mix(in srgb,var(--accent) 50%,var(--line));background:color-mix(in srgb,var(--panel-2) 82%,#fff 5%)}
+.btn:active{transform:translateY(.5px)}
+.btn.primary{box-shadow:0 1px 0 rgba(0,0,0,.25),0 7px 18px -9px rgba(0,0,0,.55)}
+.btn.primary:hover{background:color-mix(in srgb,var(--accent) 90%,#fff);border-color:transparent}
+.btn.on{border-color:color-mix(in srgb,var(--accent) 70%,var(--line))}
+.btn.icon{border-radius:var(--r-sm)}
+
+/* library / template / shape / text cards */
+.tpl,.textadd button,.shapes button,.lib button{border-radius:var(--r-sm);transition:border-color .14s var(--ease),transform .14s var(--ease),box-shadow .14s var(--ease)}
+.tpl:hover,.textadd button:hover,.shapes button:hover{transform:translateY(-1px);box-shadow:var(--sh-1)}
+.tplfilter select,.binbar select,.hexrow input{border-radius:var(--r-sm)}
+
+/* floating controls over the canvas — real glass, a specific effect */
+.hud{border-radius:var(--r-lg);box-shadow:var(--sh-2);padding:4px;gap:3px;background:color-mix(in srgb,var(--panel) 85%,transparent);backdrop-filter:blur(12px) saturate(1.2);border-color:color-mix(in srgb,var(--line) 70%,transparent)}
+.hud .btn{border-radius:var(--r-sm);min-height:28px}
+#zoomPct{color:var(--muted)}
+#cropBar{border-radius:var(--r-lg);box-shadow:var(--sh-2);background:color-mix(in srgb,var(--panel) 90%,transparent);backdrop-filter:blur(12px)}
+
+/* rail + bin */
+#rail{gap:9px 12px;padding:10px 12px}
+.fr,.fr canvas{border-radius:var(--r-sm)}
+.fr[aria-current="true"]{box-shadow:0 5px 14px -6px rgba(0,0,0,.6)}
+.tile{border-radius:var(--r-sm);transition:border-color .12s var(--ease),box-shadow .12s var(--ease)}
+.tile:hover{box-shadow:var(--sh-1)}
+.tile.sel{outline:2px solid var(--accent);outline-offset:-2px}
+.binbar input[type=range],.f input[type=range]{accent-color:var(--accent)}
+
+/* template panel */
+.tplfilter{gap:9px;margin-bottom:12px}
+.tplfilter .row{display:flex;flex-wrap:wrap;gap:5px}
+.tplfilter .btn{border-radius:999px;padding:4px 12px;min-height:28px;font-size:11.5px;font-weight:600;flex:0 0 auto;background:transparent;border-color:var(--line);color:var(--muted)}
+.tplfilter .btn:hover{color:var(--fg);background:color-mix(in srgb,var(--panel-2) 72%,transparent);border-color:var(--line)}
+.tplfilter .btn.on{background:color-mix(in srgb,var(--accent) 16%,var(--panel-2));border-color:color-mix(in srgb,var(--accent) 50%,var(--line));color:var(--accent)}
+.tplfilter select{border-radius:var(--r-sm);min-height:34px;padding:5px 10px;background:var(--panel-2)}
+#btnRef{border-style:dashed;background:transparent;color:var(--fg);font-weight:600;gap:7px}
+#btnRef:hover{border-style:dashed;border-color:color-mix(in srgb,var(--accent) 60%,var(--line));background:color-mix(in srgb,var(--panel-2) 60%,transparent)}
+.tgrid{gap:10px}
+.tpl{border-radius:var(--r-sm);overflow:hidden;background:var(--panel-2);border-color:var(--line)}
+.tpl canvas,.tpl img{aspect-ratio:8/5;background:color-mix(in srgb,var(--ground) 55%,var(--panel-2))}
+.tpl span{background:transparent;padding:7px 9px 9px;gap:2px;font-weight:600;font-size:12px;letter-spacing:-.005em}
+.tpl em{color:var(--muted);font-size:10.5px;font-weight:500;letter-spacing:.015em}
+.tpl:hover{border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
+.tplwrap .more{border-radius:var(--r-sm);backdrop-filter:blur(6px);background:color-mix(in srgb,var(--panel) 80%,transparent)}
+
+/* key labels + segmented toggles (auto-layout / shortcut lists) */
+kbd{border-radius:var(--r-sm);padding:2px 7px;background:color-mix(in srgb,var(--panel-2) 82%,var(--ground));border-color:var(--line);color:var(--fg);font-size:10.5px;font-weight:600;letter-spacing:.01em}
+.keys{gap:6px 10px}
+.pane .keys span,#props .keys span{color:var(--muted)}
+.pane .keys kbd,#props .keys kbd{margin-bottom:1px}
+.row .btn{border-radius:var(--r-sm)}
+.f output{color:var(--muted)}
+.f input[type=range]{height:4px}
+
+/* dialogs — depth + rounded */
+dialog{border-radius:var(--r-lg);box-shadow:var(--sh-2);padding:22px;border-color:var(--line)}
+dialog::backdrop{background:rgba(6,8,12,.6);backdrop-filter:blur(3px)}
+dialog h2{letter-spacing:-.015em}
+dialog select,dialog input[type=number],dialog input[type=text]{border-radius:var(--r-sm);min-height:34px}
+/* export: DPI presets as chips */
+.dpiPre button{border-radius:999px;padding:4px 13px;font-weight:600;background:transparent;color:var(--muted);transition:background .14s var(--ease),border-color .14s var(--ease),color .14s var(--ease)}
+.dpiPre button:hover{color:var(--fg);border-color:var(--line);background:color-mix(in srgb,var(--panel-2) 70%,transparent)}
+.dpiPre button[aria-pressed=true]{background:color-mix(in srgb,var(--accent) 16%,var(--panel-2));border-color:color-mix(in srgb,var(--accent) 50%,var(--line));color:var(--accent)}
+/* export: page thumbnails */
+.exp{gap:11px}
+.exp canvas{border-radius:var(--r-sm);border:1.5px solid var(--line);transition:border-color .14s var(--ease),box-shadow .14s var(--ease)}
+.expItem:hover canvas{box-shadow:var(--sh-1);border-color:color-mix(in srgb,var(--accent) 40%,var(--line))}
+.expItem:not(.off) canvas{border-color:var(--accent)}
+.expItem input{width:21px;height:21px;border-radius:5px;top:7px;right:7px}
+.expItem .expDim{display:block;margin-top:5px;font:11px var(--mono);color:var(--muted);text-align:center;font-variant-numeric:tabular-nums}
+.expItem b{border-radius:var(--r-sm);left:6px;top:6px}
+/* text / shape / swatch tabs */
+.textadd button{padding:12px 13px;font-weight:600}
+.shapes button{border-radius:var(--r-sm);padding:11px}
+.swatches button{border-radius:var(--r-sm)}
+
+
+
+/* ============ LUXURY LAYER — elegant, warm, champagne gold ============ */
+:root{ --r-sm:7px; --r:10px; --r-lg:15px;
+  --display:Georgia,"Palatino Linotype",Palatino,Constantia,"Times New Roman",serif; }
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --ground:#131216; --panel:#1A181D; --panel-2:#262430; --line:#353040;
+  --fg:#F1EDF2; --muted:#A69DAE; --accent:#E6BE6A; --on-accent:#1C1507; --sel:#E6BE6A;
+}}
+:root[data-theme="dark"]{
+  --ground:#131216; --panel:#1A181D; --panel-2:#262430; --line:#353040;
+  --fg:#F1EDF2; --muted:#A69DAE; --accent:#E6BE6A; --on-accent:#1C1507; --sel:#E6BE6A;
+}
+
+/* elegant serif display voice */
+.brand{font-family:var(--display);font-weight:600;letter-spacing:.015em;font-size:19px}
+.pane h2,#props h2,dialog h2{font-family:var(--display);font-weight:600;letter-spacing:.01em;font-size:20px;color:var(--fg)}
+.pane h2{margin-bottom:14px}
+
+/* refined small-caps micro-labels with a hairline gold rule */
+.pane h3,#props h3{font-family:var(--ui);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.15em;
+  color:color-mix(in srgb,var(--accent) 55%,var(--muted));border-top:1px solid color-mix(in srgb,var(--accent) 18%,var(--line));
+  padding-top:14px;margin-top:22px;margin-bottom:11px}
+
+/* generous breathing room */
+.pane,#props{padding:18px 16px}
+.tgrid{gap:12px}
+.tplfilter{margin-bottom:14px}
+
+/* top bar — thin gold hairline, serif brand */
+#top{border-bottom:1px solid color-mix(in srgb,var(--accent) 13%,var(--line));box-shadow:0 8px 20px -14px rgba(0,0,0,.7)}
+
+/* champagne accents — refined, not neon */
+#tabs button[aria-selected="true"]{background:color-mix(in srgb,var(--accent) 13%,var(--panel-2));color:var(--accent)}
+.tplfilter .btn.on,.dpiPre button[aria-pressed=true]{background:color-mix(in srgb,var(--accent) 13%,var(--panel-2));color:var(--accent);border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
+.btn.primary{font-weight:700;letter-spacing:.01em}
+.btn.on{background:color-mix(in srgb,var(--accent) 15%,var(--panel-2));color:var(--accent)}
+.fr[aria-current="true"]{border-color:var(--accent)}
+
+/* elegant selection + focus */
+::selection{background:color-mix(in srgb,var(--accent) 30%,transparent)}
+
 </style>
 
 <div id="home">
@@ -331,11 +498,11 @@ dialog h2{font:600 18px var(--display);margin:0 0 12px}
 
   <aside id="tools">
     <nav id="tabs" role="tablist" aria-label="Công cụ">
-      <button role="tab" data-tab="templates" aria-selected="true">Mẫu</button>
-      <button role="tab" data-tab="photos" aria-selected="false">Ảnh</button>
-      <button role="tab" data-tab="text" aria-selected="false">Chữ</button>
-      <button role="tab" data-tab="shapes" aria-selected="false">Hình</button>
-      <button role="tab" data-tab="bg" aria-selected="false">Nền</button>
+      <button role="tab" data-tab="templates" aria-selected="true"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></svg><span>Mẫu</span></button>
+      <button role="tab" data-tab="photos" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="8.5" cy="9.5" r="1.8"/><path d="M21 15.5l-4.5-4.2L6 20.5"/></svg><span>Ảnh</span></button>
+      <button role="tab" data-tab="text" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6.5V4.5h14v2"/><path d="M12 4.5v15"/><path d="M8.5 19.5h7"/></svg><span>Chữ</span></button>
+      <button role="tab" data-tab="shapes" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8.3" cy="8.3" r="4.8"/><rect x="11.5" y="11.5" width="9" height="9" rx="1.6"/></svg><span>Hình</span></button>
+      <button role="tab" data-tab="bg" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8.5 4.7L12 12.4 3.5 7.7z"/><path d="M3.5 12.3L12 17l8.5-4.7"/></svg><span>Nền</span></button>
     </nav>
     <div class="pane" id="pane"></div>
   </aside>
@@ -347,6 +514,10 @@ dialog h2{font:600 18px var(--display);margin:0 0 12px}
       <button class="btn" id="cropDone">Xong</button>
     </div>
     <div class="hud">
+      <button class="btn" id="btnPrev" title="Trang trước" aria-label="Trang trước" hidden>‹</button>
+      <button class="btn" id="btnNext" title="Trang sau" aria-label="Trang sau" hidden>›</button>
+      <button class="btn" id="btnJoin" title="Xem các trang liền mạch để preview cả lượt" aria-label="Dính trang">Dính</button>
+      <button class="btn" id="btnSplit" title="Tách, xem từng trang một để dễ layout" aria-label="Tách trang">Tách</button>
       <button class="btn" id="btnSnap" title="Bật hoặc tắt hít vào mép slide và khung khác" aria-label="Hít mép">Hít</button>
       <button class="btn" id="btnSeams" title="Bật hoặc tắt đường nối slide" aria-label="Đường nối slide">Nối</button>
       <button class="btn" id="zoomOut" aria-label="Thu nhỏ">−</button>
@@ -535,7 +706,7 @@ const W=1080, RATIOS={'1:1':1080,'4:5':1350,'3:4':1440,'9:16':1920}, MAX_SLIDES=
 const FONTS=['Segoe UI','Bahnschrift','Arial','Arial Black','Georgia','Times New Roman','Cambria','Constantia','Palatino Linotype','Verdana','Tahoma','Trebuchet MS','Impact','Consolas','Segoe Print','Segoe Script'];
 const images={};               // id -> {w,h,name,time,blob,url,prev,thumb,full,sample,saved}
 let imgOrder=[];               // import order, shown in the tray
-let doc=null, sels=[], crop=false, activeSlide=0, showSeams=true;
+let doc=null, sels=[], crop=false, activeSlide=0, showSeams=true, onePage=false;
 let hist=[], hi=-1;
 
 const BG0={type:'solid',a:'#ffffff',b:'#dfe4ea',angle:90,src:null,mode:'strip',zoom:1,ox:0,oy:0,opacity:1,blur:0,bright:100};
@@ -670,14 +841,17 @@ const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim
 function resize(){const r=$('#stage').getBoundingClientRect();dpr=window.devicePixelRatio||1;vw=r.width;vh=r.height;view.width=Math.round(vw*dpr);view.height=Math.round(vh*dpr);dirty=true}
 let autoFit=true;   // còn đang 'Vừa' thì đổi cỡ cửa sổ sẽ tự canh lại; người dùng phóng / kéo thì thôi
 const HUD_H=48;     // chừa chỗ thanh Hít · Nối · % ở đáy khung
-function fit(){autoFit=true;const pad=vw<700?24:64,shown=Math.min(doc.slides,4);camera.z=Math.min((vw-pad)/(W*shown),(vh-pad-20-HUD_H)/doc.h);
+function fit(){autoFit=true;const pad=vw<700?24:64;
+  if(onePage){camera.z=Math.min((vw-pad)/W,(vh-pad-20-HUD_H)/doc.h);
+    camera.x=vw/2-(activeSlide+.5)*W*camera.z;camera.y=(vh-HUD_H-doc.h*camera.z)/2+6;updateZoom();return}
+  const shown=Math.min(doc.slides,4);camera.z=Math.min((vw-pad)/(W*shown),(vh-pad-20-HUD_H)/doc.h);
   const c=doc.slides>4?clamp(activeSlide+.5,2,doc.slides-2):doc.slides/2;camera.x=vw/2-c*W*camera.z;camera.y=(vh-HUD_H-doc.h*camera.z)/2+6;updateZoom()}
 function updateZoom(){$('#zoomPct').textContent=Math.round(camera.z*100)+'%';dirty=true}
 function zoomAt(f,sx=vw/2,sy=vh/2){autoFit=false;const z=clamp(camera.z*f,.03,3);const dx=(sx-camera.x)/camera.z,dy=(sy-camera.y)/camera.z;camera.z=z;camera.x=sx-dx*z;camera.y=sy-dy*z;updateZoom()}
 const toDoc=(sx,sy)=>({x:(sx-camera.x)/camera.z,y:(sy-camera.y)/camera.z});
 function rotPoint(it,lx,ly){const a=rad(it.rot),c=Math.cos(a),s=Math.sin(a);return{x:it.x+it.w/2+lx*c-ly*s,y:it.y+it.h/2+lx*s+ly*c}}
 function toLocal(it,p){const a=-rad(it.rot),dx=p.x-(it.x+it.w/2),dy=p.y-(it.y+it.h/2);return{x:dx*Math.cos(a)-dy*Math.sin(a),y:dx*Math.sin(a)+dy*Math.cos(a)}}
-function hit(p){for(let i=doc.items.length-1;i>=0;i--){const it=doc.items[i];if(it.isBg)continue;if(it.clip&&Math.floor(p.x/W)!==slideAt(it))continue;const l=toLocal(it,p),m=12/camera.z*(it.h<40?1:0);
+function hit(p){for(let i=doc.items.length-1;i>=0;i--){const it=doc.items[i];if(it.isBg)continue;if(onePage&&slideAt(it)!==activeSlide)continue;if(it.clip&&Math.floor(p.x/W)!==slideAt(it))continue;const l=toLocal(it,p),m=12/camera.z*(it.h<40?1:0);
   if(Math.abs(l.x)<=it.w/2&&Math.abs(l.y)<=it.h/2+m)return it}return null}
 const HANDLES=[[-1,-1],[0,-1],[1,-1],[1,0],[1,1],[0,1],[-1,1],[-1,0]];
 function handlePts(it){const pts=HANDLES.map(([dx,dy])=>{const d=rotPoint(it,dx*it.w/2,dy*it.h/2);return{dx,dy,x:d.x,y:d.y}});
@@ -690,15 +864,16 @@ function draw(){
   dirty=false;const c=vc;c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,vw,vh);
   const sw=stripW(),H=doc.h,z=camera.z,X=camera.x,Y=camera.y;
   const selC=css('--sel'),muted=css('--muted'),line=css('--line');
-  c.fillStyle='rgba(0,0,0,.22)';c.fillRect(X+3,Y+5,sw*z,H*z);
-  c.save();c.translate(X,Y);c.scale(z,z);c.beginPath();c.rect(0,0,sw,H);c.clip();c.imageSmoothingQuality='high';drawDoc(c,{k:z*dpr,export:false,x0:-X/z,x1:(vw-X)/z});c.restore();
+  const x0d=onePage?activeSlide*W:0, wd=onePage?W:sw;
+  c.fillStyle='rgba(0,0,0,.22)';c.fillRect(X+x0d*z+3,Y+5,wd*z,H*z);
+  c.save();c.translate(X,Y);c.scale(z,z);c.beginPath();c.rect(x0d,0,wd,H);c.clip();c.imageSmoothingQuality='high';drawDoc(c,{k:z*dpr,export:false,x0:Math.max(-X/z,x0d),x1:onePage?x0d+wd:(vw-X)/z});c.restore();
   /* frame numbers, film-edge style */
   c.font=`11px ${css('--mono')}`;c.textBaseline='bottom';c.textAlign='left';
-  for(let i=0;i<doc.slides;i++){const fx=X+i*W*z;if(fx>vw||fx+W*z<0)continue;
+  for(let i=0;i<doc.slides;i++){if(onePage&&i!==activeSlide)continue;const fx=X+i*W*z;if(fx>vw||fx+W*z<0)continue;
     c.fillStyle=i===activeSlide?selC:muted;c.fillText(String(i+1).padStart(2,'0')+'A',fx+1,Y-5);
-    if(i&&showSeams){c.save();c.beginPath();c.moveTo(fx+.5,Y);c.lineTo(fx+.5,Y+H*z);c.setLineDash([]);c.strokeStyle='rgba(0,0,0,.35)';c.lineWidth=1;c.stroke();c.setLineDash([6,6]);c.strokeStyle='rgba(255,255,255,.9)';c.stroke();c.restore()
+    if(i&&showSeams&&!onePage){c.save();c.beginPath();c.moveTo(fx+.5,Y);c.lineTo(fx+.5,Y+H*z);c.setLineDash([]);c.strokeStyle='rgba(0,0,0,.35)';c.lineWidth=1;c.stroke();c.setLineDash([6,6]);c.strokeStyle='rgba(255,255,255,.9)';c.stroke();c.restore()
       c.fillStyle=line;c.fillRect(fx-.5,Y-9,1,7);c.fillRect(fx-.5,Y+H*z+2,1,7)}}
-  c.strokeStyle=line;c.lineWidth=1;c.strokeRect(X-.5,Y-.5,sw*z+1,H*z+1);
+  c.strokeStyle=line;c.lineWidth=1;c.strokeRect(X+x0d*z-.5,Y-.5,wd*z+1,H*z+1);
   /* snap guides */
   c.strokeStyle=selC;c.lineWidth=1;c.setLineDash([]);
   for(const g of guides){c.beginPath();if(g.x!=null){const px=X+g.x*z+.5;c.moveTo(px,Y);c.lineTo(px,Y+H*z)}else{const py=Y+g.y*z+.5;c.moveTo(X,py);c.lineTo(X+sw*z,py)}c.stroke()}
@@ -763,7 +938,7 @@ view.addEventListener('pointerdown',e=>{
   if(!mod&&sels.length>1){const b=groupBox(selItems()),h=groupHandles(b).find(h=>Math.hypot(h.x*camera.z+camera.x-sx,h.y*camera.z+camera.y-sy)<=rad_);
     if(h){gesture={kind:'gresize',ax:h.dx<0?b.x2:b.x,ay:h.dy<0?b.y2:b.y,bw:b.x2-b.x,bh:b.y2-b.y,start:selItems().filter(t=>!t.locked).map(t=>({...t}))};return}}
   const t=hit(p);
-  if(p.y>=0&&p.y<=doc.h&&p.x>=0&&p.x<=stripW())setActive(clamp(Math.floor(p.x/W),0,doc.slides-1));
+  if(!onePage&&p.y>=0&&p.y<=doc.h&&p.x>=0&&p.x<=stripW())setActive(clamp(Math.floor(p.x/W),0,doc.slides-1));
   if(t){
     if(mod){select(sels.includes(t.id)?sels.filter(i=>i!==t.id):[...sels,t.id]);if(!sels.includes(t.id))return}
     else if(!sels.includes(t.id))select(t.id);
@@ -1582,7 +1757,7 @@ function renderRail(){
   const gap=i=>{const g=el('div',{class:'gap','aria-hidden':'true'});railDrop(g,(ids,t)=>{if(t)useTemplate(t,{insertAt:i});else if(ids)insertFlow(i,ids);else{moveSlide(slideDrag,i);slideDrag=null}});return g};
   r.append(gap(0));
   for(let i=0;i<doc.slides;i++){const c=renderSlide(i,64/doc.h*2,false);
-    const b=el('button',{class:'fr',draggable:true,'aria-current':String(i===activeSlide),'aria-label':`Slide ${i+1}`,onclick:()=>{setActive(i);camera.x=vw/2-(i+.5)*W*camera.z;dirty=true}},c,el('b',{textContent:i+1}));
+    const b=el('button',{class:'fr',draggable:true,'aria-current':String(i===activeSlide),'aria-label':`Slide ${i+1}`,onclick:()=>{setActive(i);if(onePage)fit();else camera.x=vw/2-(i+.5)*W*camera.z;dirty=true}},c,el('b',{textContent:i+1}));
     b.addEventListener('dragstart',e=>{slideDrag=i;e.dataTransfer.setData('text/plain','vuot-slide');setTimeout(()=>document.body.classList.add('dragging'),0)});
     b.addEventListener('dragend',()=>{slideDrag=null;document.body.classList.remove('dragging')});
     railDrop(b,(ids,t)=>{if(t)useTemplate(t,{slide:i});else if(ids)dropAt(ids,{slide:i,free:$('#dropMode').value==='free'});else{moveSlide(slideDrag,i<slideDrag?i:i+1);slideDrag=null}});
@@ -1825,6 +2000,14 @@ $('#btnPreview').onclick=openPreview;$('#pvClose').onclick=()=>$('#previewDlg').
 $('#previewDlg').addEventListener('keydown',e=>{if(e.key==='ArrowRight')pvStep(1);if(e.key==='ArrowLeft')pvStep(-1)});
 $('#zoomIn').onclick=()=>zoomAt(1.2);$('#zoomOut').onclick=()=>zoomAt(1/1.2);$('#zoomFit').onclick=fit;
 $('#btnSeams').onclick=e=>{showSeams=!showSeams;e.currentTarget.classList.toggle('on',showSeams);dirty=true};$('#btnSeams').classList.add('on');
+function setPageMode(one){onePage=one;$('#btnSplit').classList.toggle('on',one);$('#btnJoin').classList.toggle('on',!one);
+  $('#btnPrev').hidden=$('#btnNext').hidden=!one;$('#btnSeams').hidden=one;
+  sels=[];crop=false;$('#cropBar').hidden=true;fit();dirty=true;toast(one?'Xem từng trang một':'Xem các trang liền mạch')}
+function gotoPage(i){setActive(clamp(i,0,doc.slides-1));if(onePage)fit();dirty=true}
+$('#btnSplit').onclick=()=>setPageMode(true);
+$('#btnJoin').onclick=()=>setPageMode(false);$('#btnJoin').classList.add('on');
+$('#btnPrev').onclick=()=>gotoPage(activeSlide-1);
+$('#btnNext').onclick=()=>gotoPage(activeSlide+1);
 $('#btnSnap').onclick=e=>{snapOn=!snapOn;e.currentTarget.classList.toggle('on',snapOn);toast(snapOn?'Đã bật hít mép':'Đã tắt hít mép')};$('#btnSnap').classList.add('on');
 new ResizeObserver(()=>{if($('#app').hidden)return;resize();if(doc){if(autoFit)fit();dirty=true}}).observe($('#stage'));
 matchMedia('(prefers-color-scheme:dark)').addEventListener('change',()=>dirty=true);
