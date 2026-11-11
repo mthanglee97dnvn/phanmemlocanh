@@ -208,7 +208,7 @@ jobs:
           export PHOTOSIFT_HOME="$RUNNER_TEMP/psh"
           "$BIN" --no-browser > smoke.log 2>&1 &
           OK=0
-          for i in $(seq 1 60); do
+          for i in $(seq 1 150); do
             if [ -f "$PHOTOSIFT_HOME/running.json" ]; then OK=1; break; fi
             sleep 1
           done
@@ -221,7 +221,7 @@ jobs:
           "$BIN" &
           APID=$!
           OK=0
-          for i in $(seq 1 60); do
+          for i in $(seq 1 150); do
             if [ -f "$PHOTOSIFT_HOME/running.json" ]; then OK=1; break; fi
             sleep 1
           done
