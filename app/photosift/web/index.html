@@ -307,6 +307,48 @@ details.adv{margin:6px 0;border-top:1px solid var(--line);padding-top:6px}detail
 .hrow .hb{display:flex;gap:4px}.hrow .hb button{font-size:12px;padding:4px 9px}.hrow .hb .cdel{position:static;width:auto;height:auto;border-radius:6px;background:var(--panel2);color:var(--mut);opacity:0}.hrow:hover .cdel,.hrow:focus-within .cdel{opacity:1}
 .chist .hnone{color:var(--mut);font-size:12px;padding:10px 12px;border:1px dashed var(--line);border-radius:10px}
 @media (max-width:900px){.hrow{grid-template-columns:28px 1fr auto}.hrow .hs,.hrow .hd,.hrow .hc{display:none}}
+
+/* ============ LUXURY LAYER (tab Lọc ảnh) — đồng bộ với Dàn trang ============ */
+html[data-theme=neutral]{
+  --tx:#F1EDF2;--mut:#A69DAE;--acc:#E6BE6A;--acc2:#CDA14E;
+  --panel:#1A181D;--panel2:#262430;--line:#353040;--sel:rgba(230,190,106,.16);
+  --inset:#131216;--field:#201E26;--modal:#1A181D;--r:11px;
+  --pri:#E6BE6A;--pri-tx:#17120A;--pri-sh:none;
+}
+html[data-theme=neutral] body{background:radial-gradient(120% 80% at 50% 14%, #241b12 0%, #140f0a 56%, #0b0806 100%) fixed}
+html[data-theme=neutral]{font-family:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,Roboto,"Noto Sans",sans-serif}
+/* serif display voice */
+html[data-theme=neutral] #catalog h2,html[data-theme=neutral] #empty h2{font-family:"Palatino Linotype",Palatino,Georgia,"Liberation Serif",serif;letter-spacing:.005em}
+/* small-caps gold section labels with hairline */
+html[data-theme=neutral] #side h3{color:color-mix(in srgb,var(--acc) 58%,var(--mut));letter-spacing:.14em;font-weight:700;border-top:1px solid color-mix(in srgb,var(--acc) 16%,var(--line));padding-top:12px;margin-top:14px}
+html[data-theme=neutral] #side h3:first-child{border:0;padding-top:0;margin-top:4px}
+/* buttons — rounded, warm hover, gentle motion */
+html[data-theme=neutral] button{border-radius:9px;transition:background .14s ease,border-color .14s ease,color .14s ease,transform .12s ease}
+html[data-theme=neutral] button:hover{border-color:color-mix(in srgb,var(--acc) 50%,var(--line));background:color-mix(in srgb,var(--panel2) 84%,#fff 5%);transform:none}
+html[data-theme=neutral] button.pri{font-weight:700;letter-spacing:.01em}
+html[data-theme=neutral] .bar{border:1px solid var(--line)}
+/* filter/segment pills */
+html[data-theme=neutral] .cview button{border-radius:8px}
+html[data-theme=neutral] .cview button[aria-selected=true],html[data-theme=neutral] .cview button.on{color:var(--acc);background:color-mix(in srgb,var(--acc) 14%,var(--panel2))}
+/* catalog cards */
+html[data-theme=neutral] .ccard{border-radius:12px;background:var(--panel)}
+html[data-theme=neutral] .ccard:hover{border-color:color-mix(in srgb,var(--acc) 45%,var(--line))}
+html[data-theme=neutral] .ccard.cur{border-color:var(--acc)}
+/* stars warm gold */
+html[data-theme=neutral] .stars,html[data-theme=neutral] .sc .rt,html[data-theme=neutral] #vrate{color:#F0C66A}
+/* selection highlight */
+html[data-theme=neutral] .cell.sel,html[data-theme=neutral] .cell[aria-selected=true]{outline:2px solid var(--acc);outline-offset:-2px}
+/* viewer backdrop warm */
+html[data-theme=neutral] #viewer{background:radial-gradient(70% 70% at 50% 42%,#1b1720,#0c0a0e)}
+/* themed scrollbars + selection + focus */
+html[data-theme=neutral] *{scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+html[data-theme=neutral] ::-webkit-scrollbar-thumb{background:var(--line);border:3px solid transparent;background-clip:content-box;border-radius:9px}
+html[data-theme=neutral] ::selection{background:color-mix(in srgb,var(--acc) 30%,transparent)}
+html[data-theme=neutral] :focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+html[data-theme=neutral] input[type=range]{accent-color:var(--acc)}html[data-theme=neutral] input[type=checkbox]{accent-color:var(--acc)}
+/* export job card rounded */
+html[data-theme=neutral] #xjcard{border-radius:18px}
+
 </style>
 <link id="uiFont" rel="stylesheet" href="/ui.css">
 </head>
