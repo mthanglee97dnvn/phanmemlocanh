@@ -913,12 +913,14 @@ class Library:
 
     # ------------------------------------------------------------------ danh sách + cờ
     def photos(self):
-        rows = self._rows(analyzed_only=False)
+        # Hiện MỌI file đã quét: có thumbnail (ready=1) HOẶC đọc/giải mã lỗi (err) → không xót file nào.
+        # Chỉ bỏ qua file đang trong quá trình đọc (ready=0, chưa lỗi) để không nhấp nháy khi đang quét.
+        rows = self.db.q("SELECT p.* FROM photos p JOIN cur ON cur.id=p.id WHERE p.ready=1 OR p.err IS NOT NULL")
         if not rows:
             return []
         S = self.settings
         online = self.online.ok
-        ref_g, ref_f = self._ref([r for r in rows if r["analyzed"]])
+        ref_g, ref_f = self._ref([r for r in rows if r["analyzed"] and not r["err"]])
         pmap: dict[int, list[int]] = {}
         for r in self.db.q("""SELECT f.photo_id, f.person_id FROM faces f JOIN cur ON cur.id=f.photo_id
                               WHERE f.person_id IS NOT NULL"""):
@@ -928,11 +930,12 @@ class Library:
         out = []
         for r in rows:
             flags = []
-            if not r["analyzed"]:
+            if r["err"] or not r["analyzed"] or not r["ready"]:
+                # File lỗi đọc/giải mã, hoặc chưa phân tích xong: vẫn hiện (không chấm điểm, không gắn cờ sai)
                 out.append(dict(
                     id=r["id"], name=os.path.basename(r["path"]), dir=r["dir"], w=r["w"], h=r["h"], taken=r["taken"],
                     smile=-1, sharp=0, fsharp=0, lum=0, nf=0, ear=-1, rating=r["rating"], label=r["label"], grp=0, best=0,
-                    score=0, people=[], flags=[], an=False, tv=r["tv"]))
+                    score=0, people=[], flags=[], an=False, err=bool(r["err"]), tv=r["tv"]))
                 continue
             if self._sharp_val(r, ref_g, ref_f) < S["blur_ratio"]:
                 flags.append("blur")
@@ -953,7 +956,7 @@ class Library:
                 lum=round(r["lum"] or 0, 3), nf=r["nfaces"], ear=round(r["ear_min"], 3),
                 smile=_num(r["smile"]),
                 rating=r["rating"], label=r["label"], grp=r["grp"], best=r["best"], score=r["score"],
-                away=r["away"] or 0, people=pmap.get(r["id"], []), flags=flags, an=True, tv=r["tv"]))
+                away=r["away"] or 0, people=pmap.get(r["id"], []), flags=flags, an=True, err=False, tv=r["tv"]))
         return out
 
     def faces_of(self, photo_id: int):

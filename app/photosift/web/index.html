@@ -57,6 +57,7 @@ input[type=range]{accent-color:var(--acc)}input[type=checkbox]{accent-color:var(
 .cell.sel{background:var(--sel);border-color:var(--acc2)}.cell.cur{border-color:var(--acc);box-shadow:0 0 0 2px var(--acc),0 6px 20px rgba(255,163,26,.35)}
 .im{position:relative;aspect-ratio:1/1;background:var(--inset);border-radius:13px;overflow:hidden}
 .im img{width:100%;height:100%;object-fit:contain;display:block}
+.im.noimg{display:flex;align-items:center;justify-content:center}.im.noimg img{display:none}.im.noimg::after{content:'⚠';color:var(--mut);font-size:30px;opacity:.55}
 .cell.rej .im img{opacity:.28;filter:grayscale(1)}
 .cell .nm{font-size:11px;color:var(--mut);padding:5px 6px 1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lab{position:absolute;left:0;top:0;bottom:0;width:6px}
@@ -607,11 +608,13 @@ function rebest(ids){
   return changed; }
 function bestWhy(p){ return p.why ? p.why.charAt(0).toUpperCase()+p.why.slice(1) : 'Ảnh tốt nhất trong nhóm'; }
 function cellHTML(p){
-  const flags = p.an===false ? '<span class="chip" style="opacity:.7">…</span>' : p.flags.filter(f=>f!=='dup').map(f=>`<span class="chip ${f}">${FLAG[f]}</span>`).join('');
+  const flags = p.err ? '<span class="chip" style="background:#5a1d1a;color:#ffd9d6">⚠ Lỗi đọc</span>'
+    : p.an===false ? '<span class="chip" style="opacity:.7">…</span>'
+    : p.flags.filter(f=>f!=='dup').map(f=>`<span class="chip ${f}">${FLAG[f]}</span>`).join('');
   const grp = !p.grp ? '' : stacked(p)
       ? `<button class="chip stk" data-g="${p.grp}" aria-expanded="${S.open.has(p.grp)}" title="${S.open.has(p.grp)?'Thu gọn nhóm':'Mở nhóm để so sánh'} · ảnh đại diện: ${bestWhy(p)} (phím G)">${S.open.has(p.grp)?'▾':'▸'} ${gsize(p.grp)} ảnh trùng</button>`
       : (p.best ? `<span class="chip topdup" title="Ảnh tốt nhất trong nhóm ảnh trùng: ${bestWhy(p)}">Tốt nhất</span>` : `<span class="chip dup" title="Ảnh trùng — nhóm ${p.grp}">Trùng</span>`);
-  return `<div class="im"><img loading="lazy" src="/thumb/${p.id}.jpg?v=${p.tv}" alt=""><div class="lab ${p.label?'l-'+p.label:''}"></div>
+  return `<div class="im"><img loading="lazy" src="/thumb/${p.id}.jpg?v=${p.tv}" alt="" onerror="this.closest('.im').classList.add('noimg')"><div class="lab ${p.label?'l-'+p.label:''}"></div>
     <div class="flags">${capChips(grp+flags)}</div><div class="xmark">✕</div>
     <div class="stars">${p.rating>0?'★'.repeat(p.rating):''}</div>${p.nf?`<span class="nface">${p.nf} mặt</span>`:''}</div>
     <div class="nm" title="${esc(p.name)}">${esc(p.name)}</div>`;
