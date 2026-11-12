@@ -130,7 +130,7 @@ def native():
         webview.settings["OPEN_DEVTOOLS_IN_DEBUG"] = False
     except Exception:  # noqa: BLE001  bản pywebview cũ không có settings
         pass
-    title = "MThanglee Cull&Collage"
+    title = "Cull & Collage"
     if url:
         webview.create_window(title, url, width=1440, height=900, min_size=(1000, 640),
                               background_color="#16181D", text_select=True)
