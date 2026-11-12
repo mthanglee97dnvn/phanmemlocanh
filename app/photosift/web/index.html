@@ -129,7 +129,7 @@ body.cat #catalog{display:flex}
 #vinfo{grid-row:1;grid-column:2;min-height:0}
 #vwrap{position:relative;margin:auto;line-height:0}
 #vwrap img{display:block;cursor:zoom-in}
-#vstage.zoom #vwrap img{max-width:none;max-height:none;cursor:zoom-out}
+#vstage.zoom #vwrap img{max-width:none;max-height:none;cursor:grab}
 #vstage{scrollbar-width:none}#vstage::-webkit-scrollbar{display:none}
 #vstage.pan,#vstage.pan #vwrap img{cursor:grabbing}
 #vzoom{align-self:center;font-size:12px;padding:3px 10px}
@@ -416,6 +416,8 @@ html[data-theme=neutral] #xjcard{border-radius:18px}
     <div class="grp"><select id="fFilter" title="Lọc" aria-label="Lọc ảnh"></select><select id="fSort" title="Sắp xếp" aria-label="Sắp xếp">
       <option value="name">Tên file</option><option value="time">Thời gian chụp</option>
       <option value="score">Điểm chất lượng (cao trước)</option><option value="sharp">Độ nét (cao trước)</option><option value="smile">Nụ cười (tươi nhất trước)</option>
+    </select><select id="fPair" title="Khi một ảnh có cả RAW và JPEG thì hiện bản nào" aria-label="Ưu tiên RAW hay JPEG">
+      <option value="both">RAW + JPEG</option><option value="raw">Ưu tiên RAW</option><option value="jpeg">Ưu tiên JPEG</option>
     </select></div>
     <span class="sp"></span>
     <div class="grp"><button id="bCull" aria-label="Tự động lọc"><svg class="ic" aria-hidden="true"><use href="#i-funnel"/></svg><span class="lbl">Tự động lọc</span></button><button id="bUndo" aria-label="Hoàn tác" disabled><svg class="ic" aria-hidden="true"><use href="#i-undo"/></svg><span class="lbl">Hoàn tác</span></button><button id="bUnrej" title="Khôi phục ảnh đã bị đánh dấu loại" hidden></button><button id="bExport" aria-label="Xuất ảnh" aria-keyshortcuts="Control+Y" title="Xuất ảnh (Ctrl+Y)"><svg class="ic" aria-hidden="true"><use href="#i-export"/></svg><span class="lbl">Xuất ảnh</span></button><button id="bLayout" aria-label="Gửi ảnh sang Dàn trang" class="pri" title="Gửi ảnh đã lọc sang Dàn trang" hidden><svg class="ic" aria-hidden="true"><use href="#i-layout"/></svg><span class="lbl">Dàn trang</span></button></div>
@@ -456,7 +458,7 @@ const FILTERS = [['all','Tất cả'],['unrated','Chưa chấm'],['r1','★ 1+']
   ['rej','✕ Đã loại'],['norej','Không bị loại'],['issues','⚠ Có vấn đề (mọi loại)'],['blur','Mờ'],['dark','Tối'],['bright','Sáng quá'],['eyes','Nhắm mắt?'],['away','Có người quay mặt'],['smile','Có nụ cười'],['dup','Trùng lặp (bản kém hơn)'],
   ['best','Tốt nhất trong nhóm trùng'],['face','Có khuôn mặt'],['noface','Không có khuôn mặt'],['raw','Chỉ file RAW (ARW, CR2, NEF…)'],['jpg','Chỉ JPG / ảnh thường']];
 const RAWRE=/\.(arw|srf|sr2|cr2|cr3|nef|nrw|dng|orf|raf|rw2|pef|srw|3fr|erf|kdc|mrw|x3f)$/i;
-const S = {photos:[], viewFull:[], keep:new Set(), open:new Set(), stack:(()=>{ try{ return localStorage.getItem('ps_stack2')==='1'; }catch(e){ return false; } })(),   /* mặc định: ảnh trùng để riêng từng ô */ by:new Map(), view:[], people:[], sel:new Set(), cur:null, anchor:null, filter:'all', sort:'name', person:null,
+const S = {photos:[], viewFull:[], keep:new Set(), open:new Set(), stack:(()=>{ try{ return localStorage.getItem('ps_stack2')==='1'; }catch(e){ return false; } })(),   /* mặc định: ảnh trùng để riêng từng ô */ by:new Map(), view:[], people:[], sel:new Set(), cur:null, anchor:null, filter:'all', sort:'name', pair:'both', person:null,
            status:{}, undo:[], viewer:false, boxes:true, zoom:false, lastDone:-1, settings:{}};
 
 async function api(path, body){
@@ -521,8 +523,23 @@ function matchFilter(p){
     default: if(f[0]==='r') return p.rating>=+f.slice(1); return true;
   }
 }
+// Khi 1 shot có cả RAW lẫn JPEG cùng tên (cùng thư mục): tùy chọn chỉ hiện bản RAW hoặc bản JPEG.
+// Ảnh chỉ có một bản (JPEG lẻ hoặc RAW lẻ) luôn được giữ nguyên.
+function pairHidden(){
+  if(S.pair!=='raw' && S.pair!=='jpeg') return null;
+  const key=p=>p.dir+'\u0000'+p.name.replace(/\.[^.]+$/,'').toLowerCase();
+  const hasRaw=new Set(), hasJpg=new Set();
+  for(const p of S.photos){ const k=key(p); (RAWRE.test(p.name)?hasRaw:hasJpg).add(k); }
+  const hide=new Set();
+  for(const p of S.photos){ const k=key(p), raw=RAWRE.test(p.name);
+    if(S.pair==='raw' && !raw && hasRaw.has(k)) hide.add(p.id);        // ưu tiên RAW: ẩn JPEG có anh em RAW
+    else if(S.pair==='jpeg' && raw && hasJpg.has(k)) hide.add(p.id);   // ưu tiên JPEG: ẩn RAW có anh em JPEG
+  }
+  return hide.size?hide:null;
+}
 function applyView(){
-  let v = S.photos.filter(p=>(S.keep.has(p.id)||matchFilter(p)) && (S.person===null || p.people.includes(S.person)));
+  const hp=pairHidden();
+  let v = S.photos.filter(p=>!(hp&&hp.has(p.id)) && (S.keep.has(p.id)||matchFilter(p)) && (S.person===null || p.people.includes(S.person)));
   const cmp = {name:(a,b)=>a.dir.localeCompare(b.dir)||a.name.localeCompare(b.name,undefined,{numeric:true}),
                time:(a,b)=>(a.taken||0)-(b.taken||0)||a.name.localeCompare(b.name),
                score:(a,b)=>b.score-a.score, sharp:(a,b)=>(b.nf?b.fsharp:b.sharp)-(a.nf?a.fsharp:a.sharp), smile:(a,b)=>((b.smile??-1)-(a.smile??-1))||(b.score-a.score)}[S.sort];
@@ -873,13 +890,14 @@ async function showViewer(){
   while(VPRE.size>24) VPRE.delete(VPRE.keys().next().value);
   renderInfo(p, ix); renderBadge(p); renderRate(p); loadBoxes(p, tok); updateMask(); renderStrip(true); sendAhead();
 }
-$('#vimg').addEventListener('click', e=>zoomToggle(e.clientX,e.clientY));
-{ const st=$('#vstage'); let pan=null;
+{ const st=$('#vstage'); let dn=null, moved=false;   // bấm trái (không kéo) = zoom vào/ra; giữ trái (hoặc phải) rồi kéo = xem quanh ảnh
   st.addEventListener('wheel',e=>{ e.preventDefault(); zoomTo(Z.k*Math.exp(-e.deltaY*.0015),e.clientX,e.clientY); },{passive:false});
   st.addEventListener('contextmenu',e=>e.preventDefault());
-  st.addEventListener('mousedown',e=>{ if(e.button!==2) return; e.preventDefault(); pan={x:e.clientX,y:e.clientY,l:st.scrollLeft,t:st.scrollTop}; st.classList.add('pan'); });
-  addEventListener('mousemove',e=>{ if(!pan) return; st.scrollLeft=pan.l-(e.clientX-pan.x); st.scrollTop=pan.t-(e.clientY-pan.y); });
-  addEventListener('mouseup',e=>{ if(e.button===2&&pan){ pan=null; st.classList.remove('pan'); } });
+  st.addEventListener('mousedown',e=>{ if(e.button!==0&&e.button!==2) return; e.preventDefault(); dn={x:e.clientX,y:e.clientY,l:st.scrollLeft,t:st.scrollTop,b:e.button}; moved=false; });
+  addEventListener('mousemove',e=>{ if(!dn||!S.zoom) return;
+    if(!moved){ if(Math.abs(e.clientX-dn.x)+Math.abs(e.clientY-dn.y)<4) return; moved=true; st.classList.add('pan'); }
+    st.scrollLeft=dn.l-(e.clientX-dn.x); st.scrollTop=dn.t-(e.clientY-dn.y); });
+  addEventListener('mouseup',e=>{ if(!dn) return; const d=dn; dn=null; st.classList.remove('pan'); if(!moved&&d.b===0) zoomToggle(e.clientX,e.clientY); });
 }
 async function loadBoxes(p, tok){
   const box=$('#vfaces'); box.innerHTML=''; if(!S.boxes||!p.nf) return;
@@ -1450,6 +1468,8 @@ $('#fFilter').innerHTML = FILTERS.map(([v,l])=>`<option value="${v}">${l}</optio
 $('#fFilter').onchange=e=>{ S.filter=e.target.value; S.keep.clear(); if(S.filter!=='pv'){ const o=e.target.querySelector('option[value=pv]'); if(o) o.remove(); } applyView(); e.target.blur(); };
 { const w=$('#gridwrap'); w.setAttribute('role','listbox'); w.setAttribute('aria-multiselectable','true'); w.setAttribute('aria-label','Ảnh trong thư mục — dùng phím mũi tên để chọn, 0–5 chấm sao, X loại, Enter mở ảnh'); if(!w.hasAttribute('tabindex')) w.tabIndex=0; $('#grid')&&$('#grid').setAttribute('role','presentation'); }
 $('#fSort').onchange=e=>{ S.sort=e.target.value; applyView(); e.target.blur(); };
+try{ S.pair=localStorage.getItem('ps_pair')||'both'; }catch(e){ S.pair='both'; } $('#fPair').value=S.pair;
+$('#fPair').onchange=e=>{ S.pair=e.target.value; try{ localStorage.setItem('ps_pair',S.pair); }catch(e){} applyView(); e.target.blur(); };
 $('#fSize').oninput=e=>{ document.documentElement.style.setProperty('--sz', e.target.value+'px'); try{ localStorage.setItem('ps_sz',e.target.value); }catch(_){} };
 try{ const z=+localStorage.getItem('ps_sz'); if(z>=100&&z<=320){ $('#fSize').value=z; document.documentElement.style.setProperty('--sz', z+'px'); } }catch(e){}
 
