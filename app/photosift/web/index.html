@@ -50,8 +50,8 @@ input[type=range]{accent-color:var(--acc)}input[type=checkbox]{accent-color:var(
 .person:hover{background:var(--panel2)}.person.on{background:var(--sel);border-color:var(--acc2)}
 .person img{width:40px;height:40px;border-radius:50%;object-fit:cover;background:#000;border:2px solid rgba(255,255,255,.55)}
 .person .n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}.person .c{color:var(--mut);font-size:11px;font-weight:400}
-#gridwrap{overflow:auto;padding:12px;min-width:0}
-#grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--sz),1fr));gap:10px}
+#gridwrap{overflow:auto;padding:12px;min-width:0;position:relative}
+#grid{position:relative}   /* lưới ảo: ô định vị tuyệt đối, chỉ dựng ô đang nhìn thấy */
 .cell{position:relative;border-radius:18px;border:1px solid rgba(255,255,255,.16);padding:5px;background:rgba(255,255,255,.09);cursor:default;user-select:none;transition:background .12s,border-color .12s}
 .cell:hover{background:rgba(255,255,255,.16)}
 .cell.sel{background:var(--sel);border-color:var(--acc2)}.cell.cur{border-color:var(--acc);box-shadow:0 0 0 2px var(--acc),0 6px 20px rgba(255,163,26,.35)}
@@ -573,7 +573,7 @@ function stacked(p){ return !!(stackOn()&&p.grp&&S.cover&&S.cover.get(p.grp)===p
 function toggleStack(g){
   if(!g) return; const opening=!S.open.has(g); opening?S.open.add(g):S.open.delete(g);
   if(!opening){ const c=S.by.get(S.cur); if(c&&c.grp===g&&S.cover&&S.cover.get(g)!==c.id) S.cur=S.cover.get(g); }
-  applyView(); if(S.viewer) showViewer(); else { const c=cells.get(S.cur); c&&c.scrollIntoView({block:'nearest'}); } }
+  applyView(); if(S.viewer) showViewer(); else if(S.cur!=null) scrollToItem(S.cur); }
 
 /* ---------- lưới ---------- */
 const cells = new Map();
@@ -620,7 +620,52 @@ function cellHTML(p){
     <div class="nm" title="${esc(p.name)}">${esc(p.name)}</div>`;
 }
 const sigs = new Map();
-const sigOf = p => [p.tv,p.rating,p.label,p.flags.join(),p.grp,p.best,p.nf,p.an,p.people.join(),stacked(p),S.open.has(p.grp),gsize(p.grp)].join('|');
+const sigOf = p => [p.tv,p.rating,p.label,p.flags.join(),p.grp,p.best,p.nf,p.an,p.err,p.people.join(),stacked(p),S.open.has(p.grp),gsize(p.grp)].join('|');
+/* ---------- lưới ảo: chỉ dựng ô đang nhìn thấy (mượt với vài nghìn ảnh) ---------- */
+const GAP=10, VBUF=4;                 // khoảng cách ô + số hàng đệm trên/dưới khung nhìn
+let VW={cols:1,colW:150,rowH:180,rows:0}, vRAF=0;
+function vMeasure(){
+  const grid=$('#grid'); if(!grid) return;
+  const gw=grid.clientWidth||1;
+  const minSz=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sz'))||150;
+  const cols=Math.max(1,Math.floor((gw+GAP)/(minSz+GAP)));
+  const colW=Math.floor((gw-(cols-1)*GAP)/cols);
+  let rowH=VW.rowH;
+  if(S.view.length){                  // đo chiều cao ô thật ở cỡ cột hiện tại (ô vuông + tên file)
+    const probe=document.createElement('div'); probe.className='cell';
+    probe.style.cssText=`position:absolute;visibility:hidden;left:-9999px;top:0;width:${colW}px`;
+    probe.innerHTML=cellHTML(S.view[0]); grid.appendChild(probe);
+    rowH=probe.offsetHeight||rowH; probe.remove();
+  }
+  VW={cols,colW,rowH,rows:Math.ceil(S.view.length/cols)};
+  grid.style.height=(VW.rows?VW.rows*rowH+(VW.rows-1)*GAP:0)+'px';   // giữ đúng chiều cao cuộn
+}
+function vPaint(){
+  const grid=$('#grid'), wrap=$('#gridwrap'); if(!grid) return;
+  if(!S.view.length){ for(const [,d] of cells) d.remove(); cells.clear(); sigs.clear(); return; }
+  const step=VW.rowH+GAP, top=wrap.scrollTop-grid.offsetTop;
+  const first=Math.max(0,Math.floor(top/step)-VBUF);
+  const last=Math.min(VW.rows-1,Math.ceil((top+wrap.clientHeight)/step)+VBUF);
+  const a=first*VW.cols, b=Math.min(S.view.length-1,(last+1)*VW.cols-1);
+  const want=new Set(); for(let i=a;i<=b;i++) want.add(S.view[i].id);
+  for(const [id,d] of [...cells]) if(!want.has(id)){ d.remove(); cells.delete(id); sigs.delete(id); }
+  for(let i=a;i<=b;i++){
+    const p=S.view[i], row=(i/VW.cols)|0, col=i%VW.cols, sg=sigOf(p);
+    let d=cells.get(p.id);
+    if(!d){ d=document.createElement('div'); d.className='cell'; d.id='c'+p.id; d.setAttribute('role','option'); d.dataset.id=p.id; d.innerHTML=cellHTML(p); cells.set(p.id,d); sigs.set(p.id,sg); grid.appendChild(d); }
+    else if(sigs.get(p.id)!==sg){ d.innerHTML=cellHTML(p); sigs.set(p.id,sg); }
+    d.style.cssText=`position:absolute;width:${VW.colW}px;left:${col*(VW.colW+GAP)}px;top:${row*step}px`;
+    decorate(p.id);
+  }
+}
+function scrollToItem(id){
+  const i=S.view.findIndex(p=>p.id===id); if(i<0) return;
+  const wrap=$('#gridwrap'), grid=$('#grid'); if(!grid) return;
+  const step=VW.rowH+GAP, tp=grid.offsetTop+(((i/VW.cols)|0)*step), bot=tp+VW.rowH;
+  if(tp<wrap.scrollTop) wrap.scrollTop=tp;
+  else if(bot>wrap.scrollTop+wrap.clientHeight) wrap.scrollTop=bot-wrap.clientHeight;
+  vPaint();
+}
 function renderGrid(){
   const wrap=$('#gridwrap');
   if(!S.photos.length){
@@ -629,17 +674,7 @@ function renderGrid(){
     renderStatus(); return;
   }
   if(!$('#grid')){ cells.clear(); sigs.clear(); wrap.innerHTML='<div id="grid" role="presentation"></div>'; }
-  const grid=$('#grid'); const want=new Set(S.view.map(p=>p.id));
-  for(const [id,d] of [...cells]) if(!want.has(id)){ d.remove(); cells.delete(id); sigs.delete(id); }
-  let ref=grid.firstChild;
-  for(const p of S.view){
-    let d=cells.get(p.id); const sg=sigOf(p);
-    if(!d){ d=document.createElement('div'); d.className='cell'; d.id='c'+p.id; d.setAttribute('role','option'); d.dataset.id=p.id; d.innerHTML=cellHTML(p); cells.set(p.id,d); sigs.set(p.id,sg); }
-    else if(sigs.get(p.id)!==sg){ d.innerHTML=cellHTML(p); sigs.set(p.id,sg); }
-    if(d===ref) ref=ref.nextSibling; else grid.insertBefore(d,ref);
-    decorate(p.id);
-  }
-  renderStatus();
+  vMeasure(); vPaint(); renderStatus();
 }
 function decorate(id){
   const d=cells.get(id), p=S.by.get(id); if(!d||!p) return;
@@ -660,7 +695,7 @@ function setCur(id, {extend=false, toggle=false, scroll=true}={}){
   } else if(toggle){ S.sel.has(id)?S.sel.delete(id):S.sel.add(id); S.anchor=id; }
   else { const prev=[...S.sel]; S.sel=new Set([id]); S.anchor=id; prev.forEach(decorate); }
   decorate(old); decorate(id);
-  if(scroll){ const d=cells.get(id); if(d) d.scrollIntoView({block:'nearest'}); }
+  if(scroll) scrollToItem(id);
   renderStatus(); if(S.viewer) showViewer(); scheduleInfo();
 }
 $('#gridwrap').addEventListener('click', e=>{
@@ -669,6 +704,8 @@ $('#gridwrap').addEventListener('click', e=>{
   setCur(+c.dataset.id, {extend:e.shiftKey, toggle:e.ctrlKey||e.metaKey, scroll:false});
 });
 $('#gridwrap').addEventListener('dblclick', e=>{ const c=e.target.closest('.cell'); if(c){ setCur(+c.dataset.id,{scroll:false}); openViewer(); } });
+$('#gridwrap').addEventListener('scroll', ()=>{ if(vRAF) return; vRAF=requestAnimationFrame(()=>{ vRAF=0; if($('#grid')) vPaint(); }); }, {passive:true});
+try{ new ResizeObserver(()=>{ if($('#grid')&&S.photos.length) renderGrid(); }).observe($('#gridwrap')); }catch(e){}
 
 function renderStatus(){
   const st=S.status||{};
@@ -825,7 +862,7 @@ function openViewer(){ if(S.cur===null) return; S.viewer=true; resetZoom(); $('#
 function toggleStrip(){ stripOn=!stripOn; try{ localStorage.setItem('ps_strip',stripOn?'1':'0'); }catch(e){} renderStrip(true); if(S.viewer) showViewer(); toast(stripOn?'Bật dải ảnh thu nhỏ':'Tắt dải ảnh thu nhỏ (phím T để bật lại)'); }
 $('#vbGrid').onclick=()=>closeViewer();
 $('#vbCat').onclick=()=>{ closeViewer(); showCatalog(); };
-function closeViewer(){ S.viewer=false; updateMask(); $('#viewer').classList.remove('on'); $('#app').inert=false; $('#catalog').inert=false; $('#gridwrap').focus({preventScroll:true}); if(S.cur!==null){ const d=cells.get(S.cur); d&&d.scrollIntoView({block:'nearest'}); } }
+function closeViewer(){ S.viewer=false; updateMask(); $('#viewer').classList.remove('on'); $('#app').inert=false; $('#catalog').inert=false; $('#gridwrap').focus({preventScroll:true}); if(S.cur!==null) scrollToItem(S.cur); }
 let vTok=0, vDir=1, vLastIx=-1;
 const THUMB_WAIT=180;   // ms chờ ảnh nét trước khi tạm hiện thumbnail
 const VPRE=new Map(), VHQ=new Map();
@@ -1022,7 +1059,7 @@ $('#bInfo').onclick=()=>{ const m=$('#main'); m.classList.toggle('noinfo'); try{
 try{ const v=localStorage.getItem('ps_info'); if(v==='0'||(v===null&&innerWidth<=1180)) $('#main').classList.add('noinfo'); }catch(e){}
 
 /* ---------- phím tắt ---------- */
-function cols(){ const g=$('#grid'); return g ? getComputedStyle(g).gridTemplateColumns.split(' ').length : 1; }
+function cols(){ return VW.cols||1; }
 /* tự sang ảnh kế sau khi chấm một ảnh: bật/tắt ở thanh trạng thái, nhớ cho lần sau */
 S.adv=(()=>{ try{ return localStorage.getItem('ps_adv2')==='1'; }catch(e){ return false; } })();   // mặc định: chấm sao xong vẫn ở lại ảnh đó
 function paintAdv(){ const b=$('#sAdv'); if(b){ b.textContent='Tự sang ảnh kế: '+(S.adv?'Bật':'Tắt'); b.setAttribute('aria-pressed',String(S.adv)); } }
@@ -1473,7 +1510,7 @@ $('#fFilter').onchange=e=>{ S.filter=e.target.value; S.keep.clear(); if(S.filter
 $('#fSort').onchange=e=>{ S.sort=e.target.value; applyView(); e.target.blur(); };
 try{ S.pair=localStorage.getItem('ps_pair')||'both'; }catch(e){ S.pair='both'; } $('#fPair').value=S.pair;
 $('#fPair').onchange=e=>{ S.pair=e.target.value; try{ localStorage.setItem('ps_pair',S.pair); }catch(e){} applyView(); e.target.blur(); };
-$('#fSize').oninput=e=>{ document.documentElement.style.setProperty('--sz', e.target.value+'px'); try{ localStorage.setItem('ps_sz',e.target.value); }catch(_){} };
+$('#fSize').oninput=e=>{ document.documentElement.style.setProperty('--sz', e.target.value+'px'); try{ localStorage.setItem('ps_sz',e.target.value); }catch(_){} renderGrid(); };
 try{ const z=+localStorage.getItem('ps_sz'); if(z>=100&&z<=320){ $('#fSize').value=z; document.documentElement.style.setProperty('--sz', z+'px'); } }catch(e){}
 
 /* ---------- vòng lặp trạng thái ---------- */
