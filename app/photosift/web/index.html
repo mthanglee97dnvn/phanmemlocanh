@@ -967,7 +967,7 @@ function exifHTML(x){
   const has=rows.filter(([k,v])=>v!==undefined&&v!==null&&String(v).trim()!=='');   // ẩn dòng trống
   return has.length?'<dl class="ex">'+has.map(([k,v])=>`<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')+'</dl>':'<div class="hint">Ảnh này không lưu thông số chụp.</div>';
 }
-function drawHist(cv,h){
+function drawHistogram(cv,h){   // ĐỔI TÊN: tránh trùng với drawHist() của Catalog (lịch sử xuất ảnh) khiến histogram không vẽ
   const dpr=window.devicePixelRatio||1, W=cv.clientWidth||260, H=cv.clientHeight||120;
   cv.width=W*dpr; cv.height=H*dpr; const c=cv.getContext('2d'); c.scale(dpr,dpr); c.clearRect(0,0,W,H);
   if(!h){ c.fillStyle='#a9c0da'; c.font='12px sans-serif'; c.fillText('Đang tải…',10,20); return; }
@@ -993,7 +993,7 @@ async function fillSections(sel,id,kind){
     el.innerHTML = kind==='v'
       ? Hh + secHTML('hs','Vùng cháy sáng / mất chi tiết',`<div class="hs">${hsHTML()}</div><div class="hint" style="margin-top:6px">Phím <span class="kbd">H</span> để đổi nhanh</div>`) + E
       : ((q&&q.an)?secHTML('q','Chất lượng tự động',`<dl class="ex"><dt>Điểm</dt><dd>${q.score}</dd><dt>Độ nét</dt><dd>${q.nf?q.fsharp+' (mặt)':q.sharp}</dd><dt>Độ sáng TB</dt><dd>${Math.round(q.lum*100)}%</dd><dt>Khuôn mặt</dt><dd>${q.nf}</dd><dt>Cảnh báo</dt><dd>${q.flags.map(f=>FLAG[f]).join(', ')||'—'}</dd></dl>`):'') + Hh + E;
-    const cv=el.querySelector('canvas.hist'); if(cv) drawHist(cv,r&&r.hist);
+    const cv=el.querySelector('canvas.hist'); if(cv) drawHistogram(cv,r&&r.hist);
     el.querySelectorAll('input[name=hs]').forEach(i=>i.onchange=()=>setHS(i.value));
   };
   render(cached);
