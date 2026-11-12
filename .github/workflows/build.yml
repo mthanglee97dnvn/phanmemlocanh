@@ -262,7 +262,16 @@ jobs:
           TXT
           DMG="MThanglee_CullCollage-${VER}-macos-${{ matrix.label }}.dmg"
           cp legal/DIEU_KHOAN_SU_DUNG.txt "dmg/Dieu khoan su dung.txt"
-          hdiutil create -volname "MThanglee Cull&Collage" -srcfolder dmg -ov -format UDZO "$DMG"
+          # hdiutil đôi khi báo "Resource busy" do volume chưa nhả trên runner GitHub → thử lại vài lần cho chắc
+          for try in 1 2 3 4 5; do
+            if hdiutil create -volname "MThanglee Cull&Collage" -srcfolder dmg -ov -format UDZO "$DMG"; then
+              break
+            fi
+            echo "hdiutil lần $try thất bại (Resource busy?), tháo volume rồi chờ thử lại..."
+            hdiutil detach -force "/Volumes/MThanglee Cull&Collage" 2>/dev/null || true
+            sleep 15
+            [ "$try" = 5 ] && { echo "hdiutil vẫn thất bại sau 5 lần" >&2; exit 1; }
+          done
           if [ -n "$APPLE_ID" ] && [ -n "$APPLE_CERT_P12_B64" ]; then   # công chứng với Apple: mở app không còn bị chặn
             xcrun notarytool submit "$DMG" --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD" --wait
             xcrun stapler staple "$DMG"
