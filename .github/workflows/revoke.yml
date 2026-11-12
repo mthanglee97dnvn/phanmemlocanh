@@ -1,25 +1,30 @@
-name: Dang danh sach key thu hoi
+name: Dang license (thu hoi + cap vinh vien)
 
-# Chủ phần mềm thêm mã key vào license/revoked.txt (python tools/thu_hoi_key.py "<key>") rồi đẩy lên main:
-# workflow này đăng file lên kho phát hành công khai, app trên mọi máy tự tải về (khi có mạng) và khoá key đó.
+# Chủ phần mềm cập nhật license/revoked.txt (thu hồi key) hoặc license/grants.json (cấp key vĩnh viễn
+# sau khi khách thanh toán) rồi đẩy lên main. Workflow đăng 2 file lên kho phát hành công khai;
+# app trên máy khách tự tải về: khoá key bị thu hồi, và tự kích hoạt vĩnh viễn nếu có key đã cấp.
 on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: [license/revoked.txt]
+    paths:
+      - license/revoked.txt
+      - license/grants.json
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Đăng license/revoked.txt lên kho phát hành
+      - name: Đăng danh sách lên kho phát hành
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           REPO: ${{ github.repository_owner }}/cullcollage-releases
         run: |
           { echo "# MThanglee Cull&Collage - revoked key ids"; grep -E '^[0-9a-fA-F]{16}$' license/revoked.txt || true; } > revoked.txt
           echo "Số key thu hồi: $(grep -cE '^[0-9a-fA-F]{16}$' revoked.txt)"
+          python3 -c "import json;d=json.load(open('license/grants.json'));assert isinstance(d,dict);print('Số key vĩnh viễn đã cấp:',len(d))" 
+          cp license/grants.json grants.json
           gh release view license --repo "$REPO" >/dev/null 2>&1 || \
-            gh release create license --repo "$REPO" --prerelease --title "Danh sách key thu hồi" --notes "Dùng nội bộ cho app, không phải bản cài."
-          gh release upload license revoked.txt --repo "$REPO" --clobber
+            gh release create license --repo "$REPO" --prerelease --title "Danh sách license" --notes "Dùng nội bộ cho app, không phải bản cài."
+          gh release upload license revoked.txt grants.json --repo "$REPO" --clobber

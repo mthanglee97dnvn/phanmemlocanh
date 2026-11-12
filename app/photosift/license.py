@@ -18,6 +18,7 @@ PERMANENT = 0xFFFF
 FILE = HOME / "license.json"
 REVOKED_FILE = HOME / "revoked.txt"   # bản lưu gần nhất của danh sách key bị thu hồi (dùng khi mất mạng)
 REVOKE_EVERY = 6 * 3600
+GRANT_EVERY = 15 * 60   # mỗi 15 phút kiểm tra danh sách key vĩnh viễn đã cấp (sau khi khách thanh toán)
 
 
 def _raw_key(text: str) -> bytes | None:
@@ -262,6 +263,52 @@ class License:
         except OSError:
             pass
         self.reload()
+
+
+def fetch_grants(repo: str, lic) -> bool:
+    """Tải danh sách key vĩnh viễn đã cấp (grants.json: {mã máy: key}). Nếu có key cho máy này và app
+    chưa phải bản vĩnh viễn, tự kích hoạt. Trả True nếu vừa chuyển sang vĩnh viễn. Không gửi gì lên mạng."""
+    if not repo or not re.fullmatch(r"[\w.-]+/[\w.-]+", repo):
+        return False
+    try:
+        if lic.state.get("ok") and lic.state.get("permanent"):
+            return False   # đã vĩnh viễn, khỏi cần
+    except Exception:  # noqa: BLE001
+        pass
+    url = f"https://github.com/{repo}/releases/download/license/grants.json"
+    try:
+        import json as _json
+        import urllib.request
+        req = urllib.request.Request(url, headers={"User-Agent": "MThanglee-CullCollage"})
+        with urllib.request.urlopen(req, timeout=15) as r:
+            data = _json.loads(r.read(1 << 20).decode("utf-8", "replace"))
+    except Exception:  # noqa: BLE001  mất mạng / chưa có danh sách
+        return False
+    if not isinstance(data, dict):
+        return False
+    me = machine_code()
+    key = data.get(me) or data.get(me.replace("-", ""))
+    if not isinstance(key, str) or not key.strip():
+        return False
+    st = parse(key)   # chỉ nhận key hợp lệ: đúng chữ ký, đúng máy này
+    if not st.get("ok") or not st.get("permanent"):
+        return False
+    lic.activate(key)   # ghi license.json + reload
+    return bool(lic.state.get("ok") and lic.state.get("permanent"))
+
+
+def start_grants(repo: str, lic):
+    """Định kỳ kiểm tra key vĩnh viễn đã cấp cho máy này rồi tự kích hoạt."""
+    def loop():
+        import time
+        while True:
+            try:
+                fetch_grants(repo, lic)
+            except Exception:  # noqa: BLE001
+                pass
+            time.sleep(GRANT_EVERY)
+    import threading
+    threading.Thread(target=loop, daemon=True).start()
 
 
 def start_revocation(repo: str):

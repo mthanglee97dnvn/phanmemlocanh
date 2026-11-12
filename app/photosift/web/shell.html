@@ -64,6 +64,17 @@ dialog button:focus-visible,#mode button:focus-visible{outline:2px solid #F2B01E
 #fList button:hover{background:#2A2E36}#fList button[aria-pressed=true]{background:rgba(242,176,30,.14);box-shadow:inset 3px 0 0 #F2B01E}
 #fList small{color:#A1A8B4;font:12px "Segoe UI",system-ui,sans-serif}#fList span{font-size:16px}
 #fMsg{color:#A1A8B4;font-size:12.5px;min-height:18px;margin-top:6px}
+#licDlg{width:min(460px,calc(100vw - 24px));max-height:92vh;overflow:auto}
+#licDlg .lsep{height:1px;background:#2c313c;margin:14px 0}
+#licDlg .lprice{font-size:26px;font-weight:800;color:#F2B01E}#licDlg .lprice span{font-size:12px;font-weight:600;color:#9aa3b2}
+#licDlg .lhint{color:#c9ced6;font-size:13px;margin:6px 0 12px}
+#licDlg .lqr{background:#fff;border-radius:12px;padding:12px;width:244px;margin:0 auto 12px;text-align:center}
+#licDlg .lqr img{width:214px;height:auto;display:block;margin:0 auto 6px}
+#licDlg .lbrand{font-size:11px;font-weight:700;color:#6b7280}#licDlg .lbrand b{color:#e11d48}#licDlg .lbrand i{color:#0a84ff;font-style:normal}
+#licDlg .lbank{background:#14161A;border:1px solid #2c313c;border-radius:10px;padding:8px 12px;margin-bottom:10px}
+#licDlg .lbank div{display:flex;justify-content:space-between;gap:10px;padding:4px 0;font-size:13px;border-bottom:1px solid #22252b}
+#licDlg .lbank div:last-child{border-bottom:0}#licDlg .lbank span{color:#9aa3b2}#licDlg .lbank b{user-select:all}
+#licDlg .lpending{color:#8ff0c2;font-size:12.5px;background:rgba(62,207,142,.1);border:1px solid #2f6b50;border-radius:8px;padding:8px 11px}
 </style>
 <link id="uiFont" rel="stylesheet" href="/ui.css">
 </head>
@@ -114,6 +125,19 @@ dialog button:focus-visible,#mode button:focus-visible{outline:2px solid #F2B01E
 <dialog id="licDlg">
   <h2>Bản quyền</h2>
   <dl><dt>Trạng thái</dt><dd id="lState"></dd><dt>Mã máy</dt><dd id="lMach"></dd></dl>
+  <div id="lBuy" hidden>
+    <div class="lsep"></div>
+    <div class="lprice">500.000đ <span>· mua một lần, dùng vĩnh viễn</span></div>
+    <p class="lhint">Quét mã VietQR để chuyển khoản <b>500.000đ</b> (nội dung đã kèm sẵn mã máy). Chuyển xong, app <b>tự động chuyển sang bản vĩnh viễn</b> — bạn không cần nhập key.</p>
+    <div class="lqr"><img src="/api/payqr" alt="Mã QR chuyển khoản 500.000đ"><div class="lbrand"><b>VIETQR</b> · <i>napas 247</i></div></div>
+    <div class="lbank">
+      <div><span>Ngân hàng</span><b>Vietcombank</b></div>
+      <div><span>Chủ tài khoản</span><b>LE MINH THANG</b></div>
+      <div><span>Số tài khoản</span><b>0041000316886</b></div>
+      <div><span>Chi nhánh</span><b>PGD Thanh Khê</b></div>
+    </div>
+    <div class="lpending">⏳ Đang chờ thanh toán… app sẽ tự kích hoạt khi nhận được.</div>
+  </div>
   <textarea id="lKey" placeholder="Dán key mới để gia hạn hoặc đổi key" aria-label="Key mới"></textarea>
   <div id="licErr" role="status"></div>
   <div class="btns"><button class="dg" id="lRemove">Gỡ key khỏi máy này</button><button id="lClose">Đóng</button><button class="pri" id="lGo">Kích hoạt key mới</button></div>
@@ -131,8 +155,11 @@ addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&!e.altKey
 const $=i=>document.getElementById(i),post=(u,b)=>fetch(u,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(b||{})}).then(r=>r.json());
 async function lic(){let s;try{s=await fetch('/api/license').then(r=>r.json())}catch(e){return}if(!s.ok){location.reload();return}
   const t=$('tLic'),low=!s.permanent&&s.days_left<=14;t.querySelector('.t').textContent=s.permanent?'Vĩnh viễn':`Còn ${s.days_left} ngày`;t.classList.toggle('warn',low);
+  window.__perm=!!s.permanent;$('lBuy').hidden=!!s.permanent;t.title=s.permanent?'Thông tin bản quyền':'Bản dùng thử — bấm để mua vĩnh viễn';
   $('lState').textContent=s.permanent?'Vĩnh viễn':`Đến ${s.expires}, còn ${s.days_left} ngày`;$('lMach').textContent=s.machine}
 lic();setInterval(lic,600000);
+async function grantPoll(){if(window.__perm)return;try{const s=await fetch('/api/license/checkgrant').then(r=>r.json());if(s&&s.ok&&s.permanent){await lic();if($('licDlg').open){/* badge đã đổi Vĩnh viễn */}}}catch(e){}}
+setInterval(grantPoll,60000);setTimeout(grantPoll,4000);
 /* phông chữ: chỉ liệt kê phông đã cài trên máy có đủ dấu tiếng Việt; áp dụng ngay cho cả hai tab */
 let FL=null,FCUR='';
 const SAMPLE='Lọc ảnh cưới Gia Huy & Thùy Trân, đã chọn 128 ảnh';

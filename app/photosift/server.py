@@ -22,6 +22,36 @@ from . import models
 from .update import Updater
 from . import fonts
 from .errors import friendly
+from .license import machine_code
+
+# ---- VietQR mua bản quyền (tài khoản MTHANGLEE STUDIO) ----
+_PAY_BIN = "970436"            # Vietcombank
+_PAY_ACCT = "0041000316886"
+_PAY_SERVICE = "QRIBFTTA"
+
+
+def _crc16(s: str) -> str:
+    crc = 0xFFFF
+    for ch in s.encode("ascii"):
+        crc ^= ch << 8
+        for _ in range(8):
+            crc = ((crc << 1) ^ 0x1021) & 0xFFFF if crc & 0x8000 else (crc << 1) & 0xFFFF
+    return f"{crc:04X}"
+
+
+def _tlv(t: str, v: str) -> str:
+    return f"{t}{len(v):02d}{v}"
+
+
+def _vietqr(amount=None, addinfo=None) -> str:
+    mai = _tlv("00", "A000000727") + _tlv("01", _tlv("00", _PAY_BIN) + _tlv("01", _PAY_ACCT)) + _tlv("02", _PAY_SERVICE)
+    s = _tlv("00", "01") + _tlv("01", "11") + _tlv("38", mai) + _tlv("53", "704")
+    if amount is not None:
+        s += _tlv("54", str(amount))
+    s += _tlv("58", "VN")
+    if addinfo:
+        s += _tlv("62", _tlv("08", addinfo))
+    return s + "6304" + _crc16(s + "6304")
 from .analyzer import ALL_EXT, _jpg, load_bgr, read_meta
 from .library import COVERS, FACES, PREVIEWS, THUMBS, Library, ui_ping
 from .license import License
@@ -527,10 +557,25 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                 if u.path == "/api/license":
                     LAST_SEEN[0] = time.time()
                     return self._json(lic.info())
+                if u.path == "/api/license/checkgrant":   # khách đang chờ sau khi thanh toán: kiểm tra ngay
+                    try:
+                        from .license import fetch_grants
+                        from .update import build_info
+                        fetch_grants(build_info().get("repo", ""), lic)
+                    except Exception:  # noqa: BLE001
+                        pass
+                    return self._json(lic.info())
                 if u.path == "/ui.css":
                     return self._send(200, fonts.ui_css().encode("utf-8"), "text/css; charset=utf-8", {"Cache-Control": "no-store"})
+                if u.path == "/api/payqr":   # mã VietQR mua bản quyền (kèm 500.000đ + mã máy) — không cần key
+                    from . import qr as _qr
+                    code = machine_code().replace("-", "")
+                    s = _vietqr(500000, "MTCC" + code)
+                    return self._send(200, _qr.svg(s, box=9, border=3).encode("utf-8"),
+                                      "image/svg+xml; charset=utf-8", {"Cache-Control": "no-store"})
                 if not lic.ok() and u.path not in ("/logo.png", "/favicon.png", "/api/status",
-                                                   "/apple-touch-icon.png", "/m-icon-512.png", "/m.webmanifest"):
+                                                   "/apple-touch-icon.png", "/m-icon-512.png", "/m.webmanifest",
+                                                   "/api/payqr", "/api/license/checkgrant"):
                     return self._json(dict(error="Chưa kích hoạt key", license=False), 402)
                 if u.path == "/m.webmanifest":   # để iPhone cài trang lọc thành app riêng
                     man = {
@@ -887,10 +932,12 @@ def serve(port: int = 8765, open_browser: bool = True, folder: str | None = None
     if not lib.an.has_eyes:
         print("Ghi chú: chưa có lbfmodel.yaml nên chưa phát hiện được ảnh nhắm mắt (chạy: python -m photosift.models).")
     lib.online.start()
-    try:   # danh sách key bị thu hồi (kho phát hành công khai)
-        from .license import start_revocation
+    try:   # danh sách key bị thu hồi + key vĩnh viễn đã cấp (kho phát hành công khai)
+        from .license import start_revocation, start_grants
         from .update import build_info
-        start_revocation(build_info().get("repo", ""))
+        _lic_repo = build_info().get("repo", "")
+        start_revocation(_lic_repo)
+        start_grants(_lic_repo, lic)   # khách thanh toán → tự kích hoạt vĩnh viễn
     except Exception as e:  # noqa: BLE001
         print("revoke:", e, file=sys.stderr)
     # Ghi thông tin phiên để bộ khởi chạy có thể mở lại cửa sổ đang chạy
