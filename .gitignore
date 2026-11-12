@@ -19,3 +19,4 @@ sales_seed.hex
 *.seed
 *.seed.hex
 SALES_SEED*
+node_modules
