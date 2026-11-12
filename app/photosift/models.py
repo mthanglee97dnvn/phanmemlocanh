@@ -53,7 +53,8 @@ def ensure_models(verbose: bool = True) -> list[str]:
             print(f"[models] đang tải {name} ...", flush=True)
         try:
             tmp = path(name).with_suffix(".part")
-            with urllib.request.urlopen(url, timeout=30 if required else 12) as r, open(tmp, "wb") as f:
+            from . import net
+            with net.urlopen(url, timeout=30 if required else 12) as r, open(tmp, "wb") as f:
                 shutil.copyfileobj(r, f)
             tmp.replace(path(name))
             sk.unlink(missing_ok=True)

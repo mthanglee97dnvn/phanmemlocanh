@@ -56,7 +56,8 @@ class Updater:
         self.file = None
 
     def _get(self, url: str, timeout=15):
-        return urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": AGENT}), timeout=timeout)
+        from . import net
+        return net.urlopen(urllib.request.Request(url, headers={"User-Agent": AGENT}), timeout=timeout)
 
     def check(self, force=False) -> dict:
         cur, repo = self.info["version"], self.info["repo"]

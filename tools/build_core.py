@@ -66,11 +66,12 @@ shutil.copy2(os.path.join(ROOT, "app", entry), entry_dir)
 HIDDEN = ["photosift", "cv2", "numpy", "rawpy", "PIL", "PIL.Image", "PIL.ImageOps", "pillow_heif", "sqlite3",
           "http.server", "xml.sax.saxutils", "concurrent.futures", "urllib.request", "urllib.error", "urllib.parse",
           "webbrowser", "secrets", "random", "string", "struct", "socket", "ctypes", "platform", "errno", "io",
-          "shutil", "subprocess", "base64", "hashlib", "json", "datetime", "pathlib", "zlib", "email", "html"]
+          "shutil", "subprocess", "base64", "hashlib", "json", "datetime", "pathlib", "zlib", "email", "html",
+          "ssl", "certifi"]
 if os.name == "nt":
     HIDDEN += ["winreg", "ctypes.wintypes"]
 args = [PY, "-m", "PyInstaller", "--noconfirm", "--clean", "--onedir", "--paths", "build/entry",
-        "--collect-all", "pillow_heif", "--collect-binaries", "rawpy",
+        "--collect-all", "pillow_heif", "--collect-binaries", "rawpy", "--collect-data", "certifi",
         "--exclude-module", "tkinter", "--exclude-module", "matplotlib", "--exclude-module", "scipy",
         "--exclude-module", "pandas"]
 for h in HIDDEN:

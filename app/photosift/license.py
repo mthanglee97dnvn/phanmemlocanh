@@ -284,8 +284,9 @@ def fetch_grants(repo: str, lic) -> bool:
     try:
         import json as _json
         import urllib.request
+        from . import net
         req = urllib.request.Request(url, headers={"User-Agent": "MThanglee-CullCollage"})
-        with urllib.request.urlopen(req, timeout=15) as r:
+        with net.urlopen(req, timeout=15) as r:
             data = _json.loads(r.read(1 << 20).decode("utf-8", "replace"))
     except Exception:  # noqa: BLE001  mất mạng / chưa có danh sách
         return False
@@ -327,10 +328,11 @@ def start_revocation(repo: str):
         import threading as _t  # noqa: F401
         import time
         import urllib.request
+        from . import net
         while True:
             try:
                 req = urllib.request.Request(url, headers={"User-Agent": "MThanglee-CullCollage"})
-                with urllib.request.urlopen(req, timeout=15) as r:
+                with net.urlopen(req, timeout=15) as r:
                     txt = r.read(1 << 20).decode("utf-8", "replace")
                 ids = [ln.strip().lower() for ln in txt.splitlines() if re.fullmatch(r"[0-9a-fA-F]{16}", ln.strip())]
                 HOME.mkdir(parents=True, exist_ok=True)
