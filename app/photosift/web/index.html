@@ -473,7 +473,7 @@ async function api(path, body){
 }
 /* mất kết nối với máy chủ (app bị tắt, đang cập nhật, máy ngủ): báo một dải cố định, tự ẩn khi nối lại */
 function lostLink(){ if(S.lost) return; S.lost=true; const d=document.createElement('div'); d.id='lost'; d.setAttribute('role','alert');
-  d.textContent='Mất kết nối với app, các thay đổi lúc này sẽ không được lưu. Nếu không tự nối lại, hãy đóng cửa sổ và mở lại app.'; document.body.appendChild(d); }
+  d.textContent='Mất kết nối với app — đang tự nối lại… Nếu một lúc vẫn chưa được, hãy đóng cửa sổ rồi mở lại app.'; document.body.appendChild(d); }
 function linkBack(){ S.lost=false; const d=$('#lost'); if(d) d.remove(); toast('Đã kết nối lại'); }
 addEventListener('unhandledrejection',e=>{ const m=e.reason&&e.reason.message; if(m){ toast(m,4000); e.preventDefault(); } });
 function toast(msg, ms=2200){ const t=$('#toast'); t.textContent=msg; t.style.display='block'; clearTimeout(toast.t); toast.t=setTimeout(()=>t.style.display='none', ms); }
@@ -1534,6 +1534,11 @@ async function poll(force){
   busy=false;
 }
 setInterval(()=>poll(false), 900);
+/* Tự nối lại nhanh: cửa sổ hiện lại / máy thức / mạng về, và phát hiện timer bị đóng băng (thu nhỏ, ngủ) */
+let _tick=Date.now();
+setInterval(()=>{ const n=Date.now(); if(n-_tick>4000) poll(false); _tick=n; },1000);   // nhịp >4s = vừa bị đóng băng → điểm danh lại ngay
+addEventListener('visibilitychange',()=>{ if(!document.hidden) poll(false); });
+['focus','online','pageshow'].forEach(ev=>addEventListener(ev,()=>poll(false)));
 poll(true).then(()=>{ if(!S.photos.length) renderGrid(); });
 </script>
 </body>

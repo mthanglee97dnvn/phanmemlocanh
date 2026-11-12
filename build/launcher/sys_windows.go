@@ -80,6 +80,8 @@ func openWindow(u, home string) *exec.Cmd {
 	cmd := exec.Command(b, "--app="+u, "--user-data-dir="+prof,
 		"--no-first-run", "--no-default-browser-check", "--disable-sync", "--lang=vi",
 		"--disable-features=Translate,TranslateUI,msEdgeSync,msImplicitSignin,msEdgeShoppingUI",
+		// Giữ timer JS chạy đều khi cửa sổ thu nhỏ/che khuất → giao diện vẫn điểm danh máy chủ, không rớt kết nối
+		"--disable-background-timer-throttling", "--disable-backgrounding-occluded-windows", "--disable-renderer-backgrounding",
 		"--window-size=1500,920")
 	cmd.Dir = home // tránh để Edge giữ thư mục cài đặt làm thư mục hiện hành (sẽ cản việc gỡ cài đặt)
 	if err := cmd.Start(); err != nil {

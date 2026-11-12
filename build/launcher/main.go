@@ -112,7 +112,10 @@ func main() {
 	for time.Now().Before(end) {
 		if u, ok := findRunning(home); ok {
 			if w := openWindow(u, home); w != nil {
-				w.Wait() // chờ người dùng đóng cửa sổ
+				stop := make(chan struct{})
+				go keepAlive(home, stop) // giữ máy chủ sống kể cả khi cửa sổ bị thu nhỏ/che (Chromium đóng băng timer JS)
+				w.Wait()                 // chờ người dùng đóng cửa sổ
+				close(stop)
 				time.Sleep(4 * time.Second)
 				if idleSeconds(home) > 4 { // không còn giao diện nào đang mở → tắt máy chủ
 					quitServer(home)
@@ -125,6 +128,24 @@ func main() {
 			msgBox("MThanglee Cull&Collage", "Ứng dụng đã dừng ngay khi khởi động. Xem file photosift.log trong thư mục cài đặt:\n"+dir)
 			return
 		case <-time.After(500 * time.Millisecond):
+		}
+	}
+}
+
+// keepAlive: trong khi cửa sổ còn mở, định kỳ điểm danh máy chủ để nó không tự tắt dù
+// giao diện (Chromium ở chế độ --app) bị đóng băng timer lúc thu nhỏ/che khuất/máy ngủ.
+// Tiến trình launcher là native (không bị Chromium throttle) nên nhịp này luôn đều.
+func keepAlive(home string, stop <-chan struct{}) {
+	t := time.NewTicker(30 * time.Second)
+	defer t.Stop()
+	for {
+		select {
+		case <-stop:
+			return
+		case <-t.C:
+			if r, ok := readRunning(home); ok {
+				apiCall(r, "GET", "/api/status")
+			}
 		}
 	}
 }

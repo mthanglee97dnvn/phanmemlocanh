@@ -950,9 +950,19 @@ def serve(port: int = 8765, open_browser: bool = True, folder: str | None = None
         pass
     if os.environ.get("PHOTOSIFT_AUTOEXIT") == "1":   # chạy không cửa sổ: tự thoát khi đóng trình duyệt
         def _idle():
+            last_tick = time.time()
             while True:
                 time.sleep(10)
-                if time.time() - LAST_SEEN[0] > IDLE_EXIT_S:
+                now = time.time()
+                # Máy vừa ngủ dậy: vòng lặp 10s mà đồng hồ nhảy xa → KHÔNG tính là rảnh.
+                # Cho giao diện (và launcher) thời gian điểm danh lại trước khi cân nhắc thoát,
+                # tránh tự tắt ngay sau khi mở nắp laptop / thức khỏi Sleep.
+                if now - last_tick > 60:
+                    LAST_SEEN[0] = now
+                    last_tick = now
+                    continue
+                last_tick = now
+                if now - LAST_SEEN[0] > IDLE_EXIT_S:
                     try:
                         run_file.unlink()
                     except OSError:
