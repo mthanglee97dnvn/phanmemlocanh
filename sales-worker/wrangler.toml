@@ -1,0 +1,14 @@
+name = "mtcc-sales"
+main = "worker.js"
+compatibility_date = "2026-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Biến KHÔNG bí mật (có thể để ở đây):
+[vars]
+GH_REPO = "mthanglee97dnvn/phanmemlocanh"
+PRICE = "500000"
+
+# BÍ MẬT — KHÔNG viết vào file này. Đặt bằng lệnh (xem README.md):
+#   npx wrangler secret put SEPAY_APIKEY
+#   npx wrangler secret put SALES_SEED_HEX
+#   npx wrangler secret put GH_TOKEN

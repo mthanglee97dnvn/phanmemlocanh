@@ -15,3 +15,7 @@ build/entry/
 build/webobf/
 app/photosift/_webpack.py
 *.spec
+sales_seed.hex
+*.seed
+*.seed.hex
+SALES_SEED*

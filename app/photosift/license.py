@@ -12,6 +12,10 @@ import secrets
 
 from .db import HOME
 from .license_pub import PUB_HEX
+try:
+    from .license_pub import SALES_PUB_HEX
+except ImportError:
+    SALES_PUB_HEX = ""
 
 EPOCH = dt.date(2024, 1, 1)
 PERMANENT = 0xFFFF
@@ -172,7 +176,8 @@ def _date(n: int) -> str:
 
 def parse(text: str) -> dict:
     """Trả dict(ok, reason, ...). Không đọc file, không ghi gì."""
-    if not re.fullmatch(r"[0-9a-f]{64}", PUB_HEX or ""):
+    _pubs = [p for p in (PUB_HEX, SALES_PUB_HEX) if re.fullmatch(r"[0-9a-f]{64}", p or "")]
+    if not _pubs:
         return dict(ok=False, reason="Bản cài này chưa có khóa công khai, không kích hoạt được.")
     t = re.sub(r"[^A-Za-z2-7]", "", text or "").upper()
     if t.startswith("MTCC"):
@@ -184,7 +189,7 @@ def parse(text: str) -> dict:
     if len(raw) != 78:
         return dict(ok=False, reason="Key không đúng định dạng. Hãy dán lại toàn bộ key.")
     body, sig = raw[:14], raw[14:]
-    if not ed25519_verify(bytes.fromhex(PUB_HEX), b"MTCC1" + body, sig) or body[0] != 1:
+    if body[0] != 1 or not any(ed25519_verify(bytes.fromhex(p), b"MTCC1" + body, sig) for p in _pubs):
         return dict(ok=False, reason="Key không hợp lệ.")
     issued = int.from_bytes(body[2:4], "big")
     exp = int.from_bytes(body[4:6], "big")
@@ -246,7 +251,7 @@ class License:
     def info(self) -> dict:
         s = self.reload()
         self._day0 = today_num()
-        return dict(s, machine=machine_code(), has_pub=bool(re.fullmatch(r"[0-9a-f]{64}", PUB_HEX or "")))
+        return dict(s, machine=machine_code(), has_pub=bool(re.fullmatch(r"[0-9a-f]{64}", PUB_HEX or "") or re.fullmatch(r"[0-9a-f]{64}", SALES_PUB_HEX or "")))
 
     def activate(self, key: str) -> dict:
         st = parse(key)
