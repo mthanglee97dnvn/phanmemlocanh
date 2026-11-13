@@ -15,15 +15,27 @@
 
 definitions:
   mac_scripts: &mac_scripts
-    - name: Xác định phiên bản (theo bản phát hành mới nhất)
+    - name: Xác định phiên bản (chờ bản phát hành của lần đẩy này)
       script: |
         set -e
+        get_latest () { curl -s -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$RELREPO/releases/latest" | python3 -c "import sys,json;print(json.load(sys.stdin).get('tag_name',''))"; }
         V="$APP_VERSION"
-        if [ -z "$V" ] || [ "$V" = "auto" ]; then
-          [ -n "$GH_TOKEN" ] || { echo "Thiếu GH_TOKEN (hoặc đặt APP_VERSION cụ thể)"; exit 1; }
-          TAG=$(curl -s -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$RELREPO/releases/latest" | python3 -c "import sys,json;print(json.load(sys.stdin).get('tag_name',''))")
-          V="${TAG#v}"
+        # Nếu gõ số cụ thể (vd 1.1.84) thì dùng luôn, không chờ.
+        if [ -n "$V" ] && [ "$V" != "auto" ]; then
+          echo "APP_VERSION=$V" >> "$CM_ENV"; echo "Dùng phiên bản chỉ định v$V"; exit 0
         fi
+        [ -n "$GH_TOKEN" ] || { echo "Thiếu GH_TOKEN"; exit 1; }
+        START=$(get_latest); echo "Bản phát hành mới nhất lúc bắt đầu: ${START:-(chưa có)}"
+        TAG=""
+        # Chạy do đẩy code: bản Windows đang build và sẽ tạo release mới — chờ nó xuất hiện (tối đa ~22 phút).
+        for i in $(seq 1 66); do
+          CUR=$(get_latest)
+          if [ -n "$CUR" ] && [ "$CUR" != "$START" ]; then TAG="$CUR"; break; fi
+          echo "  ...đang chờ bản Windows tạo release mới ($i/66)"; sleep 20
+        done
+        # Không có bản mới (vd chạy lại tay cho bản đã có): dùng bản mới nhất hiện có.
+        [ -n "$TAG" ] || TAG="$START"
+        V="${TAG#v}"
         [ -n "$V" ] || { echo "Chưa xác định được phiên bản — bản Windows đã tạo release chưa?"; exit 1; }
         echo "APP_VERSION=$V" >> "$CM_ENV"
         echo "Build macOS $LABEL cho phiên bản v$V"
@@ -121,7 +133,13 @@ workflows:
   macos-arm64:
     name: macOS arm64 (Apple Silicon)
     instance_type: mac_mini_m2
-    max_build_duration: 60
+    max_build_duration: 90
+    triggering:               # tự chạy mỗi khi đẩy code lên nhánh main
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
     environment:
       groups:
         - release          # chứa GH_TOKEN
@@ -140,7 +158,13 @@ workflows:
   macos-intel:
     name: macOS Intel (qua Rosetta)
     instance_type: mac_mini_m2
-    max_build_duration: 60
+    max_build_duration: 90
+    triggering:               # tự chạy mỗi khi đẩy code lên nhánh main
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
     environment:
       groups:
         - release
