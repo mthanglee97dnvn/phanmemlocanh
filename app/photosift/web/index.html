@@ -656,7 +656,7 @@ function cellHTML(p){
   const grp = !p.grp ? '' : stacked(p)
       ? `<button class="chip stk" data-g="${p.grp}" aria-expanded="${S.open.has(p.grp)}" title="${S.open.has(p.grp)?'Thu gọn nhóm':'Mở nhóm để so sánh'} · ảnh đại diện: ${bestWhy(p)} (phím G)">${S.open.has(p.grp)?'▾':'▸'} ${gsize(p.grp)} ảnh trùng</button>`
       : (p.best ? `<span class="chip topdup" title="Ảnh tốt nhất trong nhóm ảnh trùng: ${bestWhy(p)}">Tốt nhất</span>` : `<span class="chip dup" title="Ảnh trùng — nhóm ${p.grp}">Trùng</span>`);
-  return `<div class="im"><img loading="lazy" src="/thumb/${p.id}.jpg?v=${p.tv}" alt="" onerror="this.closest('.im').classList.add('noimg')"><div class="lab ${p.label?'l-'+p.label:''}"></div>
+  return `<div class="im"><img loading="lazy" decoding="async" src="/thumb/${p.id}.jpg?v=${p.tv}" alt="" onerror="this.closest('.im').classList.add('noimg')"><div class="lab ${p.label?'l-'+p.label:''}"></div>
     <div class="flags">${capChips(grp+flags)}</div><div class="xmark">✕</div>
     <div class="stars">${p.rating>0?'★'.repeat(p.rating):''}</div>${p.nf?`<span class="nface">${p.nf} mặt</span>`:''}</div>
     <div class="nm" title="${esc(p.name)}">${esc(p.name)}</div>`;
@@ -864,7 +864,7 @@ function renderStrip(center){
   const lo=Math.max(0,Math.floor(st.scrollLeft/SC_W)-4), hi=Math.min(n-1,Math.ceil((st.scrollLeft+st.clientWidth)/SC_W)+4);
   let html='';
   for(let i=lo;i<=hi;i++){ const p=S.view[i];
-    html+=`<div class="sc${p.id===S.cur?' cur':''}${p.rating<0?' rej':''}" data-id="${p.id}" style="left:${4+i*SC_W}px" title="${esc(p.name)}"><img loading="lazy" src="/thumb/${p.id}.jpg?v=${p.tv}" alt="">`+
+    html+=`<div class="sc${p.id===S.cur?' cur':''}${p.rating<0?' rej':''}" data-id="${p.id}" style="left:${4+i*SC_W}px" title="${esc(p.name)}"><img loading="lazy" decoding="async" src="/thumb/${p.id}.jpg?v=${p.tv}" alt="">`+
       (p.rating>0?`<span class="rt" aria-label="${p.rating} sao">${p.rating}★</span>`:'')+(p.label?`<span class="lb l-${p.label}"></span>`:'')+`<div class="nm">${esc(p.name)}</div></div>`; }
   inn.innerHTML=html;
 }
