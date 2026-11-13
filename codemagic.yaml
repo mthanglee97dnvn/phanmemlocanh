@@ -17,12 +17,13 @@ workflows:
     instance_type: mac_mini_m2        # máy chip Apple → bản native arm64
     max_build_duration: 60
     environment:
+      groups:
+        - release          # nhóm biến chứa GH_TOKEN (tạo trong Codemagic → thêm GH_TOKEN bí mật). Có nó thì bản .dmg tự đăng lên GitHub release.
       vars:
         APP: "MThanglee CullCollage"
         PY: "/Library/Frameworks/Python.framework/Versions/3.12/bin/python3.12"
         RELREPO: "mthanglee97dnvn/cullcollage-releases"
-        APP_VERSION: "1.1.82"   # số phiên bản cho bản arm64 — đổi dòng này khi muốn build bản mới hơn
-        # GH_TOKEN: đặt trong giao diện Codemagic (bí mật) nếu muốn tự đăng lên GitHub release
+        APP_VERSION: "1.1.83"   # số phiên bản cho bản arm64 — đổi dòng này cho khớp bản mới nhất khi cần
       node: 20
     scripts:
       - name: Thông tin phiên bản
