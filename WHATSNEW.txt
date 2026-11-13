@@ -8,6 +8,9 @@ Trình dàn trang được làm mới theo phong cách sang trọng: tông màu 
 📱 Lọc ảnh bằng điện thoại
 Mở mục "Điện thoại" trên máy tính, quét mã QR bằng iPhone để lọc ảnh ngay trên điện thoại: vuốt để Giữ / Loại, chạm chọn sao 1–5. Mọi lựa chọn lưu thẳng về máy tính.
 
+🖱️ Cuộn ảnh mượt hơn trên máy Mac
+Lưới ảnh và dải xem nhanh tải mượt hơn khi lướt qua thư viện lớn.
+
 Cải thiện độ ổn định và sửa một số lỗi nhỏ.
 
 © Lê Minh Thắng — MTHANGLEE STUDIO
