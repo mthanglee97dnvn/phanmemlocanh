@@ -12,7 +12,9 @@ permissions:
 jobs:
   release:
     # vẫn phát hành bản Windows (và bản Mac nào build được) khi một máy build Mac bị GitHub huỷ do hết máy
-    if: github.event.workflow_run.conclusion == 'success' || github.event.workflow_run.conclusion == 'failure'
+    # Phát hành kể cả khi run bị 'cancelled' — xảy ra khi job macOS arm64 bị GitHub huỷ do thiếu runner,
+    # trong khi Windows (+ Mac Intel) đã build xong. Bước dưới tự kiểm tra có đủ file cài không.
+    if: github.event.workflow_run.conclusion == 'success' || github.event.workflow_run.conclusion == 'failure' || github.event.workflow_run.conclusion == 'cancelled'
     runs-on: ubuntu-latest
     steps:
       - name: Lấy mã nguồn (để đọc ghi chú phát hành cho người dùng)
