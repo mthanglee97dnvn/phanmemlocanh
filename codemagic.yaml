@@ -21,17 +21,13 @@ workflows:
         APP: "MThanglee CullCollage"
         PY: "/Library/Frameworks/Python.framework/Versions/3.12/bin/python3.12"
         RELREPO: "mthanglee97dnvn/cullcollage-releases"
-        # APP_VERSION: đặt trong giao diện Codemagic (VD 1.1.82)
+        APP_VERSION: "1.1.82"   # số phiên bản cho bản arm64 — đổi dòng này khi muốn build bản mới hơn
         # GH_TOKEN: đặt trong giao diện Codemagic (bí mật) nếu muốn tự đăng lên GitHub release
       node: 20
     scripts:
-      - name: Kiểm tra biến phiên bản
+      - name: Thông tin phiên bản
         script: |
-          if [ -z "$APP_VERSION" ]; then
-            echo "Chưa đặt APP_VERSION (VD 1.1.82) trong Environment variables của Codemagic." >&2
-            exit 1
-          fi
-          echo "Sẽ build phiên bản 1.1 nhánh -> v$APP_VERSION"
+          echo "Build bản arm64 cho v$APP_VERSION"
       - name: Cài Python 3.12 của python.org
         script: |
           curl -fL --retry 3 -o py.pkg https://www.python.org/ftp/python/3.12.10/python-3.12.10-macos11.pkg
