@@ -447,6 +447,7 @@ html[data-theme=neutral] #xjcard{border-radius:18px}
     </select><select id="fPair" title="Khi một ảnh có cả RAW và JPEG thì hiện bản nào" aria-label="Ưu tiên RAW hay JPEG">
       <option value="both">RAW + JPEG</option><option value="raw">Ưu tiên RAW</option><option value="jpeg">Ưu tiên JPEG</option>
     </select></div>
+    <div class="grp"><input id="qPhoto" type="search" inputmode="numeric" autocomplete="off" placeholder="Tìm mã số ảnh… (vd 3928 4210)" aria-label="Tìm ảnh theo mã số" title="Gõ mã số ảnh khách gửi (nhiều số cách nhau bởi dấu cách hoặc phẩy) để lọc nhanh ra đúng ảnh đó — rồi chọn và Xuất ảnh. Phím tắt: /" style="width:210px;max-width:40vw"><span id="qCount" class="hint" aria-live="polite" style="min-width:0;white-space:nowrap"></span></div>
     <span class="sp"></span>
     <div class="grp"><button id="bCull" aria-label="Tự động lọc"><svg class="ic" aria-hidden="true"><use href="#i-funnel"/></svg><span class="lbl">Tự động lọc</span></button><button id="bUndo" aria-label="Hoàn tác" disabled><svg class="ic" aria-hidden="true"><use href="#i-undo"/></svg><span class="lbl">Hoàn tác</span></button><button id="bUnrej" title="Khôi phục ảnh đã bị đánh dấu loại" hidden></button><button id="bExport" class="pri" aria-label="Xuất ảnh" aria-keyshortcuts="Control+Y" title="Xuất ảnh (Ctrl+Y)"><svg class="ic" aria-hidden="true"><use href="#i-export"/></svg><span class="lbl">Xuất ảnh</span></button><button id="bLayout" aria-label="Gửi ảnh sang Dàn trang" title="Gửi ảnh đã lọc sang Dàn trang" hidden><svg class="ic" aria-hidden="true"><use href="#i-layout"/></svg><span class="lbl">Dàn trang</span></button></div>
     <div class="grp util"><button id="bInfo" title="Bật/tắt khung thông số ảnh" aria-label="Bật/tắt khung thông số ảnh"><svg class="ic" aria-hidden="true"><use href="#i-info"/></svg></button><button id="bTheme" title="Đổi giao diện: Kính / Tối trung tính (xem màu ảnh chuẩn)" aria-label="Đổi giao diện"><svg class="ic" aria-hidden="true"><use href="#i-theme"/></svg></button><button id="bHelp" title="Phím tắt và trợ giúp" aria-label="Phím tắt và trợ giúp"><svg class="ic" aria-hidden="true"><use href="#i-help"/></svg></button></div>
@@ -486,7 +487,7 @@ const FILTERS = [['all','Tất cả'],['unrated','Chưa chấm'],['r1','★ 1+']
   ['rej','✕ Đã loại'],['norej','Không bị loại'],['issues','⚠ Có vấn đề (mọi loại)'],['blur','Mờ'],['dark','Tối'],['bright','Sáng quá'],['eyes','Nhắm mắt?'],['away','Có người quay mặt'],['smile','Có nụ cười'],['dup','Trùng lặp (bản kém hơn)'],
   ['best','Tốt nhất trong nhóm trùng'],['face','Có khuôn mặt'],['noface','Không có khuôn mặt'],['raw','Chỉ file RAW (ARW, CR2, NEF…)'],['jpg','Chỉ JPG / ảnh thường']];
 const RAWRE=/\.(arw|srf|sr2|cr2|cr3|nef|nrw|dng|orf|raf|rw2|pef|srw|3fr|erf|kdc|mrw|x3f)$/i;
-const S = {photos:[], viewFull:[], keep:new Set(), open:new Set(), stack:(()=>{ try{ return localStorage.getItem('ps_stack2')==='1'; }catch(e){ return false; } })(),   /* mặc định: ảnh trùng để riêng từng ô */ by:new Map(), view:[], people:[], sel:new Set(), cur:null, anchor:null, filter:'all', sort:'name', pair:'both', person:null,
+const S = {photos:[], viewFull:[], keep:new Set(), open:new Set(), stack:(()=>{ try{ return localStorage.getItem('ps_stack2')==='1'; }catch(e){ return false; } })(),   /* mặc định: ảnh trùng để riêng từng ô */ by:new Map(), view:[], people:[], sel:new Set(), cur:null, anchor:null, filter:'all', sort:'name', pair:'both', person:null, query:'',
            status:{}, undo:[], viewer:false, boxes:true, zoom:false, lastDone:-1, settings:{}};
 
 async function api(path, body){
@@ -565,13 +566,27 @@ function pairHidden(){
   }
   return hide.size?hide:null;
 }
+/* Tìm theo mã số ảnh: khách gửi số (có thể nhiều, cách nhau bởi dấu cách/phẩy) → lọc nhanh ra đúng ảnh.
+   Khớp cả khi gõ thuần số (bỏ số 0 đầu), gõ một phần số, hay gõ cả tên file. */
+function matchQuery(p){
+  const raw=(S.query||'').trim(); if(!raw) return true;
+  const stem=p.name.replace(/\.[^.]*$/,'').toLowerCase();
+  const nums=stem.match(/\d+/g)||[];
+  const terms=raw.toLowerCase().split(/[\s,;]+/).filter(Boolean);
+  return terms.some(q=>{
+    if(stem.includes(q)) return true;                                   // khớp chuỗi (tên hoặc số có 0 đầu)
+    if(/^\d+$/.test(q)) return nums.some(n=>n===q || parseInt(n,10)===parseInt(q,10) || n.endsWith(q));
+    return false;
+  });
+}
 function applyView(){
   const hp=pairHidden();
-  let v = S.photos.filter(p=>!(hp&&hp.has(p.id)) && (S.keep.has(p.id)||matchFilter(p)) && (S.person===null || p.people.includes(S.person)));
+  let v = S.photos.filter(p=>!(hp&&hp.has(p.id)) && (S.keep.has(p.id)||matchFilter(p)) && (S.person===null || p.people.includes(S.person)) && matchQuery(p));
   const cmp = {name:(a,b)=>a.dir.localeCompare(b.dir)||a.name.localeCompare(b.name,undefined,{numeric:true}),
                time:(a,b)=>(a.taken||0)-(b.taken||0)||a.name.localeCompare(b.name),
                score:(a,b)=>b.score-a.score, sharp:(a,b)=>(b.nf?b.fsharp:b.sharp)-(a.nf?a.fsharp:a.sharp), smile:(a,b)=>((b.smile??-1)-(a.smile??-1))||(b.score-a.score)}[S.sort];
   v.sort(cmp); S.viewFull=v; S.view=stackView(v);   // viewFull: mọi ảnh khớp bộ lọc, kể cả ảnh nằm trong chồng
+  const qc=document.getElementById('qCount'); if(qc) qc.textContent=(S.query||'').trim()?(v.length?fmt(v.length)+' ảnh khớp':'không khớp'):'';
   if(S.cur===null || !v.some(p=>p.id===S.cur)) S.cur = v.length ? v[0].id : null;
   renderGrid(); scheduleInfo();
 }
@@ -1539,6 +1554,12 @@ $('#fFilter').onchange=e=>{ S.filter=e.target.value; S.keep.clear(); if(S.filter
 $('#fSort').onchange=e=>{ S.sort=e.target.value; applyView(); e.target.blur(); };
 try{ S.pair=localStorage.getItem('ps_pair')||'both'; }catch(e){ S.pair='both'; } $('#fPair').value=S.pair;
 $('#fPair').onchange=e=>{ S.pair=e.target.value; try{ localStorage.setItem('ps_pair',S.pair); }catch(e){} applyView(); e.target.blur(); };
+/* ô tìm theo mã số ảnh */
+{ const qEl=$('#qPhoto'); let qT=0;
+  qEl.addEventListener('input',()=>{ clearTimeout(qT); qT=setTimeout(()=>{ if(S.query!==qEl.value){ S.query=qEl.value; applyView(); } },140); });
+  qEl.addEventListener('keydown',e=>{ if(e.key==='Escape'){ if(qEl.value){ qEl.value=''; S.query=''; applyView(); } else qEl.blur(); e.stopPropagation(); } });
+  addEventListener('keydown',e=>{ if(e.key==='/' && !S.viewer && !/INPUT|TEXTAREA|SELECT/.test((document.activeElement||{}).tagName) && !document.querySelector('.back')){ e.preventDefault(); qEl.focus(); qEl.select(); } });
+}
 $('#fSize').oninput=e=>{ document.documentElement.style.setProperty('--sz', e.target.value+'px'); try{ localStorage.setItem('ps_sz',e.target.value); }catch(_){} renderGrid(); };
 try{ const z=+localStorage.getItem('ps_sz'); if(z>=100&&z<=320){ $('#fSize').value=z; document.documentElement.style.setProperty('--sz', z+'px'); } }catch(e){}
 

@@ -2,6 +2,12 @@ name: Build MTHANGLEE PhotoSift Setup
 
 on:
   workflow_dispatch:      # bấm tay: Actions > Build > Run workflow
+    inputs:
+      platforms:
+        description: "Nền tảng build (all = cả 3, windows = chỉ Windows để test nhanh)"
+        type: choice
+        default: all
+        options: [all, windows]
   push:
     branches: [main]
 
@@ -120,6 +126,7 @@ jobs:
   # ---------------- macOS: 2 bản riêng cho chip Apple (M1–M4…) và chip Intel, chạy từ macOS 11 Big Sur trở lên ----------------
   mac:
     name: macOS ${{ matrix.label }}
+    if: ${{ github.event.inputs.platforms != 'windows' }}   # bỏ qua Mac khi chạy tay chọn "windows" (build nhanh để test)
     continue-on-error: true          # bản Mac lỗi không chặn bản Windows được phát hành
     strategy:
       fail-fast: false
