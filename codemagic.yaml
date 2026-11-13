@@ -1,109 +1,157 @@
-# Codemagic — build bản macOS arm64 (Apple Silicon) cho Cull & Collage.
-# Dùng khi GitHub thiếu runner arm64. Máy build của Codemagic là chip Apple nên ra đúng bản native arm64.
+# Codemagic — build CẢ HAI bản macOS cho Cull & Collage:
+#   • macos-arm64 : chip Apple (M1–M4…) — build native trên máy chip Apple.
+#   • macos-intel : chip Intel — build trên cùng máy chip Apple nhưng chạy qua Rosetta (arch -x86_64).
+# Bản Windows do GitHub tự build (xem .github/workflows/build.yml) và tạo bản phát hành trước;
+# hai workflow dưới đây tự lấy đúng số phiên bản của bản phát hành mới nhất rồi ĐĂNG KÈM file .dmg.
 #
-# CÁCH DÙNG (một lần):
-#  1. Vào codemagic.io → đăng nhập bằng GitHub → Add application → chọn repo "phanmemlocanh".
-#  2. Codemagic tự nhận file này. Vào workflow "macos-arm64".
-#  3. (Bắt buộc) Trong phần Environment variables của app, thêm biến:
-#       APP_VERSION = số phiên bản muốn build, VD 1.1.82  (phải khớp bản phát hành mới nhất trên GitHub)
-#  4. (Tuỳ chọn, để tự đăng file lên GitHub release) thêm biến bí mật:
-#       GH_TOKEN = GitHub Personal Access Token có quyền ghi (Contents: Read and write) cho repo cullcollage-releases
-#     Không thêm cũng được — khi đó file .dmg sẽ nằm ở mục Artifacts để anh tải về rồi tự đưa cho khách.
-#  5. Bấm "Start new build".
+# QUY TRÌNH PHÁT HÀNH:
+#   1. Đẩy code lên GitHub → GitHub build Windows và tạo release v1.1.XX (kèm file .exe).
+#   2. Vào Codemagic, bấm "Start new build" cho CẢ HAI workflow macos-arm64 và macos-intel
+#      (để APP_VERSION = auto thì tự khớp bản mới nhất; hoặc gõ số cụ thể vd 1.1.84).
+#   → Hai bản .dmg sẽ tự đăng vào đúng release đó. Trang cullcollage.com tự cập nhật.
+#
+# BẮT BUỘC: trong Codemagic → app → Environment variables, nhóm "release", thêm biến bí mật
+#   GH_TOKEN = GitHub Personal Access Token có quyền Contents: Read and write cho repo cullcollage-releases.
+
+definitions:
+  mac_scripts: &mac_scripts
+    - name: Xác định phiên bản (theo bản phát hành mới nhất)
+      script: |
+        set -e
+        V="$APP_VERSION"
+        if [ -z "$V" ] || [ "$V" = "auto" ]; then
+          [ -n "$GH_TOKEN" ] || { echo "Thiếu GH_TOKEN (hoặc đặt APP_VERSION cụ thể)"; exit 1; }
+          TAG=$(curl -s -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$RELREPO/releases/latest" | python3 -c "import sys,json;print(json.load(sys.stdin).get('tag_name',''))")
+          V="${TAG#v}"
+        fi
+        [ -n "$V" ] || { echo "Chưa xác định được phiên bản — bản Windows đã tạo release chưa?"; exit 1; }
+        echo "APP_VERSION=$V" >> "$CM_ENV"
+        echo "Build macOS $LABEL cho phiên bản v$V"
+    - name: Cài Python 3.12 (python.org, universal2)
+      script: |
+        set -e
+        curl -fL --retry 3 -o py.pkg https://www.python.org/ftp/python/3.12.10/python-3.12.10-macos11.pkg
+        sudo installer -pkg py.pkg -target /
+    - name: Cài thư viện (đúng chip $LABEL)
+      script: |
+        set -e
+        RUNPY="$PY"; [ "$ARCH" = "x86_64" ] && RUNPY="arch -x86_64 $PY"
+        $RUNPY -m venv "$CM_BUILD_DIR/venv"
+        VRUN="$CM_BUILD_DIR/venv/bin/python"; [ "$ARCH" = "x86_64" ] && VRUN="arch -x86_64 $CM_BUILD_DIR/venv/bin/python"
+        echo "VRUN=$VRUN" >> "$CM_ENV"
+        $VRUN -m pip install --upgrade pip
+        # OpenCV 4.8+ mới đọc được model YuNet 2023; <4.11 là bản cuối còn hỗ trợ macOS 11.
+        $VRUN -m pip download --only-binary=:all: --platform "macosx_11_0_${ARCH}" --python-version 3.12 \
+          -d wh "opencv-contrib-python>=4.8,<4.11" "numpy<2" rawpy pillow pillow-heif
+        ls wh
+        $VRUN -m pip install --no-index --find-links wh opencv-contrib-python numpy rawpy pillow pillow-heif
+        $VRUN -m pip install pyinstaller pywebview certifi nuitka ordered-set zstandard
+        npm i --no-save javascript-obfuscator@4.1.1
+        $VRUN -c "import cv2, numpy, platform; print('kien truc', platform.machine(), '| opencv', cv2.__version__, '| numpy', numpy.__version__)"
+    - name: Tải model nhận diện
+      script: |
+        set -e
+        mkdir -p app/models
+        curl -fL --retry 3 -o app/models/yunet.onnx   https://media.githubusercontent.com/media/opencv/opencv_zoo/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx
+        curl -fL --retry 3 -o app/models/sface.onnx   https://media.githubusercontent.com/media/opencv/opencv_zoo/main/models/face_recognition_sface/face_recognition_sface_2021dec.onnx
+        curl -fL --retry 3 -o app/models/lbfmodel.yaml https://raw.githubusercontent.com/kurnianggoro/GSOC2017/master/data/lbfmodel.yaml
+        curl -fL --retry 3 -o app/models/ferplus.onnx https://media.githubusercontent.com/media/onnx/models/main/validated/vision/body_analysis/emotion_ferplus/model/emotion-ferplus-8.onnx
+        test $(wc -c < app/models/sface.onnx) -gt 1000000
+        test $(wc -c < app/models/ferplus.onnx) -gt 1000000
+    - name: Đóng gói .app (ký ad-hoc, bắt buộc với chip Apple)
+      script: |
+        set -e
+        VER="$APP_VERSION"
+        printf '{"version": "%s", "repo": "%s"}' "$VER" "$RELREPO" > version.json
+        MACOSX_DEPLOYMENT_TARGET=11.0 $VRUN tools/build_core.py mac
+        P="dist/$APP.app/Contents/Info.plist"
+        plutil -replace NSAppTransportSecurity -json '{"NSAllowsLocalNetworking": true, "NSAllowsArbitraryLoadsInWebContent": true}' "$P"
+        plutil -replace NSHighResolutionCapable -bool YES "$P"
+        plutil -replace CFBundleDisplayName -string "MThanglee Cull&Collage" "$P"
+        plutil -replace CFBundleShortVersionString -string "$VER" "$P"
+        plutil -replace CFBundleVersion -string "$VER" "$P"
+        plutil -replace LSMinimumSystemVersion -string "11.0" "$P"
+        codesign --force --deep --sign - "dist/$APP.app"
+        du -sh "dist/$APP.app"
+    - name: Kiểm tra nhanh (máy chủ khởi động được)
+      script: |
+        set -e
+        BIN="dist/$APP.app/Contents/MacOS/$APP"
+        "$BIN" --selftest | tee st.txt
+        grep -q "webview ok" st.txt
+        export PHOTOSIFT_HOME="$CM_BUILD_DIR/psh"
+        "$BIN" --no-browser > smoke.log 2>&1 &
+        OK=0; for i in $(seq 1 150); do [ -f "$PHOTOSIFT_HOME/running.json" ] && { OK=1; break; }; sleep 1; done
+        cat smoke.log; pkill -f "Contents/MacOS/$APP" || true
+        [ "$OK" = 1 ] || { echo "May chu khong khoi dong duoc"; exit 1; }
+        echo "OK"
+    - name: Tạo file cài .dmg
+      script: |
+        set -e
+        VER="$APP_VERSION"
+        rm -rf dmg; mkdir -p dmg
+        cp -R "dist/$APP.app" dmg/
+        ln -s /Applications dmg/Applications
+        cp legal/DIEU_KHOAN_SU_DUNG.txt "dmg/Dieu khoan su dung.txt" 2>/dev/null || true
+        DMG="MThanglee_CullCollage-${VER}-macos-${LABEL}.dmg"
+        for t in 1 2 3 4 5; do
+          hdiutil create -volname "MThanglee Cull&Collage" -srcfolder dmg -ov -format UDZO "$DMG" && break
+          hdiutil detach -force "/Volumes/MThanglee Cull&Collage" 2>/dev/null || true
+          sleep 15; [ "$t" = 5 ] && { echo "hdiutil that bai"; exit 1; }
+        done
+        echo "DMG=$DMG" >> "$CM_ENV"
+        ls -la "$DMG"
+    - name: Đăng .dmg lên GitHub release
+      script: |
+        set -e
+        [ -n "$GH_TOKEN" ] || { echo "Khong co GH_TOKEN -> .dmg nam o Artifacts, tai tay roi dua len release"; exit 0; }
+        VER="$APP_VERSION"
+        REL=$(curl -s -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$RELREPO/releases/tags/v$VER")
+        RID=$(printf '%s' "$REL" | python3 -c "import sys,json;print(json.load(sys.stdin).get('id',''))")
+        [ -n "$RID" ] || { echo "Khong thay release v$VER tren $RELREPO (cho ban Windows tao release truoc)"; exit 1; }
+        # xoa asset cung ten (neu co) roi tai len ban moi
+        printf '%s' "$REL" | python3 -c "import sys,json;[print(a['id']) for a in json.load(sys.stdin).get('assets',[]) if a['name']=='$DMG']" | while read aid; do
+          [ -n "$aid" ] && curl -s -X DELETE -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$RELREPO/releases/assets/$aid"
+        done
+        curl -s -H "Authorization: Bearer $GH_TOKEN" -H "Content-Type: application/x-apple-diskimage" \
+          --data-binary @"$DMG" \
+          "https://uploads.github.com/repos/$RELREPO/releases/$RID/assets?name=$DMG" | python3 -c "import sys,json;d=json.load(sys.stdin);print('Da dang:', d.get('browser_download_url','(loi) '+json.dumps(d)[:200]))"
 
 workflows:
   macos-arm64:
     name: macOS arm64 (Apple Silicon)
-    instance_type: mac_mini_m2        # máy chip Apple → bản native arm64
+    instance_type: mac_mini_m2
     max_build_duration: 60
     environment:
       groups:
-        - release          # nhóm biến chứa GH_TOKEN (tạo trong Codemagic → thêm GH_TOKEN bí mật). Có nó thì bản .dmg tự đăng lên GitHub release.
+        - release          # chứa GH_TOKEN
       vars:
         APP: "MThanglee CullCollage"
         PY: "/Library/Frameworks/Python.framework/Versions/3.12/bin/python3.12"
         RELREPO: "mthanglee97dnvn/cullcollage-releases"
-        APP_VERSION: "1.1.83"   # số phiên bản cho bản arm64 — đổi dòng này cho khớp bản mới nhất khi cần
+        APP_VERSION: "auto"       # auto = theo bản phát hành mới nhất; hoặc gõ số cụ thể vd 1.1.84
+        ARCH: "arm64"
+        LABEL: "arm64"
       node: 20
-    scripts:
-      - name: Thông tin phiên bản
-        script: |
-          echo "Build bản arm64 cho v$APP_VERSION"
-      - name: Cài Python 3.12 của python.org
-        script: |
-          curl -fL --retry 3 -o py.pkg https://www.python.org/ftp/python/3.12.10/python-3.12.10-macos11.pkg
-          sudo installer -pkg py.pkg -target /
-      - name: Cài thư viện (bản dựng cho macOS 11, kiến trúc arm64)
-        script: |
-          $PY -m pip install --upgrade pip
-          $PY -m pip download --only-binary=:all: --platform macosx_11_0_arm64 --python-version 3.12 \
-            -d wh "opencv-contrib-python>=4.8,<4.11" "numpy<2" rawpy pillow pillow-heif
-          $PY -m pip install --no-index --find-links wh opencv-contrib-python numpy rawpy pillow pillow-heif
-          $PY -m pip install pyinstaller pywebview certifi nuitka ordered-set zstandard
-          npm i --no-save javascript-obfuscator@4.1.1
-          $PY -c "import cv2, numpy; print('opencv', cv2.__version__, 'numpy', numpy.__version__)"
-      - name: Tải model nhận diện
-        script: |
-          mkdir -p app/models
-          curl -fL --retry 3 -o app/models/yunet.onnx   https://media.githubusercontent.com/media/opencv/opencv_zoo/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx
-          curl -fL --retry 3 -o app/models/sface.onnx   https://media.githubusercontent.com/media/opencv/opencv_zoo/main/models/face_recognition_sface/face_recognition_sface_2021dec.onnx
-          curl -fL --retry 3 -o app/models/lbfmodel.yaml https://raw.githubusercontent.com/kurnianggoro/GSOC2017/master/data/lbfmodel.yaml
-          curl -fL --retry 3 -o app/models/ferplus.onnx https://media.githubusercontent.com/media/onnx/models/main/validated/vision/body_analysis/emotion_ferplus/model/emotion-ferplus-8.onnx
-          test $(wc -c < app/models/sface.onnx) -gt 1000000
-          test $(wc -c < app/models/ferplus.onnx) -gt 1000000
-      - name: Đóng gói .app (ký ad-hoc, bắt buộc với chip Apple)
-        script: |
-          VER="$APP_VERSION"
-          printf '{"version": "%s", "repo": "%s"}' "$VER" "$RELREPO" > version.json
-          MACOSX_DEPLOYMENT_TARGET=11.0 $PY tools/build_core.py mac
-          P="dist/$APP.app/Contents/Info.plist"
-          plutil -replace NSAppTransportSecurity -json '{"NSAllowsLocalNetworking": true, "NSAllowsArbitraryLoadsInWebContent": true}' "$P"
-          plutil -replace NSHighResolutionCapable -bool YES "$P"
-          plutil -replace CFBundleDisplayName -string "MThanglee Cull&Collage" "$P"
-          plutil -replace CFBundleShortVersionString -string "$VER" "$P"
-          plutil -replace CFBundleVersion -string "$VER" "$P"
-          plutil -replace LSMinimumSystemVersion -string "11.0" "$P"
-          codesign --force --deep --sign - "dist/$APP.app"
-          du -sh "dist/$APP.app"
-      - name: Kiểm tra nhanh (máy chủ khởi động được)
-        script: |
-          BIN="dist/$APP.app/Contents/MacOS/$APP"
-          "$BIN" --selftest | tee st.txt
-          grep -q "webview ok" st.txt
-          export PHOTOSIFT_HOME="$CM_BUILD_DIR/psh"
-          "$BIN" --no-browser > smoke.log 2>&1 &
-          OK=0; for i in $(seq 1 150); do [ -f "$PHOTOSIFT_HOME/running.json" ] && { OK=1; break; }; sleep 1; done
-          cat smoke.log; pkill -f "Contents/MacOS/$APP" || true
-          [ "$OK" = 1 ] || { echo "May chu khong khoi dong duoc"; exit 1; }
-          echo "OK"
-      - name: Tạo file cài .dmg
-        script: |
-          VER="$APP_VERSION"
-          mkdir -p dmg
-          cp -R "dist/$APP.app" dmg/
-          ln -s /Applications dmg/Applications
-          cp legal/DIEU_KHOAN_SU_DUNG.txt "dmg/Dieu khoan su dung.txt" 2>/dev/null || true
-          DMG="MThanglee_CullCollage-${VER}-macos-arm64.dmg"
-          for t in 1 2 3 4 5; do
-            hdiutil create -volname "MThanglee Cull&Collage" -srcfolder dmg -ov -format UDZO "$DMG" && break
-            hdiutil detach -force "/Volumes/MThanglee Cull&Collage" 2>/dev/null || true
-            sleep 15; [ "$t" = 5 ] && { echo "hdiutil that bai"; exit 1; }
-          done
-          echo "DMG=$DMG" >> "$CM_ENV"
-          ls -la "$DMG"
-      - name: (Tuỳ chọn) Đăng lên GitHub release
-        script: |
-          if [ -z "$GH_TOKEN" ]; then echo "Không có GH_TOKEN → bỏ qua, file .dmg nằm ở Artifacts."; exit 0; fi
-          VER="$APP_VERSION"
-          REL=$(curl -s -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$RELREPO/releases/tags/v$VER")
-          RID=$(printf '%s' "$REL" | $PY -c "import sys,json;print(json.load(sys.stdin).get('id',''))")
-          if [ -z "$RID" ]; then echo "Không tìm thấy release v$VER trên $RELREPO" >&2; exit 1; fi
-          # xoá asset arm64 cũ cùng tên (nếu có) rồi tải lên bản mới
-          printf '%s' "$REL" | $PY -c "import sys,json;[print(a['id']) for a in json.load(sys.stdin).get('assets',[]) if a['name']=='$DMG']" | while read aid; do
-            [ -n "$aid" ] && curl -s -X DELETE -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$RELREPO/releases/assets/$aid"
-          done
-          curl -s -H "Authorization: Bearer $GH_TOKEN" -H "Content-Type: application/x-apple-diskimage" \
-            --data-binary @"$DMG" \
-            "https://uploads.github.com/repos/$RELREPO/releases/$RID/assets?name=$DMG" | $PY -c "import sys,json;d=json.load(sys.stdin);print('Đã đăng:', d.get('browser_download_url','(lỗi) '+json.dumps(d)[:200]))"
+    scripts: *mac_scripts
+    artifacts:
+      - "*.dmg"
+
+  macos-intel:
+    name: macOS Intel (qua Rosetta)
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      groups:
+        - release
+      vars:
+        APP: "MThanglee CullCollage"
+        PY: "/Library/Frameworks/Python.framework/Versions/3.12/bin/python3.12"
+        RELREPO: "mthanglee97dnvn/cullcollage-releases"
+        APP_VERSION: "auto"
+        ARCH: "x86_64"
+        LABEL: "intel"
+      node: 20
+    scripts: *mac_scripts
     artifacts:
       - "*.dmg"
