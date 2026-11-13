@@ -10,6 +10,9 @@ on:
         options: [all, windows]
   push:
     branches: [main]
+    paths-ignore:              # sửa cấu hình CI không cần build lại app
+      - 'codemagic.yaml'
+      - '.github/workflows/release.yml'
 
 jobs:
   build:
