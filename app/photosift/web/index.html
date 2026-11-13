@@ -1118,6 +1118,9 @@ document.addEventListener('keydown', e=>{
   if(mod && k.toLowerCase()==='a'){ e.preventDefault(); S.sel=new Set(S.view.map(p=>p.id)); S.view.forEach(p=>decorate(p.id)); renderStatus(); return; }
   if(mod && k.toLowerCase()==='z'){ e.preventDefault(); undo(); return; }
   if(mod) return;
+  // macOS (WebKit/pywebview) phát tiếng "beep" mỗi khi một phím không được app "nuốt" (preventDefault).
+  // Nuốt mọi phím tắt lọc ảnh (1-5, X, nhãn 6-9) và xem/zoom ảnh (Z, H, F, T, G…) để hết tiếng beep trên máy Mac.
+  if(/^[0-9]$/.test(k) || ['x','X','-','h','H','f','F','z','Z','t','T','g','G','?'].includes(k)) e.preventDefault();
   if(k==='ArrowRight'){ e.preventDefault(); move(1,e.shiftKey); }
   else if(k==='ArrowLeft'){ e.preventDefault(); move(-1,e.shiftKey); }
   else if(k==='ArrowDown'){ e.preventDefault(); S.viewer?move(1):move(cols(),e.shiftKey); }
