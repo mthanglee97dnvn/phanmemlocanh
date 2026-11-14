@@ -66,6 +66,14 @@ def _get() -> dict:
         with _lock:
             if _state is None:
                 _state = _load()
+                try:   # ghi trạng thái để chẩn đoán (bản Windows không có cửa sổ console)
+                    from .db import HOME
+                    HOME.mkdir(parents=True, exist_ok=True)
+                    (HOME / "scene.log").write_text(
+                        "OK" if _state.get("ok") else ("TAT: " + str(_state.get("why", ""))),
+                        encoding="utf-8")
+                except Exception:  # noqa: BLE001
+                    pass
     return _state
 
 

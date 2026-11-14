@@ -67,11 +67,11 @@ HIDDEN = ["photosift", "cv2", "numpy", "rawpy", "PIL", "PIL.Image", "PIL.ImageOp
           "http.server", "xml.sax.saxutils", "concurrent.futures", "urllib.request", "urllib.error", "urllib.parse",
           "webbrowser", "secrets", "random", "string", "struct", "socket", "ctypes", "platform", "errno", "io",
           "shutil", "subprocess", "base64", "hashlib", "json", "datetime", "pathlib", "zlib", "email", "html",
-          "ssl", "certifi"]
+          "ssl", "certifi", "onnxruntime"]
 if os.name == "nt":
     HIDDEN += ["winreg", "ctypes.wintypes"]
 args = [PY, "-m", "PyInstaller", "--noconfirm", "--clean", "--onedir", "--paths", "build/entry",
-        "--collect-all", "pillow_heif", "--collect-binaries", "rawpy", "--collect-data", "certifi",
+        "--collect-all", "pillow_heif", "--collect-all", "onnxruntime", "--collect-binaries", "rawpy", "--collect-data", "certifi",
         "--exclude-module", "tkinter", "--exclude-module", "matplotlib", "--exclude-module", "scipy",
         "--exclude-module", "pandas"]
 for h in HIDDEN:
