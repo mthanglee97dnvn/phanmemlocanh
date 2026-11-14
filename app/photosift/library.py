@@ -1104,6 +1104,14 @@ class Library:
             pmap.setdefault(r["photo_id"], [])
             if r["person_id"] not in pmap[r["photo_id"]]:
                 pmap[r["photo_id"]].append(r["person_id"])
+        # cô dâu–chú rể (chủ bộ ảnh) = 2 người có mặt RÕ & LỚN trong nhiều ảnh nhất
+        couple = set()
+        for r in self.db.q("""SELECT f.person_id AS pid, COUNT(DISTINCT f.photo_id) AS n
+                              FROM faces f JOIN cur ON cur.id=f.photo_id
+                              WHERE f.person_id IS NOT NULL AND f.px>=90
+                              GROUP BY f.person_id ORDER BY n DESC LIMIT 2"""):
+            if (r["n"] or 0) >= 2:
+                couple.add(r["pid"])
         out = []
         for r in rows:
             flags = []
@@ -1112,7 +1120,7 @@ class Library:
                 out.append(dict(
                     id=r["id"], name=os.path.basename(r["path"]), dir=r["dir"], w=r["w"], h=r["h"], taken=self._et(r),
                     smile=-1, sharp=0, fsharp=0, lum=0, nf=0, ear=-1, rating=r["rating"], label=r["label"], grp=0, best=0,
-                    score=0, people=[], flags=[], an=False, err=bool(r["err"]), tv=r["tv"]))
+                    score=0, people=[], flags=[], an=False, err=bool(r["err"]), tv=r["tv"], hl=False))
                 continue
             if self._sharp_val(r, ref_g, ref_f) < S["blur_ratio"]:
                 flags.append("blur")
@@ -1127,13 +1135,20 @@ class Library:
                     flags.append("away")
             if r["grp"] and not r["best"]:
                 flags.append("dup")
+            # ảnh highlight: có cô dâu/chú rể, là bản giữ (không trùng kém), chưa loại,
+            # không mờ/nhắm mắt/quay mặt, chất lượng khá trở lên
+            hl = (bool(couple & set(pmap.get(r["id"], [])))
+                  and bool(r["best"] or not r["grp"])
+                  and (r["rating"] or 0) >= 0
+                  and not ({"blur", "eyes", "away"} & set(flags))
+                  and (r["score"] or 0) >= 60)
             out.append(dict(
                 id=r["id"], name=os.path.basename(r["path"]), dir=r["dir"], w=r["w"], h=r["h"],
                 taken=self._et(r), sharp=round(r["sharp"] or 0, 1), fsharp=round(r["fsharp"] or 0, 1),
                 lum=round(r["lum"] or 0, 3), nf=r["nfaces"], ear=round(r["ear_min"], 3),
                 smile=_num(r["smile"]),
                 rating=r["rating"], label=r["label"], grp=r["grp"], best=r["best"], score=r["score"],
-                away=r["away"] or 0, people=pmap.get(r["id"], []), flags=flags, an=True, err=False, tv=r["tv"],
+                away=r["away"] or 0, people=pmap.get(r["id"], []), flags=flags, an=True, err=False, tv=r["tv"], hl=hl,
                 focus=[r["focus_x"], r["focus_y"], r["focus_c"]] if ("focus_x" in r.keys() and r["focus_x"] is not None) else None))
         return out
 
