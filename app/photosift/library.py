@@ -43,6 +43,7 @@ DEFAULT_SETTINGS = dict(
     dup_hamming=10,      # ảnh giống nhau nếu khoảng cách dHash <= giá trị này
     dup_seconds=20,      # ... và chụp cách nhau <= giây
     face_threshold=0.38, # ngưỡng cosine để coi là cùng một người
+    emotion_priority=1,  # trong 1 loạt ảnh trùng, ưu tiên ảnh có cảm xúc (cười) làm ảnh giữ
 )
 
 
@@ -264,7 +265,7 @@ class Library:
 
     # ------------------------------------------------------------------ cài đặt
     def set_settings(self, new: dict):
-        regroup = any(k in new and new[k] != self.settings.get(k) for k in ("dup_hamming", "dup_seconds"))
+        regroup = any(k in new and new[k] != self.settings.get(k) for k in ("dup_hamming", "dup_seconds", "emotion_priority"))
         for k, v in new.items():
             if k in DEFAULT_SETTINGS:
                 self.settings[k] = type(DEFAULT_SETTINGS[k])(v)
@@ -831,10 +832,20 @@ class Library:
                 upd.append((0, 0, score[g[0]["id"]], away.get(g[0]["id"], (0, 0))[0], g[0]["id"]))
                 continue
             gid += 1
-            # ảnh tốt nhất: trong các ảnh đủ nét (>= 85% ảnh cao điểm nhất), ưu tiên ít người quay mặt nhất, rồi mới tới điểm
+            # ảnh tốt nhất: trong các ảnh đủ nét (>= 85% ảnh cao điểm nhất), ưu tiên ít người quay mặt nhất,
+            # rồi (nếu bật ưu tiên cảm xúc) tới nụ cười, cuối cùng mới tới điểm chất lượng
             raw_top = max(raw[r["id"]] for r in g)
             cand = [r for r in g if raw[r["id"]] >= 0.85 * raw_top]
-            top = min(cand, key=lambda r: (away.get(r["id"], (0, 0))[0], -score[r["id"]]))["id"]
+            emo_on = bool(S.get("emotion_priority", 1))
+
+            def _emo(r):   # nụ cười 0..1 (xác suất "happiness" từ FER+); chưa tính/không có mặt = 0
+                v = r["smile"]
+                return round(v, 1) if (v is not None and v >= 0) else 0.0
+
+            def _key(r):
+                a = away.get(r["id"], (0, 0))[0]
+                return (a, -_emo(r), -score[r["id"]]) if emo_on else (a, -score[r["id"]])
+            top = min(cand, key=_key)["id"]
             for r in g:
                 upd.append((gid, 1 if r["id"] == top else 0, score[r["id"]], away.get(r["id"], (0, 0))[0], r["id"]))
         self.db.many("UPDATE photos SET grp=?, best=?, score=?, away=? WHERE id=?", upd)

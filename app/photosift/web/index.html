@@ -1370,6 +1370,7 @@ $('#bCull').onclick=()=>{
    ${sl('dark','Tối hơn mức',0.03,0.4,0.01,s.dark)}${sl('bright','Sáng hơn mức',0.6,0.98,0.01,s.bright)}
    ${sl('ear','Độ mở mắt tối thiểu',0.08,0.3,0.01,s.ear)}
    ${sl('dup_hamming','Độ khác nhau tối đa để coi là trùng',0,24,1,s.dup_hamming)}${sl('dup_seconds','Chụp cách nhau tối đa (giây)',1,120,1,s.dup_seconds)}
+   <label class="row" style="gap:8px;cursor:pointer" title="Trong một loạt ảnh trùng, chọn ảnh có cảm xúc (đang cười) làm ảnh giữ lại, thay vì chỉ chọn ảnh nét nhất."><input type="checkbox" id="emotion_priority" ${(s.emotion_priority??1)?'checked':''}> <span>Ưu tiên ảnh có cảm xúc (nụ cười) khi chọn ảnh giữ lại</span></label>
    </details>
    <div id="cres" style="margin-top:10px;font-weight:600"></div>
    <div class="btns"><button onclick="this.closest('.back').remove()">Đóng</button><button id="cprev">Xem trước</button><button class="pri" id="capply">Đánh dấu loại</button></div>`);
@@ -1389,6 +1390,7 @@ $('#bCull').onclick=()=>{
   m.querySelector('.cpre').onclick=e=>{ const p=PRE[e.target.dataset.p]; if(!p) return; ids.forEach(i=>{ m.querySelector('#'+i).value=p[i]; }); Object.assign(s,p); paintPre(); upd(); };
   ids.forEach(i=>m.querySelector('#'+i).addEventListener('input',()=>{ s[i]=+m.querySelector('#'+i).value; paintPre(); })); paintPre();
   ids.forEach(i=>m.querySelector('#'+i).oninput=upd); m.querySelectorAll('input[type=checkbox]').forEach(c=>c.onchange=show);
+  const emoBox=m.querySelector('#emotion_priority'); if(emoBox) emoBox.onchange=async()=>{ const r=await api('/api/settings',{emotion_priority:emoBox.checked?1:0}); S.settings=r.settings; s.emotion_priority=r.settings.emotion_priority; await loadPhotos(); show(); };
   ids.forEach(i=>{ const e=m.querySelector('#'+i); m.querySelector('#'+i+'v').textContent=(+e.value%1?(+e.value).toFixed(2):e.value); }); show();
   m.querySelector('#cprev').onclick=()=>{ const c=cand().map(p=>p.id); keepSet=true; m.close(); S.pv=new Set(c); setPreviewFilter(true);
     toast(c.length?`Đang xem ${fmt(c.length)} ảnh sẽ bị loại. Chấm sao ảnh nào muốn giữ, rồi bấm Tự động lọc → Đánh dấu loại.`:'Không có ảnh nào sẽ bị loại.'); };

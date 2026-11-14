@@ -1,15 +1,12 @@
 Cảm ơn bạn đã sử dụng MThanglee Cull & Collage.
 
-✨ Giao diện Dàn trang hoàn toàn mới
-Trình dàn trang được làm mới theo phong cách sang trọng: tông màu ấm, nhấn vàng champagne, tiêu đề chữ thanh lịch, bố cục thoáng và tinh tế hơn.
-• Công tắc Dính / Tách: xem các trang liền mạch để duyệt, hoặc tách ra xem từng trang một để dễ layout (có nút chuyển trang).
-• Thanh công cụ, panel mẫu, hộp thoại xuất ảnh… đều gọn gàng, dễ nhìn, dễ thao tác hơn.
+😊 Ưu tiên ảnh có cảm xúc khi gom nhóm ảnh trùng
+Trong một loạt ảnh chụp liên tiếp gần giống nhau, app không chỉ giữ lại ảnh nét nhất nữa, mà ưu tiên ảnh bắt được cảm xúc — nụ cười tươi — đúng tinh thần ảnh cưới. Vẫn đảm bảo ảnh giữ lại đủ nét và ít người quay mặt.
+• Bật/tắt trong Tự động lọc ảnh → Tùy chỉnh nâng cao → "Ưu tiên ảnh có cảm xúc (nụ cười)".
+• Mặc định BẬT. Thư viện mới áp dụng ngay; thư viện cũ chỉ cần mở công tắc một lần là gom lại tức thì.
 
-📱 Lọc ảnh bằng điện thoại
-Mở mục "Điện thoại" trên máy tính, quét mã QR bằng iPhone để lọc ảnh ngay trên điện thoại: vuốt để Giữ / Loại, chạm chọn sao 1–5. Mọi lựa chọn lưu thẳng về máy tính.
-
-🖱️ Cuộn ảnh mượt hơn trên máy Mac
-Lưới ảnh và dải xem nhanh tải mượt hơn khi lướt qua thư viện lớn.
+🔄 Sửa lỗi ảnh dọc bị xem thành ngang
+Một số ảnh RAW (Canon .CR3) chụp dọc trước đây hiển thị nằm ngang trong app — nay đã đọc đúng chiều xoay như Lightroom.
 
 Cải thiện độ ổn định và sửa một số lỗi nhỏ.
 
