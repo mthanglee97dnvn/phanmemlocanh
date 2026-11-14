@@ -135,6 +135,7 @@ class Library:
         self._migrate()
         self.root = ""
         self.status = dict(state="idle", total=0, done=0, thumbs=0, errors=0, root="", message="", timing={})
+        self.cam = dict(state="idle", done=0, total=0, message="", cams=[])  # đồng bộ thời gian nhiều máy
         self._cancel = threading.Event()
         self._thread: threading.Thread | None = None
         # dựng ảnh nét cho trình xem: hàng đợi ưu tiên (ảnh đang xem + vài ảnh kế) và hàng đợi nền (cả thư mục)
@@ -796,8 +797,12 @@ class Library:
             return r["fsharp"] / ref_f
         return (r["sharp"] or 0) / ref_g
 
+    @staticmethod
+    def _et(r):   # thời gian hiệu dụng = giờ chụp + lệch đồng bộ máy (toff). Dùng để xếp & gom theo thời gian
+        return (r["taken"] or 0) + ((r["toff"] or 0) if "toff" in r.keys() else 0)
+
     def regroup(self):
-        rows = sorted(self._rows(), key=lambda r: (r["taken"] or 0, r["path"]))
+        rows = sorted(self._rows(), key=lambda r: (self._et(r), r["path"]))
         if not rows:
             return
         ref_g, ref_f = self._ref(rows)
@@ -813,7 +818,7 @@ class Library:
             score[r["id"]] = raw[r["id"]] = round(s, 1)
         groups, cur = [], [rows[0]]
         for prev, r in zip(rows, rows[1:]):
-            close = abs((r["taken"] or 0) - (prev["taken"] or 0)) <= S["dup_seconds"]
+            close = abs(self._et(r) - self._et(prev)) <= S["dup_seconds"]
             same = bool(r["dhash"] and prev["dhash"]) and hamming(r["dhash"], prev["dhash"]) <= S["dup_hamming"]
             if close and same:
                 cur.append(r)
@@ -849,6 +854,130 @@ class Library:
             for r in g:
                 upd.append((gid, 1 if r["id"] == top else 0, score[r["id"]], away.get(r["id"], (0, 0))[0], r["id"]))
         self.db.many("UPDATE photos SET grp=?, best=?, score=?, away=? WHERE id=?", upd)
+
+    # ------------------------------------------------------------- đồng bộ thời gian nhiều máy
+    @staticmethod
+    def _cam_key(path: str) -> str:
+        """Danh tính máy ảnh = Hãng · Dòng máy · Số máy (serial). Đọc EXIF, nhẹ (không giải mã ảnh)."""
+        try:
+            ex = read_exif(path)
+        except Exception:  # noqa: BLE001
+            return "?"
+        parts = [str(ex.get(k, "") or "").strip() for k in ("make", "model", "serial")]
+        return (" · ".join(p for p in parts if p)).strip() or "?"
+
+    @staticmethod
+    def _estimate_offset(ref_ts, cam_ts, binw=2.0, snap=3.0):
+        """Ước lượng số giây cần CỘNG vào giờ của 'cam' để khớp dòng thời gian 'ref'.
+        Dựa trên tương quan mật độ bấm máy theo thời gian. Trả (offset_giây, độ_tin_cậy 0..1)."""
+        if len(ref_ts) < 3 or len(cam_ts) < 3:
+            return 0.0, 0.0
+        t0 = min(min(ref_ts), min(cam_ts))
+        t1 = max(max(ref_ts), max(cam_ts))
+        n = int((t1 - t0) / binw) + 1
+        if n < 4 or n > 4_000_000:
+            return 0.0, 0.0
+
+        def dens(ts):
+            a = np.zeros(n)
+            for t in ts:
+                i = int((t - t0) / binw)
+                if 0 <= i < n:
+                    a[i] += 1
+            return np.convolve(a, np.array([.25, .5, .25]), "same")   # mượt nhẹ, chịu lệch 1-2s
+        a, b = dens(ref_ts), dens(cam_ts)
+        a -= a.mean(); b -= b.mean()
+        if a.std() < 1e-9 or b.std() < 1e-9:
+            return 0.0, 0.0
+        corr = np.correlate(a, b, "full")
+        lag = int(corr.argmax()) - (len(b) - 1)
+        off = lag * binw
+        peak = float(corr.max() / (len(a) * a.std() * b.std()))
+        # tinh chỉnh ±2 bin ở độ phân giải 1 giây (đếm số ảnh ref trùng giây sau khi dịch)
+        refset = {}
+        for t in ref_ts:
+            k = round(t); refset[k] = refset.get(k, 0) + 1
+        best, bo = -1, off
+        for o in np.arange(off - 2 * binw, off + 2 * binw + 1, 1.0):
+            s = sum(refset.get(round(t + o), 0) for t in cam_ts)
+            if s > best:
+                best, bo = s, o
+        off = bo
+        if abs(off - round(off / 60) * 60) <= snap:   # sát phút tròn thì bắt về phút tròn (hay gặp)
+            off = round(off / 60) * 60
+        return float(off), peak
+
+    def cameras_detect(self):
+        """Chạy nền: đọc danh tính máy cho ảnh còn thiếu, rồi ước lượng độ lệch giờ giữa các máy."""
+        if self.cam.get("state") == "running":
+            return
+        self.cam = dict(state="running", done=0, total=0, message="Đang đọc thông tin máy ảnh…", cams=[])
+        threading.Thread(target=self._cameras_detect, daemon=True).start()
+
+    def _cameras_detect(self):
+        try:
+            rows = self.db.q("SELECT p.id, p.path, p.taken, p.cam FROM photos p JOIN cur ON cur.id=p.id "
+                             "WHERE p.ready=1 AND p.err IS NULL AND p.taken IS NOT NULL AND p.taken>0")
+            todo = [r for r in rows if not r["cam"]]
+            self.cam.update(total=len(todo))
+            if todo:
+                done = [0]
+                def work(r):
+                    return r["id"], self._cam_key(r["path"])
+                with ThreadPoolExecutor(max_workers=8) as ex:
+                    buf = []
+                    for fut in as_completed([ex.submit(work, r) for r in todo]):
+                        pid, key = fut.result()
+                        buf.append((key, pid)); done[0] += 1
+                        if len(buf) >= 200:
+                            self.db.many("UPDATE photos SET cam=? WHERE id=?", buf); buf = []
+                        self.cam["done"] = done[0]
+                    if buf:
+                        self.db.many("UPDATE photos SET cam=? WHERE id=?", buf)
+                rows = self.db.q("SELECT p.id, p.path, p.taken, p.cam, p.toff FROM photos p JOIN cur ON cur.id=p.id "
+                                 "WHERE p.ready=1 AND p.err IS NULL AND p.taken IS NOT NULL AND p.taken>0")
+            else:
+                rows = self.db.q("SELECT p.id, p.path, p.taken, p.cam, p.toff FROM photos p JOIN cur ON cur.id=p.id "
+                                 "WHERE p.ready=1 AND p.err IS NULL AND p.taken IS NOT NULL AND p.taken>0")
+            self.cam.update(message="Đang so dòng thời gian các máy…")
+            by = {}
+            for r in rows:
+                by.setdefault(r["cam"] or "?", []).append(r)
+            # bỏ nhóm '?' (không đọc được máy) và nhóm quá ít ảnh khỏi việc ước lượng
+            named = {k: v for k, v in by.items() if k != "?" and len(v) >= 3}
+            if len(named) < 2:
+                self.cam = dict(state="done", done=self.cam.get("done", 0), total=self.cam.get("total", 0),
+                                message="Chỉ thấy một máy — không cần đồng bộ." if len(named) <= 1
+                                else "Không đủ dữ liệu để đồng bộ.", cams=[
+                                    dict(key=k, n=len(v), offset=round(float(v[0]["toff"] or 0)),
+                                         conf=1.0, ref=True) for k, v in named.items()])
+                return
+            ref_key = max(named, key=lambda k: len(named[k]))
+            ref_ts = [r["taken"] for r in named[ref_key]]
+            cams = [dict(key=ref_key, n=len(named[ref_key]), offset=0, conf=1.0, ref=True)]
+            for k, v in named.items():
+                if k == ref_key:
+                    continue
+                off, conf = self._estimate_offset(ref_ts, [r["taken"] for r in v])
+                cams.append(dict(key=k, n=len(v), offset=int(round(off)), conf=round(conf, 2), ref=False))
+            cams.sort(key=lambda c: (not c["ref"], -c["n"]))
+            self.cam = dict(state="done", done=self.cam.get("done", 0), total=self.cam.get("total", 0),
+                            message="", cams=cams, ref=ref_key)
+        except Exception as e:  # noqa: BLE001
+            self.cam = dict(state="error", done=0, total=0, message=friendly(e), cams=[])
+
+    def cameras_apply(self, offsets: dict):
+        """offsets: {danh_tính_máy: số_giây_cộng_vào}. Ghi toff cho từng máy rồi gom nhóm lại."""
+        pairs = []
+        for k, v in (offsets or {}).items():
+            try:
+                pairs.append((float(v), k))
+            except Exception:  # noqa: BLE001
+                continue
+        if pairs:
+            self.db.many("UPDATE photos SET toff=? WHERE cam=?", pairs)
+            self.regroup()
+        return dict(ok=True, applied=len(pairs))
 
     # ------------------------------------------------------------------ hướng mặt
     AWAY_YAW = 0.32    # mũi lệch khỏi giữa hai mắt quá mức này (theo khoảng cách hai mắt) = quay ngang rõ
@@ -944,7 +1073,7 @@ class Library:
             if r["err"] or not r["analyzed"] or not r["ready"]:
                 # File lỗi đọc/giải mã, hoặc chưa phân tích xong: vẫn hiện (không chấm điểm, không gắn cờ sai)
                 out.append(dict(
-                    id=r["id"], name=os.path.basename(r["path"]), dir=r["dir"], w=r["w"], h=r["h"], taken=r["taken"],
+                    id=r["id"], name=os.path.basename(r["path"]), dir=r["dir"], w=r["w"], h=r["h"], taken=self._et(r),
                     smile=-1, sharp=0, fsharp=0, lum=0, nf=0, ear=-1, rating=r["rating"], label=r["label"], grp=0, best=0,
                     score=0, people=[], flags=[], an=False, err=bool(r["err"]), tv=r["tv"]))
                 continue
@@ -963,7 +1092,7 @@ class Library:
                 flags.append("dup")
             out.append(dict(
                 id=r["id"], name=os.path.basename(r["path"]), dir=r["dir"], w=r["w"], h=r["h"],
-                taken=r["taken"], sharp=round(r["sharp"] or 0, 1), fsharp=round(r["fsharp"] or 0, 1),
+                taken=self._et(r), sharp=round(r["sharp"] or 0, 1), fsharp=round(r["fsharp"] or 0, 1),
                 lum=round(r["lum"] or 0, 3), nf=r["nfaces"], ear=round(r["ear_min"], 3),
                 smile=_num(r["smile"]),
                 rating=r["rating"], label=r["label"], grp=r["grp"], best=r["best"], score=r["score"],
@@ -1379,7 +1508,7 @@ class Library:
         names = self._names()
         seq, copied, errors = 0, 0, []
         rows = [self.db.one("SELECT * FROM photos WHERE id=?", (int(i),)) for i in ids]
-        rows = sorted([r for r in rows if r], key=lambda r: (r["taken"] or 0, r["path"]))
+        rows = sorted([r for r in rows if r], key=lambda r: (self._et(r), r["path"]))
         if progress is not None:
             progress["total"] = len(rows)
         # Bước 1 (nhanh, tuần tự): đặt tên file đích cho từng ảnh — giữ đúng thứ tự {seq}, không trùng tên.
@@ -1390,7 +1519,7 @@ class Library:
             people = [x["person_id"] for x in self.db.q(
                 "SELECT DISTINCT person_id FROM faces WHERE photo_id=? AND person_id IS NOT NULL", (r["id"],))]
             labels = [self.person_label(p, names) for p in people]
-            dt = datetime.fromtimestamp(r["taken"] or r["mtime"] or time.time())
+            dt = datetime.fromtimestamp(self._et(r) or r["mtime"] or time.time())
             stem = template
             for k, v in {"{name}": src.stem, "{date}": dt.strftime("%Y%m%d"), "{time}": dt.strftime("%H%M%S"),
                          "{seq}": f"{seq:04d}", "{person}": "+".join(labels) if labels else "khong-ro"}.items():

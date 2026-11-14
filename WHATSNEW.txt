@@ -1,5 +1,10 @@
 Cảm ơn bạn đã sử dụng MThanglee Cull & Collage.
 
+🕑 Đồng bộ thời gian nhiều máy (ekip nhiều máy ảnh)
+Khi ekip dùng nhiều máy mà đồng hồ mỗi máy đặt lệch nhau, ảnh trộn vào bị sai thứ tự. App tự so các khoảnh khắc cả ekip cùng bấm máy để tính độ lệch của từng máy và đưa mọi ảnh về một dòng thời gian chung — xếp đúng thứ tự, gom đúng loạt ảnh trùng giữa các máy.
+• Bấm "🕑 Đồng bộ máy" trên thanh công cụ → "Dò các máy" → xem độ lệch đề xuất → Áp dụng.
+• Giờ chụp trong file gốc không bị sửa; có thể "Bỏ đồng bộ" bất cứ lúc nào.
+
 😊 Ưu tiên ảnh có cảm xúc khi gom nhóm ảnh trùng
 Trong một loạt ảnh chụp liên tiếp gần giống nhau, app không chỉ giữ lại ảnh nét nhất nữa, mà ưu tiên ảnh bắt được cảm xúc — nụ cười tươi — đúng tinh thần ảnh cưới. Vẫn đảm bảo ảnh giữ lại đủ nét và ít người quay mặt.
 • Bật/tắt trong Tự động lọc ảnh → Tùy chỉnh nâng cao → "Ưu tiên ảnh có cảm xúc (nụ cười)".

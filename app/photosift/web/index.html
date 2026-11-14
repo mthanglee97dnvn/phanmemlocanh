@@ -446,7 +446,7 @@ html[data-theme=neutral] #xjcard{border-radius:18px}
       <option value="score">Điểm chất lượng (cao trước)</option><option value="sharp">Độ nét (cao trước)</option><option value="smile">Nụ cười (tươi nhất trước)</option>
     </select><select id="fPair" title="Khi một ảnh có cả RAW và JPEG thì hiện bản nào" aria-label="Ưu tiên RAW hay JPEG">
       <option value="both">RAW + JPEG</option><option value="raw">Ưu tiên RAW</option><option value="jpeg">Ưu tiên JPEG</option>
-    </select></div>
+    </select><button id="bCamSync" title="Đồng bộ thời gian giữa nhiều máy ảnh của ekip (đồng hồ mỗi máy lệch nhau) để các ảnh về đúng một dòng thời gian">🕑 Đồng bộ máy</button></div>
     <div class="grp"><input id="qPhoto" type="search" inputmode="numeric" autocomplete="off" placeholder="Tìm mã số ảnh… (vd 3928 4210)" aria-label="Tìm ảnh theo mã số" title="Gõ mã số ảnh khách gửi (nhiều số cách nhau bởi dấu cách hoặc phẩy) để lọc nhanh ra đúng ảnh đó — rồi chọn và Xuất ảnh. Phím tắt: /" style="width:210px;max-width:40vw"><span id="qCount" class="hint" aria-live="polite" style="min-width:0;white-space:nowrap"></span></div>
     <span class="sp"></span>
     <div class="grp"><button id="bCull" aria-label="Tự động lọc"><svg class="ic" aria-hidden="true"><use href="#i-funnel"/></svg><span class="lbl">Tự động lọc</span></button><button id="bUndo" aria-label="Hoàn tác" disabled><svg class="ic" aria-hidden="true"><use href="#i-undo"/></svg><span class="lbl">Hoàn tác</span></button><button id="bUnrej" title="Khôi phục ảnh đã bị đánh dấu loại" hidden></button><button id="bExport" class="pri" aria-label="Xuất ảnh" aria-keyshortcuts="Control+Y" title="Xuất ảnh (Ctrl+Y)"><svg class="ic" aria-hidden="true"><use href="#i-export"/></svg><span class="lbl">Xuất ảnh</span></button><button id="bLayout" aria-label="Gửi ảnh sang Dàn trang" title="Gửi ảnh đã lọc sang Dàn trang" hidden><svg class="ic" aria-hidden="true"><use href="#i-layout"/></svg><span class="lbl">Dàn trang</span></button></div>
@@ -1395,6 +1395,55 @@ $('#bCull').onclick=()=>{
   m.querySelector('#cprev').onclick=()=>{ const c=cand().map(p=>p.id); keepSet=true; m.close(); S.pv=new Set(c); setPreviewFilter(true);
     toast(c.length?`Đang xem ${fmt(c.length)} ảnh sẽ bị loại. Chấm sao ảnh nào muốn giữ, rồi bấm Tự động lọc → Đánh dấu loại.`:'Không có ảnh nào sẽ bị loại.'); };
   m.querySelector('#capply').onclick=async()=>{ const c=cand().map(p=>p.id); if(!c.length) return; keepSet=true; m.querySelector('#capply').disabled=true; m.close(); setPreviewFilter(false); const r=await api('/api/cull/apply',{ids:c}); c.forEach(i=>S.by.get(i).rating=-1); if(r.id) S.undo.push({t:'cull',batch:r.id}); await refreshCull(); S.filter='rej'; $('#fFilter').value='rej'; applyView(); toast(`Đã đánh dấu loại ${c.length} ảnh. Lưới đang hiện các ảnh vừa loại để bạn xem lại`,4000); };
+};
+
+/* ---------- đồng bộ thời gian nhiều máy ---------- */
+$('#bCamSync').onclick=async()=>{
+  const fmtDur=s=>{ s=Math.round(Math.abs(s)); const h=Math.floor(s/3600),mi=Math.floor(s%3600/60),x=s%60;
+    return [h?h+' giờ':'',mi?mi+' phút':'',(x||(!h&&!mi))?x+' giây':''].filter(Boolean).join(' '); };
+  const m=modal(`<h3>Đồng bộ thời gian nhiều máy</h3>
+    <div class="hint" style="margin-bottom:8px">Khi ekip dùng nhiều máy mà đồng hồ mỗi máy đặt lệch nhau, ảnh trộn vào sẽ sai thứ tự thời gian. App so các khoảnh khắc cả ekip cùng bấm máy để tính độ lệch và đưa mọi ảnh về một dòng thời gian chung. Giờ chụp trong file gốc <b>không</b> bị sửa; có thể bỏ đồng bộ bất cứ lúc nào.</div>
+    <div id="camBody" aria-live="polite"></div>
+    <div class="btns"><button onclick="this.closest('.back').remove()">Đóng</button><button id="camReset" hidden>Bỏ đồng bộ</button><button id="camRedo" hidden>Dò lại</button><button class="pri" id="camGo">Dò các máy</button></div>`);
+  const body=m.querySelector('#camBody'), go=m.querySelector('#camGo'), reset=m.querySelector('#camReset'), redo=m.querySelector('#camRedo');
+  let cur=[];
+  const render=(st)=>{
+    cur=st.cams||[];
+    if(st.state==='running'){ body.innerHTML=`<div class="hint">${st.message||'Đang xử lý…'} ${st.total?`(${fmt(st.done)}/${fmt(st.total)})`:''}</div>`; go.hidden=true; redo.hidden=true; reset.hidden=true; return; }
+    go.hidden=false;
+    if(st.state==='error'){ body.innerHTML=`<div class="warn">${st.message||'Có lỗi khi dò.'}</div>`; return; }
+    if(!cur.length){ body.innerHTML=`<div class="hint">${st.message||'Chưa dò. Bấm “Dò các máy” để bắt đầu.'}</div>`; go.textContent='Dò các máy'; go.dataset.mode='detect'; redo.hidden=true; reset.hidden=true; return; }
+    const multi=cur.filter(c=>!c.ref).length>0;
+    let h = (cur.length<2 && st.message) ? `<div class="hint" style="margin-bottom:6px">${st.message}</div>` : '';
+    h+='<table style="width:100%;border-collapse:collapse;font-size:13px"><tr style="text-align:left;color:var(--muted,#9a9a9a)"><th>Máy ảnh</th><th style="text-align:center">Ảnh</th><th>Độ lệch</th><th style="text-align:center">Dùng</th></tr>';
+    cur.forEach((c,i)=>{
+      const nm = c.key==='?' ? '(không đọc được máy)' : c.key;
+      const cell = `<td style="padding:5px 4px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${nm}">${nm}</td><td style="text-align:center">${fmt(c.n)}</td>`;
+      if(c.ref){ h+=`<tr>${cell}<td><span style="padding:1px 7px;border-radius:10px;background:rgba(232,163,61,.18);color:#E8A33D">Mốc thời gian</span></td><td style="text-align:center">—</td></tr>`; return; }
+      const dir = c.offset>0?'đồng hồ chạy chậm':(c.offset<0?'đồng hồ chạy nhanh':'khớp sẵn');
+      const good = c.conf>=0.3;
+      h+=`<tr>${cell}<td style="padding:5px 4px">
+        <div>${c.offset===0?'khớp sẵn':dir+' '+fmtDur(c.offset)}</div>
+        <div class="hint" style="font-size:12px;margin-top:2px">chỉnh (giây): <input type="number" class="camoff" data-i="${i}" value="${c.offset}" style="width:80px"> ${good?'<span style="color:#7bd88f">khớp tốt</span>':'<span class="warn">chưa chắc</span>'}</div>
+      </td><td style="text-align:center"><input type="checkbox" class="camon" data-i="${i}" ${good?'checked':''}></td></tr>`;
+    });
+    h+='</table>';
+    body.innerHTML=h;
+    go.textContent='Áp dụng'; go.dataset.mode='apply'; go.hidden=!multi; redo.hidden=false; reset.hidden=false;
+  };
+  const poll=async()=>{ let st=await api('/api/cameras'); render(st);
+    while(st.state==='running'){ await new Promise(r=>setTimeout(r,600)); st=await api('/api/cameras'); render(st); } return st; };
+  const detect=async()=>{ go.disabled=true; go.textContent='Đang dò…'; redo.disabled=true; try{ await api('/api/cameras/detect'); await poll(); } finally { go.disabled=false; redo.disabled=false; } };
+  go.onclick=async()=>{
+    if(go.dataset.mode!=='apply'){ await detect(); return; }
+    const offs={}; cur.forEach((c,i)=>{ if(c.ref){ offs[c.key]=0; return; }
+      const cb=body.querySelector('.camon[data-i="'+i+'"]'), inp=body.querySelector('.camoff[data-i="'+i+'"]');
+      offs[c.key] = (cb&&cb.checked) ? (Number(inp.value)||0) : 0; });
+    go.disabled=true; try{ const r=await api('/api/cameras/apply',{offsets:offs}); await loadPhotos(); toast(`Đã đưa ${fmt(r.applied)} máy về một dòng thời gian`,3200); m.close(); } finally { go.disabled=false; }
+  };
+  redo.onclick=detect;
+  reset.onclick=async()=>{ const offs={}; cur.forEach(c=>offs[c.key]=0); await api('/api/cameras/apply',{offsets:offs}); await loadPhotos(); toast('Đã bỏ đồng bộ — mọi máy về giờ gốc'); m.close(); };
+  const init=await api('/api/cameras'); if(init.state==='running'){ await poll(); } else render(init);
 };
 
 /* ---------- xuất ---------- */

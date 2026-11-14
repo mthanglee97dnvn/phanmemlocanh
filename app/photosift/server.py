@@ -637,6 +637,8 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                     return self._json(lib.export_history())
                 if u.path == "/api/export/status":
                     return self._json(lib.export_status())
+                if u.path == "/api/cameras":
+                    return self._json(lib.cam)
                 if u.path == "/api/photos":
                     return self._json(lib.photos())
                 if u.path == "/api/people":
@@ -810,6 +812,11 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                 if u.path == "/api/settings":
                     lib.set_settings(b)
                     return self._json(dict(ok=True, settings=lib.settings))
+                if u.path == "/api/cameras/detect":
+                    lib.cameras_detect()
+                    return self._json(lib.cam)
+                if u.path == "/api/cameras/apply":
+                    return self._json(lib.cameras_apply(b.get("offsets") or {}))
                 if u.path == "/api/person/rename":
                     lib.rename_person(int(b["id"]), str(b["name"])[:60])
                     return self._json(dict(ok=True))
