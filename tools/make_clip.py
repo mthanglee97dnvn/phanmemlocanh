@@ -15,7 +15,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from transformers import CLIPModel, CLIPProcessor
+from transformers import CLIPModel, CLIPTokenizer
 
 MODEL = os.environ.get("CLIP_MODEL", "openai/clip-vit-base-patch32")
 OUT = Path(__file__).resolve().parents[1] / "app" / "models"
@@ -48,7 +48,7 @@ def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     print(f"[make_clip] model: {MODEL}")
     model = CLIPModel.from_pretrained(MODEL).eval()
-    proc = CLIPProcessor.from_pretrained(MODEL)
+    tokz = CLIPTokenizer.from_pretrained(MODEL)   # chỉ cần tokenizer văn bản (không cần bộ xử lý ảnh)
 
     cats: list[str] = []
     texts: list[str] = []
@@ -57,13 +57,14 @@ def main() -> None:
             cats.append(c)
             texts.append(p)
     with torch.no_grad():
-        tok = proc(text=texts, return_tensors="pt", padding=True)
+        tok = tokz(texts, return_tensors="pt", padding=True)
         temb = model.get_text_features(**tok)
         temb = temb / temb.norm(dim=-1, keepdim=True)
     emb = temb.cpu().numpy().astype(np.float32)
     size = int(model.config.vision_config.image_size)
-    mean = np.asarray(proc.image_processor.image_mean, np.float32)
-    std = np.asarray(proc.image_processor.image_std, np.float32)
+    # Hằng số chuẩn hoá của CLIP (OpenAI) — cố định, khớp với app/photosift/scene.py
+    mean = np.asarray([0.48145466, 0.4578275, 0.40821073], np.float32)
+    std = np.asarray([0.26862954, 0.26130258, 0.27577711], np.float32)
     scale = float(model.logit_scale.exp().item())
     np.savez(OUT / "clip_text.npz", emb=emb, cats=np.asarray(cats), size=size,
              mean=mean, std=std, logit_scale=scale)
