@@ -443,7 +443,7 @@ html[data-theme=neutral] #xjcard{border-radius:18px}
 <div id="app">
   <div class="bar">
     <div class="grp"><button id="bCat" aria-label="Catalog" title="Xem các thư mục đã lọc"><svg class="ic" aria-hidden="true"><use href="#i-lib"/></svg><span class="lbl">Catalog</span></button><button id="bOpen" aria-label="Mở thư mục"><svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg><span class="lbl">Mở thư mục</span></button><label class="hint"><input type="checkbox" id="cRec" checked> gồm thư mục con</label></div>
-    <div class="grp"><select id="fFilter" title="Lọc" aria-label="Lọc ảnh"></select><select id="fSort" title="Sắp xếp" aria-label="Sắp xếp">
+    <div class="grp"><select id="fFilter" title="Lọc ảnh — phím tắt S: nhảy nhanh giữa Tất cả và tab lọc gần nhất" aria-label="Lọc ảnh"></select><select id="fSort" title="Sắp xếp" aria-label="Sắp xếp">
       <option value="name">Tên file</option><option value="time">Thời gian chụp</option>
       <option value="score">Điểm chất lượng (cao trước)</option><option value="sharp">Độ nét (cao trước)</option><option value="smile">Nụ cười (tươi nhất trước)</option>
     </select><select id="fPair" title="Khi một ảnh có cả RAW và JPEG thì hiện bản nào" aria-label="Ưu tiên RAW hay JPEG">
@@ -490,7 +490,7 @@ const FILTERS = [['all','Tất cả'],['unrated','Chưa chấm'],['r1','★ 1+']
   ['best','Tốt nhất trong nhóm trùng'],['face','Có khuôn mặt'],['noface','Không có khuôn mặt'],['raw','Chỉ file RAW (ARW, CR2, NEF…)'],['jpg','Chỉ JPG / ảnh thường']];
 const RAWRE=/\.(arw|srf|sr2|cr2|cr3|nef|nrw|dng|orf|raf|rw2|pef|srw|3fr|erf|kdc|mrw|x3f)$/i;
 const S = {photos:[], viewFull:[], keep:new Set(), open:new Set(), stack:(()=>{ try{ return localStorage.getItem('ps_stack2')==='1'; }catch(e){ return false; } })(),   /* mặc định: ảnh trùng để riêng từng ô */ by:new Map(), view:[], people:[], sel:new Set(), cur:null, anchor:null, filter:'all', sort:'name', pair:'both', person:null, query:'',
-           status:{}, undo:[], viewer:false, boxes:true, focus:false, zoom:false, lastDone:-1, settings:{}};
+           status:{}, undo:[], viewer:false, boxes:true, focus:false, zoom:false, lastDone:-1, lastFilter:'r5', settings:{}};
 
 async function api(path, body){
   let r;
@@ -1032,7 +1032,7 @@ function renderInfo(p, ix){
    <div id="vsec"></div>
    <hr style="border-color:var(--line)"><button id="vdiag" style="margin-bottom:8px"><svg class="ic" aria-hidden="true"><use href="#i-tool"/></svg>Chẩn đoán file</button><div class="hint">
    <span class="kbd">←</span><span class="kbd">→</span> chuyển ảnh &nbsp; <span class="kbd">1-5</span> sao (bấm lại để huỷ) &nbsp; <span class="kbd">X</span> loại<br>
-   <span class="kbd">6-9</span> nhãn màu &nbsp; <span class="kbd">F</span> điểm nét &nbsp; <span class="kbd">H</span> tên người &nbsp; Lăn chuột phóng to, giữ chuột phải kéo ảnh, <span class="kbd">Z</span> phóng nhanh<br><span class="kbd">V</span> vùng cháy/tối &nbsp; <span class="kbd">T</span> bật/tắt dải ảnh thu nhỏ &nbsp; <span class="kbd">Esc</span> quay lại</div>`;
+   <span class="kbd">6-9</span> nhãn màu &nbsp; <span class="kbd">F</span> điểm nét &nbsp; <span class="kbd">H</span> tên người &nbsp; Lăn chuột phóng to, giữ chuột phải kéo ảnh, <span class="kbd">Z</span> phóng nhanh<br><span class="kbd">V</span> vùng cháy/tối &nbsp; <span class="kbd">S</span> Tất cả ↔ tab lọc &nbsp; <span class="kbd">T</span> bật/tắt dải ảnh thu nhỏ &nbsp; <span class="kbd">Esc</span> quay lại</div>`;
   $('#vstars').onclick=e=>{ const r=e.target.dataset.r; if(r!==undefined) rate([p.id], +r===p.rating?0:+r); };
   fillSections('#vsec', p.id, 'v');
   $('#vdiag').onclick=async()=>{ const r=await api('/api/diag?id='+p.id); const m=modal(`<h3>Chẩn đoán file</h3><pre id="dt" style="white-space:pre-wrap;word-break:break-all;font-size:11px;max-height:55vh;overflow:auto;background:#101114;padding:10px;border-radius:8px"></pre><div class="btns"><button id="dc">Sao chép</button><button class="pri" onclick="this.closest('.back').remove()">Đóng</button></div>`); m.querySelector('#dt').textContent=r.text; m.querySelector('#dc').onclick=()=>{ navigator.clipboard.writeText(r.text); toast('Đã sao chép'); }; };
@@ -1131,7 +1131,7 @@ document.addEventListener('keydown', e=>{
   if(mod) return;
   // macOS (WebKit/pywebview) phát tiếng "beep" mỗi khi một phím không được app "nuốt" (preventDefault).
   // Nuốt mọi phím tắt lọc ảnh (1-5, X, nhãn 6-9) và xem/zoom ảnh (Z, H, F, T, G…) để hết tiếng beep trên máy Mac.
-  if(/^[0-9]$/.test(k) || ['x','X','-','h','H','f','F','v','V','z','Z','t','T','g','G','?'].includes(k)) e.preventDefault();
+  if(/^[0-9]$/.test(k) || ['x','X','-','h','H','f','F','v','V','s','S','z','Z','t','T','g','G','?'].includes(k)) e.preventDefault();
   if(k==='ArrowRight'){ e.preventDefault(); move(1,e.shiftKey); }
   else if(k==='ArrowLeft'){ e.preventDefault(); move(-1,e.shiftKey); }
   else if(k==='ArrowDown'){ e.preventDefault(); S.viewer?move(1):move(cols(),e.shiftKey); }
@@ -1151,6 +1151,7 @@ document.addEventListener('keydown', e=>{
   else if(k==='z'||k==='Z'){ if(S.viewer){ const r=$('#vstage').getBoundingClientRect(); zoomToggle(r.left+r.width/2,r.top+r.height/2); } }
   else if(k==='t'||k==='T'){ if(S.viewer) toggleStrip(); }
   else if(k==='g'||k==='G'){ const c=S.by.get(S.cur); if(c&&c.grp) toggleStack(c.grp); }
+  else if(k==='s'||k==='S'){ toggleFilter(); }
   else if(k==='?') showHelp();
 });
 
@@ -1601,7 +1602,7 @@ function targetsForExport(){ return S.sel.size?[...S.sel]:(S.cur!==null?[S.cur]:
 
 function showHelp(){
   modal(`<h3>Phím tắt</h3><div style="line-height:2">
-   <span class="kbd">← → ↑ ↓</span> di chuyển (giữ <span class="kbd">Shift</span> để chọn dải) &nbsp; <span class="kbd">Ctrl+A</span> chọn tất cả<br>
+   <span class="kbd">← → ↑ ↓</span> di chuyển (giữ <span class="kbd">Shift</span> để chọn dải) &nbsp; <span class="kbd">Ctrl+A</span> chọn tất cả &nbsp; <span class="kbd">S</span> nhảy Tất cả ↔ tab lọc gần nhất<br>
    <span class="kbd">Esc</span> quay lại một bước &nbsp; <span class="kbd">V</span> vùng cháy/mất chi tiết &nbsp; <span class="kbd">T</span> dải ảnh &nbsp; <span class="kbd">Ctrl+1</span>/<span class="kbd">Ctrl+2</span> Lọc ảnh/Dàn trang<br>
    <span class="kbd">Enter</span>/<span class="kbd">Space</span> xem ảnh lớn &nbsp; Lăn chuột phóng to, giữ chuột phải kéo ảnh, <span class="kbd">Z</span> phóng nhanh (kiểm tra độ nét) &nbsp; <span class="kbd">F</span> điểm nét &nbsp; <span class="kbd">H</span> tên người<br>
    <span class="kbd">1–5</span> chấm sao, bấm lại cùng số để huỷ (<span class="kbd">0</span> cũng huỷ) &nbsp; <span class="kbd">X</span> loại / khôi phục &nbsp; <span class="kbd">6</span> đỏ <span class="kbd">7</span> vàng <span class="kbd">8</span> xanh lá <span class="kbd">9</span> xanh dương <span class="kbd">-</span> bỏ nhãn<br>
@@ -1615,7 +1616,21 @@ $('#bTheme').onclick=()=>{ const n=document.documentElement.dataset.theme==='neu
 
 /* ---------- điều khiển thanh trên ---------- */
 $('#fFilter').innerHTML = FILTERS.map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
-$('#fFilter').onchange=e=>{ S.filter=e.target.value; S.keep.clear(); if(S.filter!=='pv'){ const o=e.target.querySelector('option[value=pv]'); if(o) o.remove(); } applyView(); e.target.blur(); };
+$('#fFilter').onchange=e=>{ S.filter=e.target.value; S.keep.clear(); if(S.filter!=='pv'){ const o=e.target.querySelector('option[value=pv]'); if(o) o.remove(); } if(S.filter!=='all'&&S.filter!=='pv') S.lastFilter=S.filter; applyView(); e.target.blur(); };
+/* phím S: nhảy nhanh giữa "Tất cả" và tab lọc gần nhất (vd ★★★★★ 5), và ngược lại */
+function applyFilter(v){
+  const sel=$('#fFilter'); if(!sel) return;
+  if(v!=='pv'){ const o=sel.querySelector('option[value=pv]'); if(o) o.remove(); }
+  if(![...sel.options].some(o=>o.value===v)) v='all';
+  S.filter=v; S.keep.clear(); sel.value=v; applyView();
+  const lbl=sel.querySelector('option[value="'+v+'"]'); toast('Lọc: '+(lbl?lbl.textContent:v));
+  if(S.viewer && !S.view.some(p=>p.id===S.cur)) closeViewer();   // ảnh đang xem bị lọc ra: về lưới
+  else if(S.viewer) showViewer();
+}
+function toggleFilter(){
+  if(S.filter!=='all'){ if(S.filter!=='pv') S.lastFilter=S.filter; applyFilter('all'); }
+  else applyFilter(S.lastFilter && S.lastFilter!=='all' ? S.lastFilter : 'r5');
+}
 { const w=$('#gridwrap'); w.setAttribute('role','listbox'); w.setAttribute('aria-multiselectable','true'); w.setAttribute('aria-label','Ảnh trong thư mục — dùng phím mũi tên để chọn, 0–5 chấm sao, X loại, Enter mở ảnh'); if(!w.hasAttribute('tabindex')) w.tabIndex=0; $('#grid')&&$('#grid').setAttribute('role','presentation'); }
 $('#fSort').onchange=e=>{ S.sort=e.target.value; applyView(); e.target.blur(); };
 try{ S.pair=localStorage.getItem('ps_pair')||'both'; }catch(e){ S.pair='both'; } $('#fPair').value=S.pair;
