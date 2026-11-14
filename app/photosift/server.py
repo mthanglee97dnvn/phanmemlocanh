@@ -593,6 +593,8 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                 if u.path in ("/filter", "/layout"):
                     name = "index.html" if u.path == "/filter" else "layout.html"
                     return self._send(200, _web(name), "text/html; charset=utf-8", {"Cache-Control": "no-store"})
+                if u.path == "/vendor-psd.js":   # bộ đọc PSD (tải lười khi người dùng chèn logo .psd)
+                    return self._send(200, _web("vendor-psd.js"), "application/javascript; charset=utf-8", {"Cache-Control": "max-age=86400"})
                 if u.path == "/api/file":
                     p = os.path.abspath(q.get("path", ""))
                     ext = Path(p).suffix.lower()

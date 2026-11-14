@@ -560,7 +560,7 @@ dialog select,dialog input[type=number],dialog input[type=text]{border-radius:va
 <input type="file" id="refInput" accept="image/*" hidden>
 <input type="file" id="bgInput" accept="image/*" multiple hidden>
 <input type="file" id="colorInput" accept="image/*,.txt,.css,.json,.hex,.csv" hidden>
-<input type="file" id="logoInput" accept=".png,image/png" multiple hidden>
+<input type="file" id="logoInput" accept=".png,.psd,image/png" multiple hidden>
 
 <dialog id="confirmDlg">
   <h2 id="confirmTitle"></h2>
@@ -826,18 +826,37 @@ function decodeLogo(L){return new Promise(res=>{const im=new Image();im.onload=(
 function decodeLogos(){logoImgs={};return Promise.all((doc&&doc.logos||[]).map(decodeLogo))}
 function drawLogo(ctx,it){const im=logoImgs[it.logo];if(!im||!im.width)return;const s=Math.min(it.w/im.width,it.h/im.height),w=im.width*s,h=im.height*s;ctx.drawImage(im,-w/2,-h/2,w,h)}
 function insertLogo(L){const im=logoImgs[L.id],ar=im&&im.width?im.width/im.height:1.5;let w=Math.round(W*0.28),h=Math.round(w/ar);const hmax=doc.h*0.6;if(h>hmax){h=Math.round(hmax);w=Math.round(h*ar)}addItem(placeCenter(logoItem({logo:L.id,w,h})))}
+let _agpsdP=null;   // nạp lười bộ đọc PSD, chỉ khi người dùng chèn .psd
+function loadAgPsd(){return _agpsdP||(_agpsdP=new Promise((ok,no)=>{
+  if(window.agPsd)return ok(window.agPsd);
+  const s=document.createElement('script');s.src='/vendor-psd.js';s.onload=()=>window.agPsd?ok(window.agPsd):no(new Error('psd'));s.onerror=()=>no(new Error('psd'));document.head.appendChild(s)}))}
+function canvasToLogoData(c){const MAX=2000;let w=c.width,h=c.height;
+  if(Math.max(w,h)>MAX){const s=MAX/Math.max(w,h);const o=document.createElement('canvas');o.width=Math.round(w*s);o.height=Math.round(h*s);
+    o.getContext('2d').drawImage(c,0,0,o.width,o.height);c=o}
+  return c.toDataURL('image/png')}
+function compositePsd(psd){const cv=document.createElement('canvas');cv.width=psd.width;cv.height=psd.height;const x=cv.getContext('2d');
+  (function walk(node){for(const ch of node.children||[]){if(ch.hidden)continue;if(ch.children)walk(ch);else if(ch.canvas)x.drawImage(ch.canvas,ch.left||0,ch.top||0)}})(psd);return cv}
+async function psdToData(file){const ag=await loadAgPsd();const buf=await file.arrayBuffer();
+  let psd=ag.readPsd(buf,{skipLayerImageData:true,skipThumbnail:true});
+  let cv=psd.canvas;
+  if(!cv||!cv.width){psd=ag.readPsd(buf,{skipThumbnail:true});cv=psd.canvas||compositePsd(psd)}
+  if(!cv||!cv.width)throw new Error('empty');return canvasToLogoData(cv)}
+function pngToData(file){return new Promise((ok,no)=>{const u=URL.createObjectURL(file),im=new Image();
+  im.onload=()=>{URL.revokeObjectURL(u);ok(canvasToLogoData(im))};im.onerror=()=>{URL.revokeObjectURL(u);no(new Error('png'))};im.src=u})}
 async function addLogoFiles(files){
-  const list=[...files].filter(f=>/\.png$/i.test(f.name)||f.type==='image/png');
-  if(!list.length){toast('Hãy chọn file ảnh PNG (nên có nền trong suốt).');return}
-  doc.logos=doc.logos||[];let last=null;
+  const list=[...files].filter(f=>/\.(png|psd)$/i.test(f.name)||f.type==='image/png');
+  if(!list.length){toast('Hãy chọn file PNG (nền trong suốt) hoặc PSD.');return}
+  doc.logos=doc.logos||[];let last=null,fail=0;
   for(const f of list){
-    if(f.size>8*1024*1024){toast(`"${f.name}" quá lớn (trên 8MB), đã bỏ qua.`);continue}
-    const data=await new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=no;r.readAsDataURL(f)}).catch(()=>null);
-    if(!data)continue;
-    const L={id:'logo_'+uid(),name:f.name.replace(/\.png$/i,''),data};
+    const isPsd=/\.psd$/i.test(f.name);
+    if(f.size>(isPsd?80:16)*1024*1024){toast(`"${f.name}" quá lớn, đã bỏ qua.`);continue}
+    if(isPsd)toast(`Đang đọc ${f.name}…`);
+    let data=null;try{data=isPsd?await psdToData(f):await pngToData(f)}catch(e){fail++;continue}
+    const L={id:'logo_'+uid(),name:f.name.replace(/\.(png|psd)$/i,''),data};
     doc.logos.push(L);await decodeLogo(L);last=L;
   }
-  if(last){renderPane();commit();insertLogo(last);toast('Đã thêm logo. Bấm lại logo trong tab để chèn thêm.')}
+  if(fail)toast(fail===1?'Có 1 file không đọc được (PSD hãy lưu kèm bản xem gộp, hoặc xuất PNG).':`${fail} file không đọc được.`);
+  if(last){renderPane();commit();insertLogo(last);toast('Đã thêm logo vào dự án.')}
 }
 function removeLogo(id){
   doc.logos=(doc.logos||[]).filter(L=>L.id!==id);
@@ -1570,10 +1589,10 @@ function renderPane(){
   if(tab==='bg')renderBgPane(p);
   if(tab==='logo'){
     p.append(el('h2',{textContent:'Logo thương hiệu'}),
-      el('p',{textContent:'Tải logo PNG (nên có nền trong suốt), rồi bấm vào logo để chèn vào slide đang chọn. Logo được lưu kèm trong dự án và xuất ra đúng chất lượng gốc.'}),
-      el('button',{class:'btn wide',style:'margin-bottom:10px',textContent:'Tải logo (PNG)',onclick:()=>$('#logoInput').click()}));
+      el('p',{textContent:'Tải logo PNG (nền trong suốt) hoặc PSD, rồi bấm vào logo để chèn vào slide đang chọn. Logo được lưu kèm trong dự án và xuất ra đúng chất lượng.'}),
+      el('button',{class:'btn wide',style:'margin-bottom:10px',textContent:'Tải logo (PNG / PSD)',onclick:()=>$('#logoInput').click()}));
     const logos=doc.logos||[];
-    if(!logos.length)p.append(el('p',{style:'opacity:.7',textContent:'Chưa có logo nào. Bấm "Tải logo (PNG)" để thêm. Gợi ý: dùng file .png nền trong suốt để chèn đẹp lên ảnh.'}));
+    if(!logos.length)p.append(el('p',{style:'opacity:.7',textContent:'Chưa có logo nào. Bấm "Tải logo (PNG / PSD)" để thêm. File PSD sẽ được gộp phẳng, giữ phần nền trong suốt.'}));
     else{const g=el('div',{class:'logogrid'});
       logos.forEach(L=>{
         const cell=el('div',{class:'logocell',title:'Bấm để chèn “'+L.name+'” vào slide',onclick:()=>insertLogo(L)},el('img',{src:L.data,alt:L.name,draggable:false}));
