@@ -611,6 +611,34 @@ def lap_var(gray: np.ndarray) -> float:
     return float(cv2.Laplacian(gray, cv2.CV_64F).var())
 
 
+def focus_point(gray: np.ndarray):
+    """Điểm nét nhất của ảnh (nơi ống kính bắt nét). Trả (x, y, độ_tập_trung) với x,y đã chuẩn hoá 0..1.
+    Năng lượng gradient (Tenengrad) gộp theo lưới ô, giảm nhiễu trước và mượt nhẹ để lấy VÙNG nét, không bắt 1 ô lẻ.
+    độ_tập_trung = đỉnh / trung vị: cao (~>15) là nét khu trú rõ; thấp là ảnh mờ đều / không có điểm nét rõ."""
+    h, w = gray.shape[:2]
+    if h < 16 or w < 16:
+        return -1.0, -1.0, 0.0
+    g = cv2.GaussianBlur(gray.astype(np.float32), (0, 0), 1.0)   # bớt nhiễu hạt (ISO cao) trước khi đo
+    gx = cv2.Sobel(g, cv2.CV_32F, 1, 0, ksize=3)
+    gy = cv2.Sobel(g, cv2.CV_32F, 0, 1, ksize=3)
+    energy = gx * gx + gy * gy
+    grid = 24
+    ys = np.linspace(0, h, grid + 1).astype(int)
+    xs = np.linspace(0, w, grid + 1).astype(int)
+    tile = np.zeros((grid, grid), np.float32)
+    for j in range(grid):
+        for i in range(grid):
+            blk = energy[ys[j]:ys[j + 1], xs[i]:xs[i + 1]]
+            if blk.size:
+                tile[j, i] = float(blk.mean())
+    tile = cv2.GaussianBlur(tile, (0, 0), 1.0)
+    j, i = np.unravel_index(int(tile.argmax()), tile.shape)
+    cx = (xs[i] + xs[i + 1]) / 2.0 / w
+    cy = (ys[j] + ys[j + 1]) / 2.0 / h
+    conc = float(tile.max() / (float(np.median(tile)) + 1e-9))
+    return round(float(cx), 4), round(float(cy), 4), round(conc, 1)
+
+
 def dhash(gray: np.ndarray) -> str:
     small = cv2.resize(gray, (9, 8), interpolation=cv2.INTER_AREA)
     bits = (small[:, 1:] > small[:, :-1]).flatten()
@@ -874,9 +902,11 @@ class Analyzer:
                 ))
 
         ears = [f["ear"] for f in faces if f["ear"] >= 0]
+        fpx, fpy, fpc = focus_point(gray)
         return dict(
             w=ow, h=oh, sharp=sharp,
             fsharp=faces[0]["sharp"] if faces else 0.0,  # mặt lớn nhất
             lum=lum, lo=lo, hi=hi, dhash=dh, nfaces=len(faces),
             ear_min=min(ears) if ears else -1.0, faces=faces, smile=self.photo_smile(faces),
+            focus_x=fpx, focus_y=fpy, focus_c=fpc,
         )

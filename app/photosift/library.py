@@ -17,7 +17,7 @@ from xml.sax.saxutils import escape
 import cv2
 import numpy as np
 
-from .analyzer import ALL_EXT, ANALYSIS_SIDE, RAW_EXT, Analyzer, _jpg, diag_raw, hamming, load_view, read_exif
+from .analyzer import ALL_EXT, ANALYSIS_SIDE, RAW_EXT, Analyzer, _jpg, diag_raw, focus_point, hamming, load_view, read_exif
 from .errors import friendly
 from .db import DB, HOME
 from .online import Online
@@ -609,6 +609,7 @@ class Library:
         self.cluster()
         self.regroup()
         self._smile_backfill(cancel)
+        self._focus_backfill(cancel)
         try:
             self._catalog_update(root)
             self.trim_cache()
@@ -654,6 +655,41 @@ class Library:
         if done:
             self.db.many("UPDATE photos SET smile=? WHERE id=?", done)
 
+    def _focus_backfill(self, cancel):
+        """Ảnh đã phân tích từ bản cũ chưa có điểm nét: đo bổ sung từ ảnh cache (không đọc lại file RAW)."""
+        rows = self.db.q("SELECT p.id FROM photos p JOIN cur ON cur.id=p.id WHERE p.analyzed=1 AND p.focus_x IS NULL")
+        todo = [r["id"] for r in rows if (PREVIEWS / f"{r['id']}.jpg").exists()]
+        if not todo:
+            return
+        self.status.update(message=f"Đang dò điểm nét ({len(todo)} ảnh)…")
+
+        def one(pid):
+            if cancel.is_set():
+                return pid, None
+            ui_yield()
+            img = cv2.imread(str(PREVIEWS / f"{pid}.jpg"), cv2.IMREAD_GRAYSCALE)
+            if img is None:
+                return pid, (-1.0, -1.0, 0.0)
+            h, w = img.shape[:2]
+            if max(h, w) > ANALYSIS_SIDE:
+                k = ANALYSIS_SIDE / max(h, w)
+                img = cv2.resize(img, (max(1, round(w * k)), max(1, round(h * k))), interpolation=cv2.INTER_AREA)
+            try:
+                return pid, focus_point(img)
+            except Exception:  # noqa: BLE001
+                return pid, (-1.0, -1.0, 0.0)
+        n = os.cpu_count() or 4
+        done = []
+        with ThreadPoolExecutor(max_workers=n if n <= 8 else min(16, n - 1), initializer=_low_prio) as ex:
+            for pid, fp in ex.map(one, todo):
+                if fp is not None:
+                    done.append((fp[0], fp[1], fp[2], pid))
+                if len(done) >= 200:
+                    self.db.many("UPDATE photos SET focus_x=?,focus_y=?,focus_c=? WHERE id=?", done)
+                    done = []
+        if done:
+            self.db.many("UPDATE photos SET focus_x=?,focus_y=?,focus_c=? WHERE id=?", done)
+
     def _prepare_one(self, pid: int, path: str):
         """Pha 1: đọc ảnh xem trước, ghi thumbnail + ảnh cache, đánh dấu ready (hiện được ngay trên lưới)."""
         r = self.an.prepare(path)
@@ -692,9 +728,10 @@ class Library:
             self.db.con.execute("DELETE FROM faces WHERE photo_id=?", (pid,))
             self.db.con.execute(
                 """UPDATE photos SET sharp=?,fsharp=?,lum=?,lo=?,hi=?,dhash=?,
-                   nfaces=?,ear_min=?,smile=?,analyzed=1,err=NULL WHERE id=?""",
+                   nfaces=?,ear_min=?,smile=?,focus_x=?,focus_y=?,focus_c=?,analyzed=1,err=NULL WHERE id=?""",
                 (r["sharp"], r["fsharp"], r["lum"], r["lo"], r["hi"], r["dhash"], r["nfaces"], r["ear_min"],
-                 float(r.get("smile", -1.0)) if self.an.has_smile else None, pid))
+                 float(r.get("smile", -1.0)) if self.an.has_smile else None,
+                 r.get("focus_x"), r.get("focus_y"), r.get("focus_c"), pid))
             for fc in r["faces"]:
                 cur = self.db.con.execute(
                     "INSERT INTO faces(photo_id,fx,fy,fw,fh,det,px,ear,emb,yaw,vert,smile) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
@@ -1096,7 +1133,8 @@ class Library:
                 lum=round(r["lum"] or 0, 3), nf=r["nfaces"], ear=round(r["ear_min"], 3),
                 smile=_num(r["smile"]),
                 rating=r["rating"], label=r["label"], grp=r["grp"], best=r["best"], score=r["score"],
-                away=r["away"] or 0, people=pmap.get(r["id"], []), flags=flags, an=True, err=False, tv=r["tv"]))
+                away=r["away"] or 0, people=pmap.get(r["id"], []), flags=flags, an=True, err=False, tv=r["tv"],
+                focus=[r["focus_x"], r["focus_y"], r["focus_c"]] if ("focus_x" in r.keys() and r["focus_x"] is not None) else None))
         return out
 
     def faces_of(self, photo_id: int):

@@ -49,7 +49,9 @@ class DB:
                         "ALTER TABLE photos ADD COLUMN away INTEGER DEFAULT 0",
                         "ALTER TABLE faces ADD COLUMN yaw REAL DEFAULT -1", "ALTER TABLE faces ADD COLUMN vert REAL DEFAULT -1",
                         "ALTER TABLE photos ADD COLUMN smile REAL", "ALTER TABLE faces ADD COLUMN smile REAL DEFAULT -1",
-                        "ALTER TABLE photos ADD COLUMN cam TEXT", "ALTER TABLE photos ADD COLUMN toff REAL DEFAULT 0"):
+                        "ALTER TABLE photos ADD COLUMN cam TEXT", "ALTER TABLE photos ADD COLUMN toff REAL DEFAULT 0",
+                        "ALTER TABLE photos ADD COLUMN focus_x REAL", "ALTER TABLE photos ADD COLUMN focus_y REAL",
+                        "ALTER TABLE photos ADD COLUMN focus_c REAL"):
                 try:
                     self.con.execute(ddl)
                 except sqlite3.OperationalError:

@@ -155,6 +155,8 @@ body.cat #catalog{display:flex}
 .sc.rej img{opacity:.3}.sc.rej:after{content:'✕';position:absolute;left:0;right:0;top:22px;text-align:center;color:#ff6b6b;font-size:26px;line-height:1}
 .fbox{position:absolute;transform:translate(-50%,-100%);pointer-events:none;font-size:11px;line-height:1.6;white-space:nowrap;padding:0 7px;border-radius:999px;background:rgba(4,14,30,.72);color:#fff}
 .fbox.shut{background:#ba68c8}
+.focusbox{position:absolute;transform:translate(-50%,-50%);pointer-events:none;aspect-ratio:1;border:3px solid #ff2b2b;border-radius:6px;box-shadow:0 0 0 1px rgba(0,0,0,.55),0 0 10px rgba(255,43,43,.5)}
+.focusbox:before{content:"";position:absolute;inset:0;margin:auto;width:6px;height:6px;border-radius:50%;background:#ff2b2b}
 #vback{position:fixed;top:12px;left:14px;z-index:2;display:flex;gap:6px}
 #vback button{background:rgba(4,14,30,.72);color:#fff;border-color:rgba(255,255,255,.28)}
 #vbadge{position:fixed;z-index:1;display:flex;flex-direction:column;align-items:flex-start;gap:4px;pointer-events:none}
@@ -467,7 +469,7 @@ html[data-theme=neutral] #xjcard{border-radius:18px}
 
 <div id="viewer">
   <div id="vback"><button id="vbGrid" title="Quay lại lưới ảnh (Esc)">← Lưới ảnh</button><button id="vbCat" title="Về Catalog thư mục"><svg class="ic" aria-hidden="true"><use href="#i-lib"/></svg>Catalog</button><span class="chip" id="vzoom" hidden></span></div>
-  <div id="vstage"><div id="vwrap"><img id="vimg" alt=""><img id="vmask" alt=""><div id="vfaces"></div><div id="vrate" aria-live="polite"></div></div></div>
+  <div id="vstage"><div id="vwrap"><img id="vimg" alt=""><img id="vmask" alt=""><div id="vfaces"></div><div id="vfocus"></div><div id="vrate" aria-live="polite"></div></div></div>
   <div id="vinfo"></div>
   <div id="strip"><div id="stripin"></div></div>
   <div id="vbadge"></div>
@@ -488,7 +490,7 @@ const FILTERS = [['all','Tất cả'],['unrated','Chưa chấm'],['r1','★ 1+']
   ['best','Tốt nhất trong nhóm trùng'],['face','Có khuôn mặt'],['noface','Không có khuôn mặt'],['raw','Chỉ file RAW (ARW, CR2, NEF…)'],['jpg','Chỉ JPG / ảnh thường']];
 const RAWRE=/\.(arw|srf|sr2|cr2|cr3|nef|nrw|dng|orf|raf|rw2|pef|srw|3fr|erf|kdc|mrw|x3f)$/i;
 const S = {photos:[], viewFull:[], keep:new Set(), open:new Set(), stack:(()=>{ try{ return localStorage.getItem('ps_stack2')==='1'; }catch(e){ return false; } })(),   /* mặc định: ảnh trùng để riêng từng ô */ by:new Map(), view:[], people:[], sel:new Set(), cur:null, anchor:null, filter:'all', sort:'name', pair:'both', person:null, query:'',
-           status:{}, undo:[], viewer:false, boxes:true, zoom:false, lastDone:-1, settings:{}};
+           status:{}, undo:[], viewer:false, boxes:true, focus:false, zoom:false, lastDone:-1, settings:{}};
 
 async function api(path, body){
   let r;
@@ -970,7 +972,7 @@ async function showViewer(){
     if(VPRE.has(u)){ const v=VPRE.get(u); VPRE.delete(u); VPRE.set(u,v); continue; }
     const pre=new Image(); pre.decoding='async'; VPRE.set(u,pre); pre.src=u; }
   while(VPRE.size>24) VPRE.delete(VPRE.keys().next().value);
-  renderInfo(p, ix); renderBadge(p); renderRate(p); loadBoxes(p, tok); updateMask(); renderStrip(true); sendAhead();
+  renderInfo(p, ix); renderBadge(p); renderRate(p); loadBoxes(p, tok); renderFocus(p); updateMask(); renderStrip(true); sendAhead();
 }
 { const st=$('#vstage'); let dn=null, moved=false;   // bấm trái (không kéo) = zoom vào/ra; giữ trái (hoặc phải) rồi kéo = xem quanh ảnh
   st.addEventListener('wheel',e=>{ e.preventDefault(); zoomTo(Z.k*Math.exp(-e.deltaY*.0015),e.clientX,e.clientY); },{passive:false});
@@ -988,6 +990,15 @@ async function loadBoxes(p, tok){
     if(!f.person) return '';
     const top=Math.max(f.y-f.h*.38,.04);  // đỉnh đầu nằm cao hơn khung mặt khoảng 1/3 chiều cao mặt
     return `<div class="fbox ${shut?'shut':''}" style="left:${(f.x+f.w/2)*100}%;top:${top*100}%">${esc(pname(f.person))}</div>`; }).join('');
+}
+/* ô đỏ điểm nét (phím F): nơi ống kính bắt nét, tính từ chính ảnh */
+function renderFocus(p){
+  const box=$('#vfocus'); if(!box) return; box.innerHTML='';
+  if(!S.focus || !p) return;
+  const f=p.focus;                                   // [x, y, độ_tập_trung] đã chuẩn hoá, hoặc null
+  if(!f || f[0]==null || f[0]<0 || (f[2]||0)<4) return;   // chưa có dữ liệu / ảnh phẳng không có điểm nét
+  const land=(p.w||1)>=(p.h||1);
+  box.innerHTML=`<div class="focusbox" style="left:${(f[0]*100).toFixed(2)}%;top:${(f[1]*100).toFixed(2)}%;${land?'height:12%':'width:12%'}"></div>`;
 }
 /* nhãn Trùng / Ảnh tốt nhất: đặt ngay bên phải ảnh; ảnh chiếm hết chiều ngang thì nằm trong góc ảnh */
 function placeBadge(){
@@ -1021,7 +1032,7 @@ function renderInfo(p, ix){
    <div id="vsec"></div>
    <hr style="border-color:var(--line)"><button id="vdiag" style="margin-bottom:8px"><svg class="ic" aria-hidden="true"><use href="#i-tool"/></svg>Chẩn đoán file</button><div class="hint">
    <span class="kbd">←</span><span class="kbd">→</span> chuyển ảnh &nbsp; <span class="kbd">1-5</span> sao (bấm lại để huỷ) &nbsp; <span class="kbd">X</span> loại<br>
-   <span class="kbd">6-9</span> nhãn màu &nbsp; <span class="kbd">F</span> tên người &nbsp; Lăn chuột phóng to, giữ chuột phải kéo ảnh, <span class="kbd">Z</span> phóng nhanh<br><span class="kbd">H</span> vùng cháy/tối &nbsp; <span class="kbd">T</span> bật/tắt dải ảnh thu nhỏ &nbsp; <span class="kbd">Esc</span> quay lại</div>`;
+   <span class="kbd">6-9</span> nhãn màu &nbsp; <span class="kbd">F</span> điểm nét &nbsp; <span class="kbd">H</span> tên người &nbsp; Lăn chuột phóng to, giữ chuột phải kéo ảnh, <span class="kbd">Z</span> phóng nhanh<br><span class="kbd">V</span> vùng cháy/tối &nbsp; <span class="kbd">T</span> bật/tắt dải ảnh thu nhỏ &nbsp; <span class="kbd">Esc</span> quay lại</div>`;
   $('#vstars').onclick=e=>{ const r=e.target.dataset.r; if(r!==undefined) rate([p.id], +r===p.rating?0:+r); };
   fillSections('#vsec', p.id, 'v');
   $('#vdiag').onclick=async()=>{ const r=await api('/api/diag?id='+p.id); const m=modal(`<h3>Chẩn đoán file</h3><pre id="dt" style="white-space:pre-wrap;word-break:break-all;font-size:11px;max-height:55vh;overflow:auto;background:#101114;padding:10px;border-radius:8px"></pre><div class="btns"><button id="dc">Sao chép</button><button class="pri" onclick="this.closest('.back').remove()">Đóng</button></div>`); m.querySelector('#dt').textContent=r.text; m.querySelector('#dc').onclick=()=>{ navigator.clipboard.writeText(r.text); toast('Đã sao chép'); }; };
@@ -1073,7 +1084,7 @@ async function fillSections(sel,id,kind){
     const q=S.by.get(id);
     const E=secHTML('exif','Thông số ảnh',exifHTML(r&&r.exif)), Hh=secHTML('hist','Histogram',histHTML(r&&r.hist));
     el.innerHTML = kind==='v'
-      ? Hh + secHTML('hs','Vùng cháy sáng / mất chi tiết',`<div class="hs">${hsHTML()}</div><div class="hint" style="margin-top:6px">Phím <span class="kbd">H</span> để đổi nhanh</div>`) + E
+      ? Hh + secHTML('hs','Vùng cháy sáng / mất chi tiết',`<div class="hs">${hsHTML()}</div><div class="hint" style="margin-top:6px">Phím <span class="kbd">V</span> để đổi nhanh</div>`) + E
       : ((q&&q.an)?secHTML('q','Chất lượng tự động',`<dl class="ex"><dt>Điểm</dt><dd>${q.score}</dd><dt>Độ nét</dt><dd>${q.nf?q.fsharp+' (mặt)':q.sharp}</dd><dt>Độ sáng TB</dt><dd>${Math.round(q.lum*100)}%</dd><dt>Khuôn mặt</dt><dd>${q.nf}</dd><dt>Cảnh báo</dt><dd>${q.flags.map(f=>FLAG[f]).join(', ')||'—'}</dd></dl>`):'') + Hh + E;
     const cv=el.querySelector('canvas.hist'); if(cv) drawHistogram(cv,r&&r.hist);
     el.querySelectorAll('input[name=hs]').forEach(i=>i.onchange=()=>setHS(i.value));
@@ -1120,7 +1131,7 @@ document.addEventListener('keydown', e=>{
   if(mod) return;
   // macOS (WebKit/pywebview) phát tiếng "beep" mỗi khi một phím không được app "nuốt" (preventDefault).
   // Nuốt mọi phím tắt lọc ảnh (1-5, X, nhãn 6-9) và xem/zoom ảnh (Z, H, F, T, G…) để hết tiếng beep trên máy Mac.
-  if(/^[0-9]$/.test(k) || ['x','X','-','h','H','f','F','z','Z','t','T','g','G','?'].includes(k)) e.preventDefault();
+  if(/^[0-9]$/.test(k) || ['x','X','-','h','H','f','F','v','V','z','Z','t','T','g','G','?'].includes(k)) e.preventDefault();
   if(k==='ArrowRight'){ e.preventDefault(); move(1,e.shiftKey); }
   else if(k==='ArrowLeft'){ e.preventDefault(); move(-1,e.shiftKey); }
   else if(k==='ArrowDown'){ e.preventDefault(); S.viewer?move(1):move(cols(),e.shiftKey); }
@@ -1134,8 +1145,9 @@ document.addEventListener('keydown', e=>{
   else if(k==='x'||k==='X'){ const t=targets(); if(t.length){ rate(t, S.by.get(t[0]).rating===-1?0:-1); advance(t); } }
   else if(k>='6'&&k<='9'){ const t=targets(); label(t, LABELS[+k-6]); advance(t); }
   else if(k==='-') label(targets(), '');
-  else if(k==='h'||k==='H'){ if(S.viewer) cycleHS(); }
-  else if(k==='f'||k==='F'){ S.boxes=!S.boxes; if(S.viewer) showViewer(); }
+  else if(k==='v'||k==='V'){ if(S.viewer) cycleHS(); }
+  else if(k==='h'||k==='H'){ S.boxes=!S.boxes; if(S.viewer) showViewer(); }
+  else if(k==='f'||k==='F'){ S.focus=!S.focus; if(S.viewer) showViewer(); }
   else if(k==='z'||k==='Z'){ if(S.viewer){ const r=$('#vstage').getBoundingClientRect(); zoomToggle(r.left+r.width/2,r.top+r.height/2); } }
   else if(k==='t'||k==='T'){ if(S.viewer) toggleStrip(); }
   else if(k==='g'||k==='G'){ const c=S.by.get(S.cur); if(c&&c.grp) toggleStack(c.grp); }
@@ -1590,8 +1602,8 @@ function targetsForExport(){ return S.sel.size?[...S.sel]:(S.cur!==null?[S.cur]:
 function showHelp(){
   modal(`<h3>Phím tắt</h3><div style="line-height:2">
    <span class="kbd">← → ↑ ↓</span> di chuyển (giữ <span class="kbd">Shift</span> để chọn dải) &nbsp; <span class="kbd">Ctrl+A</span> chọn tất cả<br>
-   <span class="kbd">Esc</span> quay lại một bước &nbsp; <span class="kbd">H</span> vùng cháy/mất chi tiết &nbsp; <span class="kbd">T</span> dải ảnh &nbsp; <span class="kbd">Ctrl+1</span>/<span class="kbd">Ctrl+2</span> Lọc ảnh/Dàn trang<br>
-   <span class="kbd">Enter</span>/<span class="kbd">Space</span> xem ảnh lớn &nbsp; Lăn chuột phóng to, giữ chuột phải kéo ảnh, <span class="kbd">Z</span> phóng nhanh (kiểm tra độ nét) &nbsp; <span class="kbd">F</span> tên người<br>
+   <span class="kbd">Esc</span> quay lại một bước &nbsp; <span class="kbd">V</span> vùng cháy/mất chi tiết &nbsp; <span class="kbd">T</span> dải ảnh &nbsp; <span class="kbd">Ctrl+1</span>/<span class="kbd">Ctrl+2</span> Lọc ảnh/Dàn trang<br>
+   <span class="kbd">Enter</span>/<span class="kbd">Space</span> xem ảnh lớn &nbsp; Lăn chuột phóng to, giữ chuột phải kéo ảnh, <span class="kbd">Z</span> phóng nhanh (kiểm tra độ nét) &nbsp; <span class="kbd">F</span> điểm nét &nbsp; <span class="kbd">H</span> tên người<br>
    <span class="kbd">1–5</span> chấm sao, bấm lại cùng số để huỷ (<span class="kbd">0</span> cũng huỷ) &nbsp; <span class="kbd">X</span> loại / khôi phục &nbsp; <span class="kbd">6</span> đỏ <span class="kbd">7</span> vàng <span class="kbd">8</span> xanh lá <span class="kbd">9</span> xanh dương <span class="kbd">-</span> bỏ nhãn<br>
    <span class="kbd">Ctrl+Z</span> hoàn tác &nbsp; <span class="kbd">Ctrl+Y</span> xuất ảnh</div>
    <div class="hint" style="margin-top:10px">Ứng dụng không bao giờ xóa hay di chuyển file gốc. “Loại” chỉ là một dấu trong cơ sở dữ liệu; hãy xuất ảnh để lấy bộ ảnh đã chọn.</div>
