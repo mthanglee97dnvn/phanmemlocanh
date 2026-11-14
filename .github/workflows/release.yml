@@ -44,6 +44,9 @@ jobs:
             printf 'Phiên bản này cải thiện độ ổn định và sửa một số lỗi.\n\nCảm ơn bạn đã sử dụng MThanglee Cull & Collage.\n© Lê Minh Thắng — MTHANGLEE STUDIO\n' > _notes.txt
             NF=_notes.txt
           fi
+          # Đánh dấu commit nguồn vào ghi chú (ẩn dưới dạng comment HTML — người dùng không thấy).
+          # Nhờ dấu này, build macOS bên Codemagic khớp đúng release của commit mình, khỏi phải chờ thừa.
+          printf '\n\n<!-- src:%s -->\n' "${{ github.event.workflow_run.head_sha }}" >> "$NF"
           RELREPO="${{ github.repository_owner }}/cullcollage-releases"
           if gh release view "$TAG" --repo "$RELREPO" >/dev/null 2>&1; then
             echo "Release $TAG đã có → bổ sung/ghi đè file cài (dùng khi build lại để thêm nền còn thiếu, vd arm64)"

@@ -15,28 +15,33 @@
 
 definitions:
   mac_scripts: &mac_scripts
-    - name: Xác định phiên bản (chờ bản phát hành của lần đẩy này)
+    - name: Xác định phiên bản (khớp release theo đúng commit — không chờ thừa)
       script: |
         set -e
-        get_latest () { curl -s -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$RELREPO/releases/latest" | python3 -c "import sys,json;print(json.load(sys.stdin).get('tag_name',''))"; }
         V="$APP_VERSION"
-        # Nếu gõ số cụ thể (vd 1.1.84) thì dùng luôn, không chờ.
+        # Gõ số cụ thể (vd 1.1.84) thì dùng luôn, không dò.
         if [ -n "$V" ] && [ "$V" != "auto" ]; then
           echo "APP_VERSION=$V" >> "$CM_ENV"; echo "Dùng phiên bản chỉ định v$V"; exit 0
         fi
         [ -n "$GH_TOKEN" ] || { echo "Thiếu GH_TOKEN"; exit 1; }
-        START=$(get_latest); echo "Bản phát hành mới nhất lúc bắt đầu: ${START:-(chưa có)}"
+        SHA=$(git rev-parse HEAD 2>/dev/null || echo "$CM_COMMIT")
+        [ -n "$SHA" ] || { echo "Không xác định được commit đang build"; exit 1; }
+        SHORT=$(printf '%.7s' "$SHA"); echo "Commit đang build: $SHA"
+        # Tìm release trong RELREPO có dấu 'src:<commit này>' trong ghi chú (do release.yml gắn).
+        find_tag () {
+          curl -s -H "Authorization: Bearer $GH_TOKEN" "https://api.github.com/repos/$RELREPO/releases?per_page=30" \
+          | python3 -c "import sys,json;sha=sys.argv[1];d=json.load(sys.stdin);d=d if isinstance(d,list) else [];print(next((r.get('tag_name','') for r in d if isinstance(r,dict) and sha in (r.get('body') or '')),''))" "$SHA"
+        }
         TAG=""
-        # Chạy do đẩy code: bản Windows đang build và sẽ tạo release mới — chờ nó xuất hiện (tối đa ~22 phút).
-        for i in $(seq 1 66); do
-          CUR=$(get_latest)
-          if [ -n "$CUR" ] && [ "$CUR" != "$START" ]; then TAG="$CUR"; break; fi
-          echo "  ...đang chờ bản Windows tạo release mới ($i/66)"; sleep 20
+        # Release của đúng commit này đã có thì dùng NGAY (bản xếp hàng thứ hai không phải chờ);
+        # chưa có thì chờ bản Windows build + tạo release (tối đa ~30 phút).
+        for i in $(seq 1 90); do
+          TAG=$(find_tag)
+          [ -n "$TAG" ] && { echo "Đã khớp release $TAG cho commit $SHORT"; break; }
+          echo "  ...đang chờ bản Windows tạo release cho commit $SHORT ($i/90)"; sleep 20
         done
-        # Không có bản mới (vd chạy lại tay cho bản đã có): dùng bản mới nhất hiện có.
-        [ -n "$TAG" ] || TAG="$START"
+        [ -n "$TAG" ] || { echo "Chưa thấy release cho commit $SHORT — bản Windows đã build xong và gắn dấu commit chưa?"; exit 1; }
         V="${TAG#v}"
-        [ -n "$V" ] || { echo "Chưa xác định được phiên bản — bản Windows đã tạo release chưa?"; exit 1; }
         echo "APP_VERSION=$V" >> "$CM_ENV"
         echo "Build macOS $LABEL cho phiên bản v$V"
     - name: Cài Python 3.12 (python.org, universal2)
@@ -140,6 +145,11 @@ workflows:
       branch_patterns:
         - pattern: main
           include: true
+    when:                     # bỏ qua khi lần đẩy chỉ sửa cấu hình CI (không tạo bản phát hành mới)
+      changeset:
+        excludes:
+          - 'codemagic.yaml'
+          - '.github/workflows/release.yml'
     environment:
       groups:
         - release          # chứa GH_TOKEN
@@ -165,6 +175,11 @@ workflows:
       branch_patterns:
         - pattern: main
           include: true
+    when:                     # bỏ qua khi lần đẩy chỉ sửa cấu hình CI (không tạo bản phát hành mới)
+      changeset:
+        excludes:
+          - 'codemagic.yaml'
+          - '.github/workflows/release.yml'
     environment:
       groups:
         - release
