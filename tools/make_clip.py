@@ -58,7 +58,9 @@ def main() -> None:
             texts.append(p)
     with torch.no_grad():
         tok = tokz(texts, return_tensors="pt", padding=True)
-        temb = model.get_text_features(**tok)
+        # tính tường minh (ổn định mọi phiên bản transformers): text_model -> pooler -> text_projection
+        pooled = model.text_model(**tok).pooler_output
+        temb = model.text_projection(pooled)
         temb = temb / temb.norm(dim=-1, keepdim=True)
     emb = temb.cpu().numpy().astype(np.float32)
     size = int(model.config.vision_config.image_size)
@@ -76,7 +78,8 @@ def main() -> None:
             self.m = m
 
         def forward(self, pixel_values):   # trả embedding đã chiếu (cùng không gian với text)
-            return self.m.get_image_features(pixel_values=pixel_values)
+            pooled = self.m.vision_model(pixel_values=pixel_values).pooler_output
+            return self.m.visual_projection(pooled)
 
     dummy = torch.randn(1, 3, size, size)
     fp32 = OUT / "clip_vision_fp32.onnx"
