@@ -1,0 +1,47 @@
+name: Tạo model phân loại cảnh (CLIP)
+
+# Chạy TAY (Actions > "Tạo model phân loại cảnh (CLIP)" > Run workflow), MỘT LẦN.
+# Sinh clip_vision.onnx + clip_text.npz rồi đăng lên release 'models' của cullcollage-releases.
+# Sau đó mọi bản build (Windows + macOS) tự tải 2 file này về và đóng gói kèm.
+# Muốn đổi câu mô tả / model: sửa tools/make_clip.py rồi chạy lại workflow này.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  make:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Cài thư viện (chỉ để sinh model — không đi vào app)
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install transformers onnx onnxruntime numpy
+
+      - name: Sinh clip_vision.onnx + clip_text.npz
+        run: |
+          python tools/make_clip.py
+          ls -la app/models/clip_vision.onnx app/models/clip_text.npz
+
+      - name: Đăng lên release 'models' của cullcollage-releases
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        run: |
+          REPO="${{ github.repository_owner }}/cullcollage-releases"
+          if gh release view models --repo "$REPO" >/dev/null 2>&1; then
+            gh release upload models app/models/clip_vision.onnx app/models/clip_text.npz --repo "$REPO" --clobber
+          else
+            gh release create models app/models/clip_vision.onnx app/models/clip_text.npz \
+              --repo "$REPO" --title "Model phụ trợ" \
+              --notes "File model phụ trợ cho MThanglee Cull&Collage (CLIP — phân loại ảnh decor/chi tiết/vật phẩm)."
+          fi
+          echo "Xong. Các bản build sau sẽ tự tải 2 file này."

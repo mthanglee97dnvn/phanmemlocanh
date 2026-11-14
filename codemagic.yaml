@@ -63,6 +63,7 @@ definitions:
         ls wh
         $VRUN -m pip install --no-index --find-links wh opencv-contrib-python numpy rawpy pillow pillow-heif
         $VRUN -m pip install pyinstaller pywebview certifi nuitka ordered-set zstandard
+        $VRUN -m pip install onnxruntime   # chạy model CLIP (phân loại cảnh); đúng chip nhờ VRUN
         npm i --no-save javascript-obfuscator@4.1.1
         $VRUN -c "import cv2, numpy, platform; print('kien truc', platform.machine(), '| opencv', cv2.__version__, '| numpy', numpy.__version__)"
     - name: Tải model nhận diện
@@ -75,6 +76,9 @@ definitions:
         curl -fL --retry 3 -o app/models/ferplus.onnx https://media.githubusercontent.com/media/onnx/models/main/validated/vision/body_analysis/emotion_ferplus/model/emotion-ferplus-8.onnx
         test $(wc -c < app/models/sface.onnx) -gt 1000000
         test $(wc -c < app/models/ferplus.onnx) -gt 1000000
+        # Phân loại cảnh (CLIP) — tuỳ chọn: tải nếu đã host, không có thì bỏ qua (tính năng tự tắt)
+        curl -fL --retry 3 -o app/models/clip_vision.onnx https://github.com/mthanglee97dnvn/cullcollage-releases/releases/download/models/clip_vision.onnx || echo "(chưa có clip_vision.onnx - bỏ qua)"
+        curl -fL --retry 3 -o app/models/clip_text.npz   https://github.com/mthanglee97dnvn/cullcollage-releases/releases/download/models/clip_text.npz   || echo "(chưa có clip_text.npz - bỏ qua)"
     - name: Đóng gói .app (ký ad-hoc, bắt buộc với chip Apple)
       script: |
         set -e

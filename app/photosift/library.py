@@ -610,6 +610,7 @@ class Library:
         self.regroup()
         self._smile_backfill(cancel)
         self._focus_backfill(cancel)
+        self._scene_backfill(cancel)
         try:
             self._catalog_update(root)
             self.trim_cache()
@@ -690,6 +691,37 @@ class Library:
         if done:
             self.db.many("UPDATE photos SET focus_x=?,focus_y=?,focus_c=? WHERE id=?", done)
 
+    def _scene_backfill(self, cancel):
+        """Ảnh KHÔNG người từ bản cũ chưa có nhãn cảnh: phân loại bổ sung từ ảnh cache (nếu có model CLIP)."""
+        from . import scene as _scene
+        if not _scene.available():
+            return
+        rows = self.db.q("SELECT p.id FROM photos p JOIN cur ON cur.id=p.id "
+                         "WHERE p.analyzed=1 AND (p.nfaces=0 OR p.nfaces IS NULL) AND p.scene IS NULL")
+        todo = [r["id"] for r in rows if (PREVIEWS / f"{r['id']}.jpg").exists()]
+        if not todo:
+            return
+        self.status.update(message=f"Đang phân loại ảnh cảnh ({len(todo)} ảnh)…")
+
+        def one(pid):
+            if cancel.is_set():
+                return pid, None
+            ui_yield()
+            img = cv2.imread(str(PREVIEWS / f"{pid}.jpg"), cv2.IMREAD_COLOR)
+            if img is None:
+                return pid, ("", None)
+            r = _scene.classify(img)
+            return pid, ((r[0], r[1]) if r else ("", None))
+        done = []
+        with ThreadPoolExecutor(max_workers=2, initializer=_low_prio) as ex:   # CLIP nặng -> ít luồng
+            for pid, res in ex.map(one, todo):
+                if res is not None:
+                    done.append((res[0] or None, res[1], pid))
+                if len(done) >= 100:
+                    self.db.many("UPDATE photos SET scene=?,scene_c=? WHERE id=?", done); done = []
+        if done:
+            self.db.many("UPDATE photos SET scene=?,scene_c=? WHERE id=?", done)
+
     def _prepare_one(self, pid: int, path: str):
         """Pha 1: đọc ảnh xem trước, ghi thumbnail + ảnh cache, đánh dấu ready (hiện được ngay trên lưới)."""
         r = self.an.prepare(path)
@@ -728,10 +760,10 @@ class Library:
             self.db.con.execute("DELETE FROM faces WHERE photo_id=?", (pid,))
             self.db.con.execute(
                 """UPDATE photos SET sharp=?,fsharp=?,lum=?,lo=?,hi=?,dhash=?,
-                   nfaces=?,ear_min=?,smile=?,focus_x=?,focus_y=?,focus_c=?,analyzed=1,err=NULL WHERE id=?""",
+                   nfaces=?,ear_min=?,smile=?,focus_x=?,focus_y=?,focus_c=?,scene=?,scene_c=?,analyzed=1,err=NULL WHERE id=?""",
                 (r["sharp"], r["fsharp"], r["lum"], r["lo"], r["hi"], r["dhash"], r["nfaces"], r["ear_min"],
                  float(r.get("smile", -1.0)) if self.an.has_smile else None,
-                 r.get("focus_x"), r.get("focus_y"), r.get("focus_c"), pid))
+                 r.get("focus_x"), r.get("focus_y"), r.get("focus_c"), r.get("scene"), r.get("scene_c"), pid))
             for fc in r["faces"]:
                 cur = self.db.con.execute(
                     "INSERT INTO faces(photo_id,fx,fy,fw,fh,det,px,ear,emb,yaw,vert,smile) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
@@ -1120,7 +1152,7 @@ class Library:
                 out.append(dict(
                     id=r["id"], name=os.path.basename(r["path"]), dir=r["dir"], w=r["w"], h=r["h"], taken=self._et(r),
                     smile=-1, sharp=0, fsharp=0, lum=0, nf=0, ear=-1, rating=r["rating"], label=r["label"], grp=0, best=0,
-                    score=0, people=[], flags=[], an=False, err=bool(r["err"]), tv=r["tv"], hl=False))
+                    score=0, people=[], flags=[], an=False, err=bool(r["err"]), tv=r["tv"], hl=False, scene=None))
                 continue
             if self._sharp_val(r, ref_g, ref_f) < S["blur_ratio"]:
                 flags.append("blur")
@@ -1149,6 +1181,7 @@ class Library:
                 smile=_num(r["smile"]),
                 rating=r["rating"], label=r["label"], grp=r["grp"], best=r["best"], score=r["score"],
                 away=r["away"] or 0, people=pmap.get(r["id"], []), flags=flags, an=True, err=False, tv=r["tv"], hl=hl,
+                scene=(r["scene"] if "scene" in r.keys() else None),
                 focus=[r["focus_x"], r["focus_y"], r["focus_c"]] if ("focus_x" in r.keys() and r["focus_x"] is not None) else None))
         return out
 

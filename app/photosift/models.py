@@ -27,6 +27,14 @@ MODELS = [
     ("ferplus.onnx",
      "https://media.githubusercontent.com/media/onnx/models/main/validated/vision/body_analysis/emotion_ferplus/model/emotion-ferplus-8.onnx",
      False),
+    # Tuỳ chọn: phân loại ảnh KHÔNG người (decor / chi tiết / vật phẩm) — CLIP, sinh bởi tools/make_clip.py
+    # và đăng (một lần) lên release 'models' của cullcollage-releases. Thiếu thì chỉ tắt tính năng phân loại.
+    ("clip_vision.onnx",
+     "https://github.com/mthanglee97dnvn/cullcollage-releases/releases/download/models/clip_vision.onnx",
+     False),
+    ("clip_text.npz",
+     "https://github.com/mthanglee97dnvn/cullcollage-releases/releases/download/models/clip_text.npz",
+     False),
 ]
 
 

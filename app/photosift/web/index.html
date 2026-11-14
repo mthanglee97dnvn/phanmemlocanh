@@ -511,7 +511,8 @@ const LABELS = ['red','yellow','green','blue','purple'];
 const LABEL_NAME = {red:'Đỏ',yellow:'Vàng',green:'Xanh lá',blue:'Xanh dương',purple:'Tím'};
 const FILTERS = [['all','Tất cả'],['unrated','Chưa chấm'],['r1','★ 1+'],['r2','★★ 2+'],['r3','★★★ 3+'],['r4','★★★★ 4+'],['r5','★★★★★ 5'],
   ['rej','✕ Đã loại'],['norej','Không bị loại'],['issues','⚠ Có vấn đề (mọi loại)'],['blur','Mờ'],['dark','Tối'],['bright','Sáng quá'],['eyes','Nhắm mắt?'],['away','Có người quay mặt'],['smile','Có nụ cười'],['dup','Trùng lặp (bản kém hơn)'],
-  ['best','Tốt nhất trong nhóm trùng'],['highlight','⭐ Ảnh highlight (cô dâu & chú rể)'],['face','Có khuôn mặt'],['noface','Không có khuôn mặt'],['raw','Chỉ file RAW (ARW, CR2, NEF…)'],['jpg','Chỉ JPG / ảnh thường']];
+  ['best','Tốt nhất trong nhóm trùng'],['highlight','⭐ Ảnh highlight (cô dâu & chú rể)'],['face','Có khuôn mặt'],['noface','Không có khuôn mặt'],
+  ['decor','🎀 Decor / trang trí'],['detail','💍 Cận cảnh chi tiết'],['object','🎁 Vật phẩm'],['raw','Chỉ file RAW (ARW, CR2, NEF…)'],['jpg','Chỉ JPG / ảnh thường']];
 const RAWRE=/\.(arw|srf|sr2|cr2|cr3|nef|nrw|dng|orf|raf|rw2|pef|srw|3fr|erf|kdc|mrw|x3f)$/i;
 const S = {photos:[], viewFull:[], keep:new Set(), open:new Set(), stack:(()=>{ try{ return localStorage.getItem('ps_stack2')==='1'; }catch(e){ return false; } })(),   /* mặc định: ảnh trùng để riêng từng ô */ by:new Map(), view:[], people:[], sel:new Set(), cur:null, anchor:null, filter:'all', sort:'name', pair:'both', person:null, query:'',
            status:{}, undo:[], viewer:false, boxes:true, focus:false, zoom:false, lastDone:-1, lastFilter:'r5', settings:{}};
@@ -572,6 +573,7 @@ function matchFilter(p){
     case 'issues': return p.flags.length>0;
     case 'raw': return RAWRE.test(p.name); case 'jpg': return !RAWRE.test(p.name);
     case 'best': return p.grp>0 && p.best; case 'highlight': return !!p.hl; case 'face': return p.nf>0; case 'noface': return p.nf===0;
+    case 'decor': return p.scene==='decor'; case 'detail': return p.scene==='detail'; case 'object': return p.scene==='object';
     case 'pv': return !!(S.pv&&S.pv.has(p.id));
     case 'smile': return (p.smile??-1)>=SMILE_ON;
     case 'blur': case 'dark': case 'bright': case 'eyes': case 'away': case 'dup': return p.flags.includes(f);

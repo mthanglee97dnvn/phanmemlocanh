@@ -903,10 +903,19 @@ class Analyzer:
 
         ears = [f["ear"] for f in faces if f["ear"] >= 0]
         fpx, fpy, fpc = focus_point(gray)
+        scene_lbl, scene_c = None, None
+        if not faces:   # ảnh KHÔNG có người -> phân loại decor / chi tiết / vật phẩm (nếu có model CLIP)
+            try:
+                from . import scene as _scene
+                r = _scene.classify(img)
+                if r:
+                    scene_lbl, scene_c = r
+            except Exception:  # noqa: BLE001
+                pass
         return dict(
             w=ow, h=oh, sharp=sharp,
             fsharp=faces[0]["sharp"] if faces else 0.0,  # mặt lớn nhất
             lum=lum, lo=lo, hi=hi, dhash=dh, nfaces=len(faces),
             ear_min=min(ears) if ears else -1.0, faces=faces, smile=self.photo_smile(faces),
-            focus_x=fpx, focus_y=fpy, focus_c=fpc,
+            focus_x=fpx, focus_y=fpy, focus_c=fpc, scene=scene_lbl, scene_c=scene_c,
         )
