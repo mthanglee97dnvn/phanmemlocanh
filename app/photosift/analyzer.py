@@ -200,6 +200,50 @@ def _scan_largest(f):
     return img, ori
 
 
+def _tiff_ori_from_bytes(buf: bytes) -> int:
+    """Đọc Orientation (tag 0x0112) từ một khối TIFF/EXIF độc lập (vd nội dung hộp CMT1 của CR3)."""
+    import struct
+    if len(buf) < 8 or buf[:2] not in (b"II", b"MM"):
+        return 1
+    e = "<" if buf[:2] == b"II" else ">"
+    try:
+        off = struct.unpack(e + "I", buf[4:8])[0]
+        if off + 2 > len(buf):
+            return 1
+        n = struct.unpack(e + "H", buf[off:off + 2])[0]
+        for k in range(min(n, 400)):
+            ent = off + 2 + k * 12
+            if ent + 12 > len(buf):
+                break
+            if struct.unpack(e + "H", buf[ent:ent + 2])[0] == 0x0112:
+                return struct.unpack(e + "H", buf[ent + 8:ent + 10])[0]
+    except Exception:  # noqa: BLE001
+        pass
+    return 1
+
+
+def _cr3_orientation(f) -> int:
+    """CR3 (Canon) giữ EXIF trong hộp CMT1 — một khối TIFF nằm trong moov, không đọc được bằng
+    cấu trúc TIFF ở đầu file. Tìm hộp CMT1 trong ~2 MB đầu rồi đọc Orientation từ đó."""
+    try:
+        f.seek(0)
+        buf = f.read(2 << 20)
+    except Exception:  # noqa: BLE001
+        return 1
+    i = buf.find(b"CMT1")
+    while i != -1:
+        if i >= 4:
+            size = int.from_bytes(buf[i - 4:i], "big")   # kích thước hộp BMFF (gồm cả 8 byte header)
+            if 16 <= size <= 1 << 20:
+                content = buf[i + 4:(i - 4) + size]
+                if content[:2] in (b"II", b"MM"):
+                    o = _tiff_ori_from_bytes(content)
+                    if o not in (0, 1):
+                        return o
+        i = buf.find(b"CMT1", i + 4)
+    return 1
+
+
 def _resolve_ori(info, jpeg_ori: int):
     """Hướng xoay: ưu tiên IFD0 → IFD khác trong file RAW → EXIF của chính ảnh JPEG nhúng."""
     if info:
@@ -234,7 +278,11 @@ def read_raw_preview(path: str, thumb: bool = False):
             if alt is not None and (img is None or alt.shape[0] * alt.shape[1] > img.shape[0] * img.shape[1]):
                 img, jori = alt, aori
         ori, _ = _resolve_ori(info, jori)
-        if thumb and ori == 1 and cands:   # thumbnail không mang hướng xoay → xem phần đầu JPEG lớn (vài KB)
+        if ori in (0, 1) and info is None:   # CR3/RAF (không phải TIFF): thử đọc cờ xoay trong hộp CMT1 (Canon)
+            o2 = _cr3_orientation(f)
+            if o2 not in (0, 1):
+                ori = o2
+        if thumb and ori in (0, 1) and cands:   # thumbnail không mang hướng xoay → xem phần đầu JPEG lớn (vài KB)
             f.seek(cands[-1][0])
             ori = _jpeg_exif_ori(f.read(16384))
     if img is not None:
@@ -339,6 +387,9 @@ def diag_raw(path: str) -> str:
             L.append("Không phải cấu trúc TIFF (ví dụ RAF/CR3) → dùng quét JPEG dự phòng.")
             img, aori = _scan_largest(f)
             L.append(f"JPEG lớn nhất trong 8MB đầu: {None if img is None else img.shape[1::-1]}, EXIF orientation={aori}")
+            cmt = _cr3_orientation(f)
+            L.append(f"Orientation từ hộp CMT1 (CR3): {cmt}")
+            L.append(f"=> HƯỚNG XOAY ÁP DỤNG: {cmt if cmt not in (0, 1) else aori}")
             return "\n".join(L)
         L.append(f"Kiểu byte: {info['endian']}")
         L.append("Các IFD đã duyệt (offset, độ sâu, Orientation, danh sách tag):")
