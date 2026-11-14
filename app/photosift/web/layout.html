@@ -93,6 +93,14 @@ button,input,select,textarea{font:inherit;color:inherit}
 .shapes button{aspect-ratio:1;background:var(--panel-2);border:1px solid var(--line);border-radius:4px;cursor:pointer;padding:9px;color:var(--fg)}
 .shapes button:hover{border-color:var(--accent)}
 .shapes svg{width:100%;height:100%;display:block;fill:currentColor}
+.logogrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.logocell{position:relative;aspect-ratio:3/2;border:1px solid var(--line);border-radius:5px;cursor:pointer;overflow:hidden;
+  background-color:var(--panel-2);background-image:linear-gradient(45deg,rgba(128,128,128,.22) 25%,transparent 25%,transparent 75%,rgba(128,128,128,.22) 75%),linear-gradient(45deg,rgba(128,128,128,.22) 25%,transparent 25%,transparent 75%,rgba(128,128,128,.22) 75%);background-size:14px 14px;background-position:0 0,7px 7px}
+.logocell:hover{border-color:var(--accent)}
+.logocell img{position:absolute;inset:7px;width:calc(100% - 14px);height:calc(100% - 14px);object-fit:contain;pointer-events:none}
+.logodel{position:absolute;top:3px;right:3px;width:20px;height:20px;line-height:18px;text-align:center;border-radius:50%;border:none;background:rgba(10,12,15,.72);color:#fff;font-size:15px;cursor:pointer;opacity:0;transition:opacity .12s}
+.logocell:hover .logodel,.logodel:focus{opacity:1}
+.logodel:hover{background:var(--danger,#d9534f)}
 .swatches{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
 .swatches button{aspect-ratio:1;border:1px solid var(--line);border-radius:3px;cursor:pointer;padding:0}
 .swatches button:hover{outline:2px solid var(--accent);outline-offset:1px}
@@ -503,6 +511,7 @@ dialog select,dialog input[type=number],dialog input[type=text]{border-radius:va
       <button role="tab" data-tab="text" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6.5V4.5h14v2"/><path d="M12 4.5v15"/><path d="M8.5 19.5h7"/></svg><span>Chữ</span></button>
       <button role="tab" data-tab="shapes" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8.3" cy="8.3" r="4.8"/><rect x="11.5" y="11.5" width="9" height="9" rx="1.6"/></svg><span>Hình</span></button>
       <button role="tab" data-tab="bg" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8.5 4.7L12 12.4 3.5 7.7z"/><path d="M3.5 12.3L12 17l8.5-4.7"/></svg><span>Nền</span></button>
+      <button role="tab" data-tab="logo" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 15.5l5-6 4 4.5 3-3.5 4 5"/><rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="8" cy="8.5" r="1.6"/></svg><span>Logo</span></button>
     </nav>
     <div class="pane" id="pane"></div>
   </aside>
@@ -551,6 +560,7 @@ dialog select,dialog input[type=number],dialog input[type=text]{border-radius:va
 <input type="file" id="refInput" accept="image/*" hidden>
 <input type="file" id="bgInput" accept="image/*" multiple hidden>
 <input type="file" id="colorInput" accept="image/*,.txt,.css,.json,.hex,.csv" hidden>
+<input type="file" id="logoInput" accept=".png,image/png" multiple hidden>
 
 <dialog id="confirmDlg">
   <h2 id="confirmTitle"></h2>
@@ -721,6 +731,7 @@ function photoItem(p={}){return {id:uid(),type:'photo',x:0,y:0,w:600,h:600,rot:0
 function textItem(p={}){return {id:uid(),type:'text',x:120,y:120,w:800,h:120,rot:0,opacity:1,locked:false,text:'Nhập chữ của bạn',font:'Segoe UI',size:96,weight:700,italic:false,
   color:'#16181d',align:'left',lh:1.15,ls:0,shadow:false,...p}}
 function shapeItem(p={}){return {id:uid(),type:'shape',kind:'rect',x:200,y:200,w:300,h:300,rot:0,opacity:1,locked:false,fill:'#f2b01e',stroke:'#16181d',sw:0,radius:0,...p}}
+function logoItem(p={}){return {id:uid(),type:'logo',logo:null,x:200,y:200,w:400,h:300,rot:0,opacity:1,locked:false,...p}}
 
 /* ---------- history ---------- */
 function resetHistory(){hist=[JSON.stringify(doc)];hi=0;updateUndo()}
@@ -805,8 +816,34 @@ function drawItem(ctx,it,opt){
   ctx.save();if(it.clip){ctx.beginPath();ctx.rect(slideAt(it)*W,0,W,doc.h);ctx.clip()}ctx.translate(it.x+it.w/2,it.y+it.h/2);ctx.rotate(rad(it.rot));ctx.globalAlpha=it.opacity;
   if(it.type==='photo')drawPhoto(ctx,it,opt);
   else if(it.type==='text')drawText(ctx,it,opt);
+  else if(it.type==='logo')drawLogo(ctx,it);
   else{shapePath(ctx,it);if(it.fill!=='none'){if(it.fill2){const a=rad(it.angle||0),c=Math.cos(a),n=Math.sin(a),l=Math.abs(it.w*c)+Math.abs(it.h*n),g=ctx.createLinearGradient(-c*l/2,-n*l/2,c*l/2,n*l/2);g.addColorStop(0,it.fill);g.addColorStop(1,it.fill2);ctx.fillStyle=g}else ctx.fillStyle=it.fill;ctx.fill()}if(it.sw>0){ctx.strokeStyle=it.stroke;ctx.lineWidth=it.sw;ctx.stroke()}}
   ctx.restore();
+}
+/* ---------- logo thương hiệu (PNG, nhúng thẳng trong dự án) ---------- */
+let logoImgs={};            // id -> HTMLImageElement đã giải mã
+function decodeLogo(L){return new Promise(res=>{const im=new Image();im.onload=()=>{logoImgs[L.id]=im;dirty=true;scheduleThumbs();res()};im.onerror=()=>res();im.src=L.data})}
+function decodeLogos(){logoImgs={};return Promise.all((doc&&doc.logos||[]).map(decodeLogo))}
+function drawLogo(ctx,it){const im=logoImgs[it.logo];if(!im||!im.width)return;const s=Math.min(it.w/im.width,it.h/im.height),w=im.width*s,h=im.height*s;ctx.drawImage(im,-w/2,-h/2,w,h)}
+function insertLogo(L){const im=logoImgs[L.id],ar=im&&im.width?im.width/im.height:1.5;let w=Math.round(W*0.28),h=Math.round(w/ar);const hmax=doc.h*0.6;if(h>hmax){h=Math.round(hmax);w=Math.round(h*ar)}addItem(placeCenter(logoItem({logo:L.id,w,h})))}
+async function addLogoFiles(files){
+  const list=[...files].filter(f=>/\.png$/i.test(f.name)||f.type==='image/png');
+  if(!list.length){toast('Hãy chọn file ảnh PNG (nên có nền trong suốt).');return}
+  doc.logos=doc.logos||[];let last=null;
+  for(const f of list){
+    if(f.size>8*1024*1024){toast(`"${f.name}" quá lớn (trên 8MB), đã bỏ qua.`);continue}
+    const data=await new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=no;r.readAsDataURL(f)}).catch(()=>null);
+    if(!data)continue;
+    const L={id:'logo_'+uid(),name:f.name.replace(/\.png$/i,''),data};
+    doc.logos.push(L);await decodeLogo(L);last=L;
+  }
+  if(last){renderPane();commit();insertLogo(last);toast('Đã thêm logo. Bấm lại logo trong tab để chèn thêm.')}
+}
+function removeLogo(id){
+  doc.logos=(doc.logos||[]).filter(L=>L.id!==id);
+  const using=new Set(doc.items.filter(t=>t.type==='logo'&&t.logo===id).map(t=>t.id));
+  if(using.size){doc.items=doc.items.filter(t=>!using.has(t.id));sels=sels.filter(s=>!using.has(s))}
+  delete logoImgs[id];renderPane();commit();syncAll()
 }
 function drawCover(ctx,b,rec,img,x,y,w,h,opt){
   ctx.save();ctx.beginPath();ctx.rect(x,y,w,h);ctx.clip();ctx.globalAlpha=b.opacity;
@@ -1531,6 +1568,19 @@ function renderPane(){
     [['Khung trống vuông',{w:700,h:700}],['Khung trống dọc',{w:640,h:860}],['Khung trống tròn',{w:640,h:640,mask:'circle'}],['Khung trống vòm',{w:640,h:860,mask:'arch'}]]
       .forEach(([l,o])=>p.append(el('button',{class:'btn wide',style:'margin-bottom:6px',textContent:l,onclick:()=>addItem(placeCenter(photoItem(o)))})))}
   if(tab==='bg')renderBgPane(p);
+  if(tab==='logo'){
+    p.append(el('h2',{textContent:'Logo thương hiệu'}),
+      el('p',{textContent:'Tải logo PNG (nên có nền trong suốt), rồi bấm vào logo để chèn vào slide đang chọn. Logo được lưu kèm trong dự án và xuất ra đúng chất lượng gốc.'}),
+      el('button',{class:'btn wide',style:'margin-bottom:10px',textContent:'Tải logo (PNG)',onclick:()=>$('#logoInput').click()}));
+    const logos=doc.logos||[];
+    if(!logos.length)p.append(el('p',{style:'opacity:.7',textContent:'Chưa có logo nào. Bấm "Tải logo (PNG)" để thêm. Gợi ý: dùng file .png nền trong suốt để chèn đẹp lên ảnh.'}));
+    else{const g=el('div',{class:'logogrid'});
+      logos.forEach(L=>{
+        const cell=el('div',{class:'logocell',title:'Bấm để chèn “'+L.name+'” vào slide',onclick:()=>insertLogo(L)},el('img',{src:L.data,alt:L.name,draggable:false}));
+        cell.append(el('button',{class:'logodel','aria-label':'Xóa logo '+L.name,textContent:'×',onclick:e=>{e.stopPropagation();removeLogo(L.id)}}));
+        g.append(cell)});
+      p.append(g)}
+  }
   p.scrollTop=top;
 }
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('button');if(b){tab=b.dataset.tab;renderPane()}});
@@ -1628,7 +1678,7 @@ function renderProps(){
       el('div',{class:'f two'},el('span',{style:'color:var(--muted)',textContent:'Số slide'}),el('span',{textContent:`${doc.slides} slide, ${stripW()} × ${doc.h} px`})),
       el('h3',{textContent:'Phím tắt'}),
       el('div',{class:'keys',html:'<kbd>Nhấp đúp</kbd><span>Chỉnh khung ảnh hoặc sửa chữ</span><kbd>Ctrl+Cuộn</kbd><span>Phóng to, thu nhỏ</span><kbd>Cuộn</kbd><span>Lướt qua các slide</span><kbd>Dấu cách</kbd><span>Giữ rồi kéo để di chuyển khung nhìn</span><kbd>Ctrl/Shift+Nhấp</kbd><span>Chọn hoặc bỏ chọn nhiều mục</span><kbd>Kéo vùng trống</kbd><span>Quét chọn nhiều mục</span><kbd>Alt+Kéo ảnh</kbd><span>Đổi ảnh giữa hai khung</span><kbd>Ctrl khi kéo</kbd><span>Tắt hít một lần</span><kbd>Ctrl+A</kbd><span>Chọn tất cả</span><kbd>Ctrl+C / V</kbd><span>Sao chép, dán</span><kbd>Shift</kbd><span>Giữ tỉ lệ khi đổi kích thước</span><kbd>Ctrl+D</kbd><span>Nhân đôi</span><kbd>Mũi tên</kbd><span>Dịch 1 px, Shift 10 px</span><kbd>Ctrl+0</kbd><span>Vừa màn hình</span>'}));return}
-  const titles={photo:'Ảnh',text:'Chữ',shape:'Hình'};p.append(el('h2',{textContent:titles[it.type]}));
+  const titles={photo:'Ảnh',text:'Chữ',shape:'Hình',logo:'Logo'};p.append(el('h2',{textContent:titles[it.type]}));
   if(it.type==='text'){const t=el('textarea',{id:'p-text',value:it.text,'aria-label':'Nội dung chữ',oninput:()=>{it.text=t.value;fitText(it);dirty=true;touch()},onchange:commit});p.append(t);
     const fb=el('button',{class:'fontbtn',id:'p-font','aria-haspopup':'dialog',onclick:e=>openFontPicker(e.currentTarget,it)},el('span',{textContent:it.font}),el('i',{textContent:'▾'}));fb.firstChild.style.fontFamily=`"${it.font.replace(/"/g,'')}"`;
     p.append(el('div',{class:'f two'},el('label',{htmlFor:'p-font',textContent:'Phông chữ'}),fb));
@@ -1657,6 +1707,9 @@ function renderProps(){
   }
   if(it.type==='shape'){slideControls(p);p.append(ctlColor('Màu nền','fill',()=>it.fill,v=>it.fill=v),ctlRange('Viền','sw',()=>it.sw,v=>it.sw=v,0,60,1),ctlColor('Màu viền','stroke',()=>it.stroke,v=>it.stroke=v));
     if(it.kind==='rect')p.append(ctlRange('Bo góc','radius',()=>it.radius,v=>it.radius=v,0,300,2))}
+  if(it.type==='logo'){const im=logoImgs[it.logo];
+    p.append(el('p',{style:'opacity:.7;margin:2px 0 8px',textContent:'Logo giữ nguyên tỉ lệ, không bị kéo méo. Kéo góc để đổi cỡ, giữ Shift để giữ tỉ lệ khung.'}),
+      el('div',{class:'row'},btn('Khớp khung với logo',()=>{const m=logoImgs[it.logo];if(m&&m.width){const ar=m.width/m.height,cx=it.x+it.w/2,cy=it.y+it.h/2;it.h=Math.round(it.w/ar);it.x=Math.round(cx-it.w/2);it.y=Math.round(cy-it.h/2);commit();renderProps();dirty=true}},{disabled:!im||!im.width,title:'Bỏ khoảng trống thừa quanh logo'})));}
   if(it.type==='text')slideControls(p);
   p.append(el('h3',{textContent:'Vị trí'}),el('div',{class:'nums'},num('X','x',()=>it.x,v=>it.x=v),num('Y','y',()=>it.y,v=>it.y=v),num('R','w',()=>it.w,v=>{it.w=Math.max(10,v);if(it.type==='text')fitText(it)}),num('C','h',()=>it.h,v=>{if(it.type!=='text')it.h=Math.max(10,v)})),
     ctlRange('Xoay','rot',()=>it.rot,v=>it.rot=v,-180,180,1,v=>v+'°'),ctlRange('Độ đậm','op',()=>it.opacity,v=>it.opacity=v,.05,1,.01,v=>Math.round(v*100)+'%'));
@@ -1832,7 +1885,7 @@ async function readZip(blob){
     if(method!==0)throw new Error('compressed');out[name]=blob.slice(start,start+len);p+=46+n+x+c}
   return out}
 function clearImages(){for(const id of[...imgOrder])forgetImage(id);imgOrder=[];binSel.clear()}
-function adoptDoc(d){clearTimeout(saveT);d.auto=d.auto||{margin:60,gap:20,max:4};d.bg={...BG0,...d.bg};loadColors(d.colors);doc=d;sels=[];crop=false;activeSlide=0;layoutState={};resetHistory();syncAll();resize();fit();if(tab==='photos')renderPane()}
+function adoptDoc(d){clearTimeout(saveT);d.auto=d.auto||{margin:60,gap:20,max:4};d.bg={...BG0,...d.bg};d.logos=d.logos||[];loadColors(d.colors);doc=d;sels=[];crop=false;activeSlide=0;layoutState={};decodeLogos();resetHistory();syncAll();resize();fit();if(tab==='photos')renderPane()}
 const dataUrlBlob=u=>{const[h,b]=u.split(','),bin=atob(b),a=new Uint8Array(bin.length);for(let i=0;i<a.length;i++)a[i]=bin.charCodeAt(i);return new Blob([a],{type:(h.match(/:(.*?);/)||[])[1]||'image/jpeg'})};
 async function loadLegacy(obj){if(!obj||!obj.doc||!Array.isArray(obj.doc.items))throw new Error('bad');clearImages();
   for(const[id,url]of Object.entries(obj.images||{}))await registerImage(id,dataUrlBlob(url),{name:id});adoptDoc(obj.doc)}
@@ -1929,6 +1982,7 @@ async function importProjectFile(f,thenOpen){currentId=null;doc=null;
 async function importFilesToHome(files){const list=[...files];
   if(list.length===1){if(await importProjectFile(list[0],true))toast('Đã mở dự án');return}
   let n=0;for(const f of list)if(await importProjectFile(f,false))n++;toast(`Đã thêm ${n} dự án`);renderHome()}
+$('#logoInput').onchange=e=>{const f=[...e.target.files];e.target.value='';if(f.length)addLogoFiles(f)};
 $('#projInput').onchange=e=>{const f=[...e.target.files];e.target.value='';if(f.length)importFilesToHome(f)};
 $('#homeImport').onclick=()=>$('#projInput').click();
 $('#homeNew').onclick=openNewDialog;
