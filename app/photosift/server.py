@@ -725,7 +725,14 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
         # ---------- POST
         def do_POST(self):
             u = urlparse(self.path)
-            if not self._authed() or self.headers.get("Content-Type", "").split(";")[0] != "application/json":
+            if not self._authed():
+                # Phiên/cookie không khớp (hay gặp khi app vừa được mở lại → token mới, cookie cũ).
+                # Trả JSON có lý do rõ để trang kích hoạt chỉ đúng cách khắc phục, thay vì "forbidden"
+                # khiến trang báo chung chung "Chưa kiểm tra được key".
+                return self._json(dict(ok=False, reason="Phiên làm việc đã hết hạn — thường do ứng dụng vừa "
+                                       "được mở lại. Hãy đóng hẳn app rồi mở lại bằng lối tắt MThanglee "
+                                       "Cull&Collage, sau đó dán key và bấm Kích hoạt lại."), 403)
+            if self.headers.get("Content-Type", "").split(";")[0].strip().lower() != "application/json":
                 return self._send(403, b"forbidden", "text/plain")
             try:
                 b = self._body()
@@ -865,9 +872,9 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                     return self._json(dict(written=lib.write_xmp(b["ids"])))
                 return self._send(404, b"not found", "text/plain")
             except KeyError as e:
-                self._json(dict(error=f"thiếu tham số {e}"), 400)
+                return self._json(dict(error=f"thiếu tham số {e}"), 400)
             except Exception as e:  # noqa: BLE001
-                self._json(dict(error=friendly(e)), 500)
+                return self._json(dict(error=friendly(e)), 500)
 
     return H
 
