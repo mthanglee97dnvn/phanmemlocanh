@@ -167,6 +167,20 @@ body.cat #catalog{display:flex}
 #vinfo .st{font-size:24px;color:#ffca28;cursor:pointer;letter-spacing:2px;margin:10px 0}
 .lbtn{display:inline-block;width:22px;height:22px;border-radius:50%;margin-right:6px;cursor:pointer;border:2px solid transparent}.lbtn.on{border-color:#fff}
 .kbd{font-family:ui-monospace,monospace;background:var(--field);border:1px solid var(--line);border-radius:6px;padding:0 6px;font-size:11px}
+/* bảng phím tắt */
+.sc{display:grid;grid-template-columns:repeat(auto-fit,minmax(248px,1fr));gap:14px 28px;margin-top:6px}
+.sc section{display:grid;gap:6px;align-content:start}
+.sc h4{margin:0;font-size:11.5px;font-weight:600;color:var(--acc);display:flex;align-items:center;gap:10px;letter-spacing:.2px}
+.sc h4:after{content:"";flex:1;height:1px;background:var(--line)}
+.sc dl{display:grid;grid-template-columns:max-content 1fr;gap:6px 13px;margin:0;align-items:baseline}
+.sc dt{display:flex;flex-wrap:wrap;gap:3px;align-items:center;white-space:nowrap}
+.sc dd{margin:0;color:var(--mut);font-size:12.5px;line-height:1.45}
+.sc dd b{color:var(--tx);font-weight:600}
+.sc kbd{font-family:ui-monospace,monospace;font-size:11px;line-height:1.85;min-width:20px;text-align:center;padding:0 6px;border-radius:7px;background:var(--field);border:1px solid var(--line);box-shadow:0 1px 0 rgba(0,0,0,.18);color:var(--tx)}
+.sc .sep{color:var(--mut);font-size:10px;margin:0 1px}
+.sc .sw{color:var(--tx);white-space:nowrap;margin-right:7px;display:inline-block}
+.sc .sw:before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--c);margin-right:4px}
+.sc .mouse{color:var(--mut);font-size:11.5px}
 #toast{position:fixed;bottom:52px;left:50%;transform:translateX(-50%);background:rgba(4,14,30,.88);border:1px solid var(--line);padding:9px 18px;border-radius:999px;z-index:99;display:none}
 .sec{margin-bottom:8px;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:rgba(255,255,255,.06)}
 .sec .sh{display:flex;align-items:center;gap:8px;padding:7px 12px;cursor:pointer;font-weight:600;font-size:12px;letter-spacing:.4px;background:rgba(255,255,255,.10);user-select:none}
@@ -1601,13 +1615,42 @@ $('#bLayout').onclick=async()=>{
 function targetsForExport(){ return S.sel.size?[...S.sel]:(S.cur!==null?[S.cur]:[]); }
 
 function showHelp(){
-  modal(`<h3>Phím tắt</h3><div style="line-height:2">
-   <span class="kbd">← → ↑ ↓</span> di chuyển (giữ <span class="kbd">Shift</span> để chọn dải) &nbsp; <span class="kbd">Ctrl+A</span> chọn tất cả &nbsp; <span class="kbd">S</span> nhảy Tất cả ↔ tab lọc gần nhất<br>
-   <span class="kbd">Esc</span> quay lại một bước &nbsp; <span class="kbd">V</span> vùng cháy/mất chi tiết &nbsp; <span class="kbd">T</span> dải ảnh &nbsp; <span class="kbd">Ctrl+1</span>/<span class="kbd">Ctrl+2</span> Lọc ảnh/Dàn trang<br>
-   <span class="kbd">Enter</span>/<span class="kbd">Space</span> xem ảnh lớn &nbsp; Lăn chuột phóng to, giữ chuột phải kéo ảnh, <span class="kbd">Z</span> phóng nhanh (kiểm tra độ nét) &nbsp; <span class="kbd">F</span> điểm nét &nbsp; <span class="kbd">H</span> tên người<br>
-   <span class="kbd">1–5</span> chấm sao, bấm lại cùng số để huỷ (<span class="kbd">0</span> cũng huỷ) &nbsp; <span class="kbd">X</span> loại / khôi phục &nbsp; <span class="kbd">6</span> đỏ <span class="kbd">7</span> vàng <span class="kbd">8</span> xanh lá <span class="kbd">9</span> xanh dương <span class="kbd">-</span> bỏ nhãn<br>
-   <span class="kbd">Ctrl+Z</span> hoàn tác &nbsp; <span class="kbd">Ctrl+Y</span> xuất ảnh</div>
-   <div class="hint" style="margin-top:10px">Ứng dụng không bao giờ xóa hay di chuyển file gốc. “Loại” chỉ là một dấu trong cơ sở dữ liệu; hãy xuất ảnh để lấy bộ ảnh đã chọn.</div>
+  const C=(k,d)=>`<dt>${k}</dt><dd>${d}</dd>`;
+  modal(`<h3>Phím tắt</h3>
+   <div class="sc">
+    <section><h4>Di chuyển &amp; chọn</h4><dl>
+      ${C('<kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd>','Di chuyển (giữ <kbd>Shift</kbd> để chọn dải)')}
+      ${C('<kbd>Ctrl</kbd><span class="sep">+</span><kbd>A</kbd>','Chọn tất cả')}
+    </dl></section>
+    <section><h4>Lọc &amp; nhóm</h4><dl>
+      ${C('<kbd>S</kbd>','Nhảy nhanh <b>Tất cả</b> ↔ tab lọc gần nhất')}
+      ${C('<kbd>G</kbd>','Xem cả nhóm ảnh trùng / thu gọn')}
+    </dl></section>
+    <section><h4>Xem ảnh lớn</h4><dl>
+      ${C('<kbd>Enter</kbd><kbd>Space</kbd>','Mở / đóng ảnh lớn')}
+      ${C('<kbd>Z</kbd>','Phóng nhanh (kiểm tra độ nét)')}
+      ${C('<span class="mouse">Lăn / kéo chuột</span>','Phóng to &amp; rê xem quanh ảnh')}
+      ${C('<kbd>T</kbd>','Bật/tắt dải ảnh thu nhỏ')}
+    </dl></section>
+    <section><h4>Lớp hiển thị trên ảnh</h4><dl>
+      ${C('<kbd>F</kbd>','Điểm nét (ô đỏ)')}
+      ${C('<kbd>H</kbd>','Khung tên người')}
+      ${C('<kbd>V</kbd>','Vùng cháy sáng / mất chi tiết tối')}
+    </dl></section>
+    <section><h4>Chấm sao &amp; nhãn</h4><dl>
+      ${C('<kbd>1</kbd><span class="sep">–</span><kbd>5</kbd>','Chấm sao (bấm lại cùng số, hoặc <kbd>0</kbd>, để huỷ)')}
+      ${C('<kbd>X</kbd>','Loại / khôi phục ảnh')}
+      ${C('<kbd>6</kbd><span class="sep">–</span><kbd>9</kbd>','<span class="sw" style="--c:var(--red)">đỏ</span><span class="sw" style="--c:var(--yel)">vàng</span><span class="sw" style="--c:var(--grn)">xanh lá</span><span class="sw" style="--c:var(--blu)">xanh dương</span>')}
+      ${C('<kbd>-</kbd>','Bỏ nhãn')}
+    </dl></section>
+    <section><h4>Khác</h4><dl>
+      ${C('<kbd>Ctrl</kbd><span class="sep">+</span><kbd>Z</kbd>','Hoàn tác')}
+      ${C('<kbd>Ctrl</kbd><span class="sep">+</span><kbd>Y</kbd>','Xuất ảnh')}
+      ${C('<kbd>Ctrl</kbd><span class="sep">+</span><kbd>1</kbd> <kbd>Ctrl</kbd><span class="sep">+</span><kbd>2</kbd>','Chuyển Lọc ảnh / Dàn trang')}
+      ${C('<kbd>Esc</kbd>','Quay lại một bước')}
+    </dl></section>
+   </div>
+   <div class="hint" style="margin-top:16px">Ứng dụng không bao giờ xóa hay di chuyển file gốc. “Loại” chỉ là một dấu trong cơ sở dữ liệu; hãy xuất ảnh để lấy bộ ảnh đã chọn.</div>
    <div class="btns"><button class="pri" onclick="this.closest('.back').remove()">Đóng</button></div>`);
 }
 $('#bHelp').onclick=showHelp;
