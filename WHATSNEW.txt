@@ -1,5 +1,9 @@
 Cảm ơn bạn đã sử dụng MThanglee Cull & Collage.
 
+🎯 Hiện điểm lấy nét trên ảnh (phím F)
+Trong trình xem ảnh lớn, bấm F để hiện một ô vuông đỏ ngay chỗ ống kính bắt nét — liếc là biết ảnh có nét đúng chủ thể hay lấy nét trượt ra hậu cảnh, cull nhanh hơn hẳn.
+• Phím tắt mới: F = điểm nét, H = khung tên người, V = vùng cháy/tối.
+
 🕑 Đồng bộ thời gian nhiều máy (ekip nhiều máy ảnh)
 Khi ekip dùng nhiều máy mà đồng hồ mỗi máy đặt lệch nhau, ảnh trộn vào bị sai thứ tự. App tự so các khoảnh khắc cả ekip cùng bấm máy để tính độ lệch của từng máy và đưa mọi ảnh về một dòng thời gian chung — xếp đúng thứ tự, gom đúng loạt ảnh trùng giữa các máy.
 • Bấm "🕑 Đồng bộ máy" trên thanh công cụ → "Dò các máy" → xem độ lệch đề xuất → Áp dụng.
