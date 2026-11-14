@@ -204,6 +204,16 @@ input::placeholder{color:var(--mut)}
 select option{background:var(--modal);color:var(--tx)}
 ::-webkit-scrollbar-thumb{background:var(--line)}::-webkit-scrollbar-thumb:hover{background:var(--mut)}::-webkit-scrollbar-corner{background:transparent}
 .ic{width:15px;height:15px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+/* ô tìm mã ảnh */
+.qbox{position:relative;display:inline-flex;align-items:center;width:236px;max-width:42vw}
+.qbox input{width:100%;padding:6px 30px 6px 32px;background:var(--field);border:1px solid var(--line);border-radius:calc(var(--r)*.6);color:var(--tx);font:inherit}
+.qbox input:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px var(--sel)}
+.qbox input::-webkit-search-cancel-button,.qbox input::-webkit-search-decoration{-webkit-appearance:none;display:none}
+.qbox .qic{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--mut);pointer-events:none;transition:color .12s}
+.qbox input:focus~.qic{color:var(--acc)}
+.qbox .qclr{position:absolute;right:7px;top:50%;transform:translateY(-50%);width:19px;height:19px;display:none;align-items:center;justify-content:center;padding:0;border:0;border-radius:50%;background:var(--panel2);color:var(--mut);font-size:11px;line-height:1;cursor:pointer;transition:background .12s,color .12s}
+.qbox .qclr:hover{background:var(--line);color:var(--tx)}
+.qbox input:not(:placeholder-shown)~.qclr{display:inline-flex}
 .bar{border-radius:var(--r);padding:7px 10px;gap:6px}
 #prog i{background:var(--acc)}
 #side h3{text-transform:none;letter-spacing:0;font-size:13px;color:var(--tx)}
@@ -463,7 +473,7 @@ html[data-theme=neutral] #xjcard{border-radius:18px}
     </select><select id="fPair" title="Khi một ảnh có cả RAW và JPEG thì hiện bản nào" aria-label="Ưu tiên RAW hay JPEG">
       <option value="both">RAW + JPEG</option><option value="raw">Ưu tiên RAW</option><option value="jpeg">Ưu tiên JPEG</option>
     </select><button id="bCamSync" title="Đồng bộ thời gian giữa nhiều máy ảnh của ekip (đồng hồ mỗi máy lệch nhau) để các ảnh về đúng một dòng thời gian">🕑 Đồng bộ máy</button></div>
-    <div class="grp"><input id="qPhoto" type="search" inputmode="numeric" autocomplete="off" placeholder="Tìm mã số ảnh… (vd 3928 4210)" aria-label="Tìm ảnh theo mã số" title="Gõ mã số ảnh khách gửi (nhiều số cách nhau bởi dấu cách hoặc phẩy) để lọc nhanh ra đúng ảnh đó — rồi chọn và Xuất ảnh. Phím tắt: /" style="width:210px;max-width:40vw"><span id="qCount" class="hint" aria-live="polite" style="min-width:0;white-space:nowrap"></span></div>
+    <div class="grp"><div class="qbox"><input id="qPhoto" type="search" inputmode="numeric" autocomplete="off" placeholder="Tìm mã ảnh… vd 3928" aria-label="Tìm ảnh theo mã số" title="Gõ mã số ảnh khách gửi (nhiều số cách nhau bởi dấu cách hoặc phẩy) để lọc nhanh ra đúng ảnh đó — rồi chọn và Xuất ảnh. Phím tắt: /"><svg class="ic qic" aria-hidden="true"><use href="#i-search"/></svg><button id="qClear" class="qclr" type="button" aria-label="Xoá ô tìm" tabindex="-1">✕</button></div><span id="qCount" class="hint" aria-live="polite" style="min-width:0;white-space:nowrap"></span></div>
     <span class="sp"></span>
     <div class="grp"><button id="bCull" aria-label="Tự động lọc"><svg class="ic" aria-hidden="true"><use href="#i-funnel"/></svg><span class="lbl">Tự động lọc</span></button><button id="bUndo" aria-label="Hoàn tác" disabled><svg class="ic" aria-hidden="true"><use href="#i-undo"/></svg><span class="lbl">Hoàn tác</span></button><button id="bUnrej" title="Khôi phục ảnh đã bị đánh dấu loại" hidden></button><button id="bExport" class="pri" aria-label="Xuất ảnh" aria-keyshortcuts="Control+Y" title="Xuất ảnh (Ctrl+Y)"><svg class="ic" aria-hidden="true"><use href="#i-export"/></svg><span class="lbl">Xuất ảnh</span></button><button id="bLayout" aria-label="Gửi ảnh sang Dàn trang" title="Gửi ảnh đã lọc sang Dàn trang" hidden><svg class="ic" aria-hidden="true"><use href="#i-layout"/></svg><span class="lbl">Dàn trang</span></button></div>
     <div class="grp util"><button id="bInfo" title="Bật/tắt khung thông số ảnh" aria-label="Bật/tắt khung thông số ảnh"><svg class="ic" aria-hidden="true"><use href="#i-info"/></svg></button><button id="bTheme" title="Đổi giao diện: Kính / Tối trung tính (xem màu ảnh chuẩn)" aria-label="Đổi giao diện"><svg class="ic" aria-hidden="true"><use href="#i-theme"/></svg></button><button id="bHelp" title="Phím tắt và trợ giúp" aria-label="Phím tắt và trợ giúp"><svg class="ic" aria-hidden="true"><use href="#i-help"/></svg></button></div>
@@ -1683,6 +1693,7 @@ $('#fPair').onchange=e=>{ S.pair=e.target.value; try{ localStorage.setItem('ps_p
   qEl.addEventListener('input',()=>{ clearTimeout(qT); qT=setTimeout(()=>{ if(S.query!==qEl.value){ S.query=qEl.value; applyView(); } },140); });
   qEl.addEventListener('keydown',e=>{ if(e.key==='Escape'){ if(qEl.value){ qEl.value=''; S.query=''; applyView(); } else qEl.blur(); e.stopPropagation(); } });
   addEventListener('keydown',e=>{ if(e.key==='/' && !S.viewer && !/INPUT|TEXTAREA|SELECT/.test((document.activeElement||{}).tagName) && !document.querySelector('.back')){ e.preventDefault(); qEl.focus(); qEl.select(); } });
+  const qc=$('#qClear'); if(qc) qc.onclick=()=>{ qEl.value=''; if(S.query){ S.query=''; applyView(); } qEl.focus(); };
 }
 $('#fSize').oninput=e=>{ document.documentElement.style.setProperty('--sz', e.target.value+'px'); try{ localStorage.setItem('ps_sz',e.target.value); }catch(_){} renderGrid(); };
 try{ const z=+localStorage.getItem('ps_sz'); if(z>=100&&z<=320){ $('#fSize').value=z; document.documentElement.style.setProperty('--sz', z+'px'); } }catch(e){}
