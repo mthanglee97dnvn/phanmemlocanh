@@ -1,5 +1,13 @@
 Cảm ơn bạn đã sử dụng MThanglee Cull & Collage.
 
+🎀 Tự phân loại ảnh không có người: Decor / Chi tiết / Vật phẩm
+Những ảnh không có nhân vật nào trong khung giờ được app tự nhận dạng và tách thành 3 nhóm — trang trí (phông, sân khấu, bàn tiệc), cận cảnh chi tiết (nhẫn, giày, thiệp, hoa cầm tay), và vật phẩm — để lọc ra thật nhanh.
+• Chọn tab "🎀 Decor", "💍 Cận cảnh chi tiết" hoặc "🎁 Vật phẩm" trong ô Lọc.
+
+⭐ Tự chọn ảnh highlight của cô dâu & chú rể
+App tự nhận ra cô dâu–chú rể (hai người xuất hiện nhiều nhất) và lọc ra những ảnh đẹp nhất của họ — nét, có cảm xúc, không nhắm mắt/quay mặt — để đưa nhanh sang Dàn trang.
+• Chọn tab "⭐ Ảnh highlight" trong ô Lọc.
+
 🎯 Hiện điểm lấy nét trên ảnh (phím F)
 Trong trình xem ảnh lớn, bấm F để hiện một ô vuông đỏ ngay chỗ ống kính bắt nét — liếc là biết ảnh có nét đúng chủ thể hay lấy nét trượt ra hậu cảnh, cull nhanh hơn hẳn.
 • Phím tắt mới: F = điểm nét, H = khung tên người, V = vùng cháy/tối.
