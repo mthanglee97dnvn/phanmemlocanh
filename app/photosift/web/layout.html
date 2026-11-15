@@ -682,11 +682,12 @@ dialog select,dialog input[type=number],dialog input[type=text]{border-radius:va
   <div class="dpiPre" id="expDpiPre"><button type="button" data-d="72">72</button><button type="button" data-d="150">150</button><button type="button" data-d="240">240</button><button type="button" data-d="300">300</button></div>
   <p class="dpiInfo" id="expDpiInfo"></p>
   <p class="expTotal" id="expTotal"></p>
-  <div class="expHead"><p>Tick trang muốn xuất. Một trang tải thành một file ảnh, nhiều trang tải thành file ZIP.</p><button type="button" class="btn" id="expPick"></button></div>
+  <div class="expHead"><p id="expHint"></p><button type="button" class="btn" id="expPick"></button></div>
   <div class="exp" id="expList"></div>
   <div class="dlgfoot">
     <button class="btn" id="expClose">Đóng</button>
-    <button class="btn primary" id="expZip"></button>
+    <button class="btn" id="expZip"></button>
+    <button class="btn primary" id="expDir" hidden></button>
   </div>
 </dialog>
 
@@ -2030,11 +2031,14 @@ function openExport(){const l=$('#expList');l.replaceChildren();expSizeCache.cle
   [...$('#expSize').options].forEach(o=>{const w=Math.round(W*+o.value),h=Math.round(doc.h*+o.value);o.textContent=`${w} × ${h} px`+({1080:', chuẩn Instagram',4000:', in album'}[w]||'')});
   for(let i=0;i<doc.slides;i++){const box=el('input',{type:'checkbox',checked:true,'aria-label':`Xuất trang ${i+1}`,onchange:e=>{e.target.checked?expSel.add(i):expSel.delete(i);paintExpPick()}});
     l.append(el('label',{className:'expItem'},renderSlide(i,.16),el('b',{textContent:i+1}),box,el('span',{className:'expDim'}),el('span',{className:'expMB'})))}
+  const dir=$('#expDir'),zb=$('#expZip');if(canDirSave()){dir.hidden=false;zb.classList.remove('primary')}else{dir.hidden=true;zb.classList.add('primary')}
+  $('#expHint').textContent=canDirSave()?'Tick trang muốn xuất. "Lưu vào thư mục" ghi thẳng từng ảnh về máy, nhanh hơn và không cần nén zip. Hoặc tải file .zip gộp.':'Tick trang muốn xuất. Một trang tải thành một file ảnh, nhiều trang tải thành file ZIP.';
   paintDpi();paintExpPick();$('#exportDlg').showModal();recalcSizes()}
 function paintExpPick(){const n=expSel.size,all=n===doc.slides,z=$('#expZip');$('#expPick').textContent=all?'Bỏ chọn tất cả':'Chọn tất cả';
   z.disabled=!n;let base=!n?'Chưa chọn trang':n===1?'Tải 1 trang':`Tải ${n} trang (.zip)`;
   const sb=n?selectedBytes():null;
   z.textContent=n&&sb.tot?`${base} · ≈ ${fmtBytes(sb.tot)}${sb.done?'':'…'}`:base;
+  const dir=$('#expDir');if(!dir.hidden){dir.disabled=!n;dir.textContent=!n?'Chưa chọn trang':`Lưu ${n} ảnh vào thư mục…`}
   const info=$('#expTotal');
   if(!n)info.textContent='';
   else info.innerHTML=`Dung lượng ước tính ${n} trang: <b>≈ ${sb.tot?fmtBytes(sb.tot):'…'}</b>${sb.done?'':' <span class="muted">(đang tính…)</span>'} · ${fmtOf()==='png'?'PNG':'JPG'}. <span class="muted">Đổi DPI không làm thay đổi dung lượng.</span>`;
@@ -2068,6 +2072,16 @@ function paintDpi(){const d=dpiOf(),s=scaleOf(),w=Math.round(W*s),h=Math.round(d
 function pickDpi(v){$('#expDpi').value=Math.min(600,Math.max(72,Math.round(+v)||300));try{localStorage.setItem('vuot.dpi',String(dpiOf()))}catch(e){}paintDpi()}
 const exportBlob=(i,s,f)=>withFull(slideIds(i),async()=>setDpi(await toBlob(renderSlide(i,s,true,true),f),dpiOf()));
 async function exportOne(i){const f=fmtOf(),b=await exportBlob(i,scaleOf(),f);if(await saveFile(fileName(i,f),b))toast(`Đã tải slide ${i+1}`)}
+const canDirSave=()=>('showDirectoryPicker' in window)&&!(window.claude&&window.claude.use);
+async function saveToFolder(){const pick=[...expSel].sort((a,b)=>a-b);if(!pick.length)return;
+  let dir;try{dir=await window.showDirectoryPicker({id:'vuot-export',mode:'readwrite'})}catch(e){return}  // người dùng hủy chọn thư mục
+  const f=fmtOf(),s=scaleOf(),btn=$('#expDir');btn.disabled=true;expCalcRun++;let ok=0;
+  try{for(const[k,i]of pick.entries()){btn.textContent=`Đang lưu ${k+1}/${pick.length}…`;
+      const blob=await exportBlob(i,s,f),fh=await dir.getFileHandle(fileName(i,f),{create:true}),w=await fh.createWritable();
+      await w.write(blob);await w.close();ok++}
+    toast(ok===1?'Đã lưu 1 ảnh vào thư mục':`Đã lưu ${ok} ảnh vào thư mục đã chọn`)}
+  catch(e){toast(ok?`Lưu bị gián đoạn — đã lưu ${ok} ảnh.`:'Chưa lưu được. Hãy kiểm tra quyền ghi của thư mục.')}
+  finally{paintExpPick();recalcSizes()}}
 async function exportZip(){const pick=[...expSel].sort((a,b)=>a-b);if(!pick.length)return;if(pick.length===1)return exportOne(pick[0]);
   const f=fmtOf(),s=scaleOf(),files=[],btnZ=$('#expZip');btnZ.disabled=true;btnZ.textContent='Đang tạo…';
   try{for(const[k,i]of pick.entries()){btnZ.textContent=`Đang tạo ${k+1}/${pick.length}…`;files.push({name:fileName(i,f),blob:await exportBlob(i,s,f)})}
@@ -2096,7 +2110,7 @@ try{const d=localStorage.getItem('vuot.dpi');if(d)$('#expDpi').value=d}catch(e){
 $('#expDpi').oninput=e=>pickDpi(e.target.value);$('#expDpiN').onchange=e=>pickDpi(e.target.value);
 $('#expSize').onchange=()=>{paintDpi();recalcSizes()};$('#expFmt').onchange=recalcSizes;
 $('#expDpiPre').onclick=e=>{if(e.target.dataset.d)pickDpi(e.target.dataset.d)};
-$('#btnExport').onclick=openExport;$('#expClose').onclick=()=>$('#exportDlg').close();$('#expZip').onclick=exportZip;
+$('#btnExport').onclick=openExport;$('#expClose').onclick=()=>$('#exportDlg').close();$('#expZip').onclick=exportZip;$('#expDir').onclick=saveToFolder;
 $('#expPick').onclick=()=>{const all=expSel.size===doc.slides;expSel=new Set(all?[]:Array.from({length:doc.slides},(_,i)=>i));$('#expList').querySelectorAll('input').forEach(c=>{c.checked=!all});paintExpPick()};
 $('#btnPreview').onclick=openPreview;$('#pvClose').onclick=()=>$('#previewDlg').close();$('#pvPrev').onclick=()=>pvStep(-1);$('#pvNext').onclick=()=>pvStep(1);
 $('#previewDlg').addEventListener('keydown',e=>{if(e.key==='ArrowRight')pvStep(1);if(e.key==='ArrowLeft')pvStep(-1)});
