@@ -266,6 +266,8 @@ button.lbtn{padding:0;vertical-align:middle}button.lbtn.on{border-color:var(--tx
 #sAdv[aria-pressed=true],#sStack[aria-pressed=true]{color:var(--tx);border-color:var(--acc)}
 #sAdv[aria-pressed=true] .sw,#sStack[aria-pressed=true] .sw{background:var(--acc)}
 #sAdv[aria-pressed=true] .sw::after,#sStack[aria-pressed=true] .sw::after{transform:translateX(16px)}
+#sAdv kbd,#sStack kbd{font-family:ui-monospace,monospace;font-size:10px;line-height:1.7;min-width:16px;text-align:center;padding:0 4px;border-radius:5px;background:var(--field);border:1px solid var(--line);color:var(--mut)}
+#sAdv[aria-pressed=true] kbd,#sStack[aria-pressed=true] kbd{color:var(--tx);border-color:var(--acc)}
 .cpre{display:flex;gap:6px;margin:4px 0 10px}.cpre button[aria-pressed=true]{border-color:var(--acc);color:var(--acc)}
 details.adv{margin:6px 0;border-top:1px solid var(--line);padding-top:6px}details.adv summary{cursor:pointer;color:var(--mut);padding:4px 0}details.adv summary:hover{color:var(--tx)}
 
@@ -1181,7 +1183,7 @@ try{ const v=localStorage.getItem('ps_info'); if(v==='0'||(v===null&&innerWidth<
 function cols(){ return VW.cols||1; }
 /* tự sang ảnh kế sau khi chấm một ảnh: bật/tắt ở thanh trạng thái, nhớ cho lần sau */
 S.adv=(()=>{ try{ return localStorage.getItem('ps_adv2')==='1'; }catch(e){ return false; } })();   // mặc định: chấm sao xong vẫn ở lại ảnh đó
-function paintAdv(){ const b=$('#sAdv'); if(b){ b.innerHTML='<span class="lbl">Tự sang ảnh kế</span><span class="sw" aria-hidden="true"></span>'; b.setAttribute('aria-pressed',String(S.adv)); } }
+function paintAdv(){ const b=$('#sAdv'); if(b){ b.innerHTML='<span class="lbl">Tự sang ảnh kế</span><kbd aria-hidden="true">A</kbd><span class="sw" aria-hidden="true"></span>'; b.setAttribute('aria-pressed',String(S.adv)); b.title='Chấm sao/loại/nhãn xong tự chuyển ảnh kế — phím tắt A'; } }
 function advance(t){ if(S.adv && t.length===1) move(1); }
 function move(delta, shift){
   if(!S.view.length) return; let ix=S.view.findIndex(p=>p.id===S.cur); ix=Math.max(0,Math.min(S.view.length-1,(ix<0?0:ix)+delta));
@@ -1197,7 +1199,7 @@ document.addEventListener('keydown', e=>{
   if(mod) return;
   // macOS (WebKit/pywebview) phát tiếng "beep" mỗi khi một phím không được app "nuốt" (preventDefault).
   // Nuốt mọi phím tắt lọc ảnh (1-5, X, nhãn 6-9) và xem/zoom ảnh (Z, H, F, T, G…) để hết tiếng beep trên máy Mac.
-  if(/^[0-9]$/.test(k) || ['x','X','-','h','H','f','F','v','V','s','S','z','Z','t','T','g','G','?'].includes(k)) e.preventDefault();
+  if(/^[0-9]$/.test(k) || ['x','X','-','h','H','f','F','v','V','s','S','z','Z','t','T','g','G','a','A','d','D','?'].includes(k)) e.preventDefault();
   if(k==='ArrowRight'){ e.preventDefault(); move(1,e.shiftKey); }
   else if(k==='ArrowLeft'){ e.preventDefault(); move(-1,e.shiftKey); }
   else if(k==='ArrowDown'){ e.preventDefault(); S.viewer?move(1):move(cols(),e.shiftKey); }
@@ -1217,6 +1219,8 @@ document.addEventListener('keydown', e=>{
   else if(k==='z'||k==='Z'){ if(S.viewer){ const r=$('#vstage').getBoundingClientRect(); zoomToggle(r.left+r.width/2,r.top+r.height/2); } }
   else if(k==='t'||k==='T'){ if(S.viewer) toggleStrip(); }
   else if(k==='g'||k==='G'){ const c=S.by.get(S.cur); if(c&&c.grp) toggleStack(c.grp); }
+  else if(k==='d'||k==='D'){ toggleStackOpt(); }
+  else if(k==='a'||k==='A'){ toggleAdvOpt(); }
   else if(k==='s'||k==='S'){ toggleFilter(); }
   else if(k==='?') showHelp();
 });
@@ -1526,10 +1530,11 @@ $('#bCamSync').onclick=async()=>{
 };
 
 /* ---------- xuất ---------- */
-function paintStack(){ const b=$('#sStack'); if(b){ b.innerHTML='<span class="lbl">Xếp chồng ảnh trùng</span><span class="sw" aria-hidden="true"></span>'; b.setAttribute('aria-pressed',String(S.stack)); } }
-function paintAdvInit(){ paintStack(); $('#sStack').onclick=()=>{ S.stack=!S.stack; try{ localStorage.setItem('ps_stack2',S.stack?'1':'0'); }catch(e){} paintStack(); applyView(); };
-  paintAdvInit2(); }
-function paintAdvInit2(){ paintAdv(); $('#sAdv').onclick=()=>{ S.adv=!S.adv; try{ localStorage.setItem('ps_adv2',S.adv?'1':'0'); }catch(e){} paintAdv(); }; }
+function paintStack(){ const b=$('#sStack'); if(b){ b.innerHTML='<span class="lbl">Xếp chồng ảnh trùng</span><kbd aria-hidden="true">D</kbd><span class="sw" aria-hidden="true"></span>'; b.setAttribute('aria-pressed',String(S.stack)); b.title='Gộp mỗi nhóm ảnh trùng thành một ô — phím tắt D'; } }
+function toggleStackOpt(){ S.stack=!S.stack; try{ localStorage.setItem('ps_stack2',S.stack?'1':'0'); }catch(e){} paintStack(); applyView(); }
+function toggleAdvOpt(){ S.adv=!S.adv; try{ localStorage.setItem('ps_adv2',S.adv?'1':'0'); }catch(e){} paintAdv(); }
+function paintAdvInit(){ paintStack(); $('#sStack').onclick=toggleStackOpt; paintAdvInit2(); }
+function paintAdvInit2(){ paintAdv(); $('#sAdv').onclick=toggleAdvOpt; }
 paintAdvInit();
 /* ---------- bảng tiến độ xuất ảnh giữa màn hình: vòng tròn %, thu nhỏ, dừng, xoá file đã chép nếu xuất nhầm ---------- */
 const XJ={t:0,st:null,mini:false};
@@ -1676,7 +1681,9 @@ function showHelp(){
     </dl></section>
     <section><h4>Lọc &amp; nhóm</h4><dl>
       ${C('<kbd>S</kbd>','Nhảy nhanh <b>Tất cả</b> ↔ tab lọc gần nhất')}
+      ${C('<kbd>D</kbd>','Bật/tắt <b>xếp chồng ảnh trùng</b>')}
       ${C('<kbd>G</kbd>','Xem cả nhóm ảnh trùng / thu gọn')}
+      ${C('<kbd>A</kbd>','Bật/tắt <b>tự sang ảnh kế</b> sau khi chấm')}
     </dl></section>
     <section><h4>Xem ảnh lớn</h4><dl>
       ${C('<kbd>Enter</kbd><kbd>Space</kbd>','Mở / đóng ảnh lớn')}
