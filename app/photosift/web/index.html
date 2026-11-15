@@ -47,15 +47,31 @@ input[type=range]{accent-color:var(--acc)}input[type=checkbox]{accent-color:var(
 .bar .sp{flex:1}
 .bar{gap:6px}#fFilter{max-width:180px}#fSort{max-width:150px}#fSize{width:100px}
 #prog{height:3px;margin:-6px 20px -4px;border-radius:3px;background:transparent;overflow:hidden}#prog i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--acc2),var(--acc));transition:width .3s}
-#main{display:grid;grid-template-columns:230px 1fr 300px;min-height:0;gap:10px}
-#main.noinfo{grid-template-columns:230px 1fr}
+#main{display:grid;grid-template-columns:var(--sideW,230px) 1fr 300px;min-height:0;gap:10px;position:relative}
+#main.noinfo{grid-template-columns:var(--sideW,230px) 1fr}
 #main.noinfo #info{display:none}
 #side{overflow:auto;padding:12px 10px}
 #side h3{margin:4px 6px 10px;color:var(--mut);font-weight:600;text-transform:uppercase;font-size:11px;letter-spacing:.9px;display:flex;justify-content:space-between;align-items:center}
 .person{display:flex;gap:10px;align-items:center;padding:6px;border-radius:16px;cursor:pointer;border:1px solid transparent}
 .person:hover{background:var(--panel2)}.person.on{background:var(--sel);border-color:var(--acc2)}
 .person img{width:40px;height:40px;border-radius:50%;object-fit:cover;background:#000;border:2px solid rgba(255,255,255,.55)}
-.person .n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}.person .c{color:var(--mut);font-size:11px;font-weight:400}
+.person .meta{flex:1;min-width:0;display:flex;flex-direction:column}
+.person .n{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}.person .c{color:var(--mut);font-size:11px;font-weight:400}
+/* chế độ HẸP: chỉ avatar + số ảnh dưới avatar (kéo mép panel để bật) */
+#side.narrow{padding:12px 4px}
+#side.narrow #bFaceCfg{display:none}
+#side.narrow h3{justify-content:center}
+#side.narrow .person{flex-direction:column;gap:3px;padding:7px 2px;text-align:center}
+#side.narrow .person .meta{align-items:center}
+#side.narrow .person .n{display:none}
+#side.narrow .person img{width:44px;height:44px}
+/* tay kéo co giãn panel Người */
+#sideGrip{position:absolute;top:0;left:var(--sideW,230px);width:11px;height:100%;cursor:col-resize;z-index:30;display:flex;align-items:center;justify-content:center}
+#sideGrip::before{content:"";width:3px;height:46px;border-radius:3px;background:var(--line);transition:background .12s}
+#sideGrip:hover::before,#main.sideResizing #sideGrip::before{background:var(--acc)}
+#main.sideResizing{cursor:col-resize;user-select:none}
+#main.nopeople #sideGrip{display:none}
+@media (max-width:1366px){ #sideGrip{left:var(--sideW,200px)} }
 #gridwrap{overflow:auto;padding:12px;min-width:0;position:relative}
 #grid{position:relative}   /* lưới ảo: ô định vị tuyệt đối, chỉ dựng ô đang nhìn thấy */
 .cell{position:relative;border-radius:18px;border:1px solid rgba(255,255,255,.16);padding:5px;background:rgba(255,255,255,.09);cursor:default;user-select:none;transition:background .12s,border-color .12s}
@@ -243,7 +259,13 @@ canvas.hist{border-radius:6px;background:var(--inset)}
 #vinfo .st .vrej{font-size:18px;margin-left:4px}
 button.lbtn{padding:0;vertical-align:middle}button.lbtn.on{border-color:var(--tx)}
 .lclr{background:none;border:0;padding:2px 6px;color:var(--mut);font-size:12px;vertical-align:middle}.lclr:hover{color:var(--tx)}
-#sAdv,#sStack{background:none;border:0;padding:0 4px;color:var(--mut);font-size:12px}#sAdv[aria-pressed=true],#sStack[aria-pressed=true]{color:var(--tx)}#sAdv:hover,#sStack:hover{color:var(--tx)}
+#sAdv,#sStack{display:inline-flex;align-items:center;gap:7px;background:var(--field);border:1px solid var(--line);border-radius:999px;padding:3px 6px 3px 11px;color:var(--mut);font-size:12px;cursor:pointer;transition:color .12s,border-color .12s}
+#sAdv:hover,#sStack:hover{border-color:var(--acc2);color:var(--tx)}
+#sAdv .sw,#sStack .sw{position:relative;width:34px;height:18px;border-radius:999px;background:var(--line);transition:background .15s;flex:none}
+#sAdv .sw::after,#sStack .sw::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.4);transition:transform .15s}
+#sAdv[aria-pressed=true],#sStack[aria-pressed=true]{color:var(--tx);border-color:var(--acc)}
+#sAdv[aria-pressed=true] .sw,#sStack[aria-pressed=true] .sw{background:var(--acc)}
+#sAdv[aria-pressed=true] .sw::after,#sStack[aria-pressed=true] .sw::after{transform:translateX(16px)}
 .cpre{display:flex;gap:6px;margin:4px 0 10px}.cpre button[aria-pressed=true]{border-color:var(--acc);color:var(--acc)}
 details.adv{margin:6px 0;border-top:1px solid var(--line);padding-top:6px}details.adv summary{cursor:pointer;color:var(--mut);padding:4px 0}details.adv summary:hover{color:var(--tx)}
 
@@ -276,11 +298,11 @@ details.adv{margin:6px 0;border-top:1px solid var(--line);padding-top:6px}detail
 #status #sCur{flex:1 1 0;min-width:0;overflow:hidden;text-overflow:ellipsis;text-align:right}
 #sSize{display:flex;align-items:center;gap:var(--s2)}#sSize #fSize{width:96px}
 #main.nopeople #side{display:none}
-@media (max-width:1366px){ #main{grid-template-columns:200px 1fr 264px} #main.noinfo{grid-template-columns:200px 1fr} }
+@media (max-width:1366px){ #main{grid-template-columns:var(--sideW,200px) 1fr 264px} #main.noinfo{grid-template-columns:var(--sideW,200px) 1fr} }
 #main.nopeople{grid-template-columns:minmax(0,1fr) 300px}#main.nopeople.noinfo{grid-template-columns:minmax(0,1fr)}
 @media (max-width:1366px){ #main.nopeople{grid-template-columns:minmax(0,1fr) 264px} }
 @media (max-width:1180px){
-  #main,#main.noinfo{grid-template-columns:200px 1fr}
+  #main,#main.noinfo{grid-template-columns:var(--sideW,200px) 1fr}
   #main.nopeople,#main.nopeople.noinfo{grid-template-columns:minmax(0,1fr)}
   #main{position:relative}
   #main:not(.noinfo) #info{position:absolute;right:0;top:0;bottom:0;width:280px;z-index:5;box-shadow:0 12px 32px rgba(0,0,0,.45)}
@@ -485,6 +507,7 @@ html[data-theme=neutral] #xjcard{border-radius:18px}
       <div id="people"></div>
       <div class="hint" id="noPeople" style="padding:6px;display:none">Chưa nhận diện được khuôn mặt nào.</div>
     </div>
+    <div id="sideGrip" title="Kéo để phóng to / thu nhỏ danh sách Người"></div>
     <div id="gridwrap"><div id="grid"></div></div>
     <aside id="info"><div id="infobody"></div></aside>
   </div>
@@ -798,13 +821,30 @@ function renderPeople(){
   $('#main').classList.toggle('nopeople', !S.people.length);
   for(const p of S.people){
     const d=document.createElement('div'); d.className='person'+(S.person===p.id?' on':'');
-    d.innerHTML=`<img src="/face/${p.face}.jpg" alt=""><div class="n">${esc(p.name||'Người '+p.id)}<div class="c">${p.n} ảnh</div></div>`;
+    d.innerHTML=`<img src="/face/${p.face}.jpg" alt=""><div class="meta"><span class="n">${esc(p.name||'Người '+p.id)}</span><span class="c">${p.n} ảnh</span></div>`;
     d.onclick=()=>{ S.person = S.person===p.id?null:p.id; S.keep.clear(); renderPeople(); applyView(); };
     d.ondblclick=()=>personModal(p);
     d.title='Nhấp: lọc • Nhấp đúp: đổi tên / gộp';
     box.appendChild(d);
   }
 }
+/* ---- kéo mép panel Người để phóng to / thu nhỏ (rộng: tên + số ảnh; hẹp: chỉ avatar + số ảnh) ---- */
+(function sideResize(){
+  const main=$('#main'),side=$('#side'),grip=$('#sideGrip');if(!grip)return;
+  const MIN=76,MAX=320,NARROW=150;
+  function apply(w){w=Math.max(MIN,Math.min(MAX,Math.round(w)));main.style.setProperty('--sideW',w+'px');side.classList.toggle('narrow',w<NARROW);return w}
+  let saved=null;try{saved=localStorage.getItem('ps_sideW')}catch(e){}
+  apply(saved?+saved:(side.getBoundingClientRect().width||230));
+  let drag=false;
+  grip.addEventListener('pointerdown',e=>{drag=true;grip.setPointerCapture(e.pointerId);main.classList.add('sideResizing');e.preventDefault()});
+  grip.addEventListener('pointermove',e=>{if(!drag)return;apply(e.clientX-main.getBoundingClientRect().left)});
+  function end(){if(!drag)return;drag=false;main.classList.remove('sideResizing');
+    let w=parseInt(getComputedStyle(main).getPropertyValue('--sideW'))||230;
+    if(w<NARROW)w=apply(88);            // thả ở vùng hẹp → chốt gọn về chế độ avatar
+    try{localStorage.setItem('ps_sideW',w)}catch(e){}}
+  grip.addEventListener('pointerup',end);grip.addEventListener('pointercancel',end);
+  grip.addEventListener('dblclick',()=>{const w=apply(230);try{localStorage.setItem('ps_sideW',w)}catch(e){}});  // nhấp đúp: về mặc định
+})();
 function personModal(p){
   const others=S.people.filter(o=>o.id!==p.id);
   const m=modal(`<h3>Người ${p.id}</h3><div class="row"><label>Tên</label><input type="text" id="pn" maxlength="60" style="flex:1" value="${esc(p.name||'')}" placeholder="Nhập tên…"></div>
@@ -1141,7 +1181,7 @@ try{ const v=localStorage.getItem('ps_info'); if(v==='0'||(v===null&&innerWidth<
 function cols(){ return VW.cols||1; }
 /* tự sang ảnh kế sau khi chấm một ảnh: bật/tắt ở thanh trạng thái, nhớ cho lần sau */
 S.adv=(()=>{ try{ return localStorage.getItem('ps_adv2')==='1'; }catch(e){ return false; } })();   // mặc định: chấm sao xong vẫn ở lại ảnh đó
-function paintAdv(){ const b=$('#sAdv'); if(b){ b.textContent='Tự sang ảnh kế: '+(S.adv?'Bật':'Tắt'); b.setAttribute('aria-pressed',String(S.adv)); } }
+function paintAdv(){ const b=$('#sAdv'); if(b){ b.innerHTML='<span class="lbl">Tự sang ảnh kế</span><span class="sw" aria-hidden="true"></span>'; b.setAttribute('aria-pressed',String(S.adv)); } }
 function advance(t){ if(S.adv && t.length===1) move(1); }
 function move(delta, shift){
   if(!S.view.length) return; let ix=S.view.findIndex(p=>p.id===S.cur); ix=Math.max(0,Math.min(S.view.length-1,(ix<0?0:ix)+delta));
@@ -1486,7 +1526,7 @@ $('#bCamSync').onclick=async()=>{
 };
 
 /* ---------- xuất ---------- */
-function paintStack(){ const b=$('#sStack'); if(b){ b.textContent='Xếp chồng ảnh trùng: '+(S.stack?'Bật':'Tắt'); b.setAttribute('aria-pressed',String(S.stack)); } }
+function paintStack(){ const b=$('#sStack'); if(b){ b.innerHTML='<span class="lbl">Xếp chồng ảnh trùng</span><span class="sw" aria-hidden="true"></span>'; b.setAttribute('aria-pressed',String(S.stack)); } }
 function paintAdvInit(){ paintStack(); $('#sStack').onclick=()=>{ S.stack=!S.stack; try{ localStorage.setItem('ps_stack2',S.stack?'1':'0'); }catch(e){} paintStack(); applyView(); };
   paintAdvInit2(); }
 function paintAdvInit2(){ paintAdv(); $('#sAdv').onclick=()=>{ S.adv=!S.adv; try{ localStorage.setItem('ps_adv2',S.adv?'1':'0'); }catch(e){} paintAdv(); }; }
