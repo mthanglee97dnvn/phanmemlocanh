@@ -2114,16 +2114,18 @@ $('#binSize').oninput=e=>{$('#binGrid').style.setProperty('--tile',e.target.valu
 $('#binToggle').onclick=e=>{const g=$('#binGrid');g.hidden=!g.hidden;$('#binGrip').style.display=g.hidden?'none':'';e.currentTarget.textContent=g.hidden?'▴':'▾';e.currentTarget.setAttribute('aria-label',g.hidden?'Mở khay ảnh':'Thu gọn khay ảnh')};
 /* ---- kéo mép trên khay ảnh để phóng to / thu nhỏ (nút đỏ) ---- */
 (function binResize(){
-  const bin=$('#bin'),grid=$('#binGrid'),grip=$('#binGrip');if(!grip)return;
-  const MIN=70;const MAX=()=>Math.round(window.innerHeight*0.72);
-  function apply(h){h=Math.max(MIN,Math.min(MAX(),Math.round(h)));grid.style.height=h+'px';return h}
-  let saved=null;try{saved=localStorage.getItem('ps_binH')}catch(e){}
-  if(saved)apply(+saved);
-  let drag=false,sy=0,sh=0;
-  grip.addEventListener('pointerdown',e=>{drag=true;sy=e.clientY;sh=grid.getBoundingClientRect().height;grip.setPointerCapture(e.pointerId);bin.classList.add('binResizing');e.preventDefault()});
-  grip.addEventListener('pointermove',e=>{if(!drag)return;apply(sh+(sy-e.clientY))});   // kéo lên = cao hơn
+  const bin=$('#bin'),grid=$('#binGrid'),grip=$('#binGrip'),slider=$('#binSize');if(!grip)return;
+  const MIN=70,TMIN=64,TMAX=180;const MAX=()=>Math.round(window.innerHeight*0.72);
+  const clampH=h=>Math.max(MIN,Math.min(MAX(),Math.round(h)));
+  const curTile=()=>parseInt(getComputedStyle(grid).getPropertyValue('--tile'))||96;
+  function setTile(t){t=Math.max(TMIN,Math.min(TMAX,Math.round(t)));grid.style.setProperty('--tile',t+'px');if(slider)slider.value=t;return t}
+  try{const h=localStorage.getItem('ps_binH');if(h)grid.style.height=clampH(+h)+'px';
+      const t=localStorage.getItem('ps_binTile');if(t)setTile(+t);}catch(e){}
+  let drag=false,sy=0,sh=0,st=96;
+  grip.addEventListener('pointerdown',e=>{drag=true;sy=e.clientY;sh=grid.getBoundingClientRect().height;st=curTile();grip.setPointerCapture(e.pointerId);bin.classList.add('binResizing');e.preventDefault()});
+  grip.addEventListener('pointermove',e=>{if(!drag)return;const h=clampH(sh+(sy-e.clientY));grid.style.height=h+'px';setTile(st*h/Math.max(1,sh))});  // kéo lên: khay cao hơn + ô ảnh to lên theo (canvas tự co lại)
   function end(){if(!drag)return;drag=false;bin.classList.remove('binResizing');
-    try{localStorage.setItem('ps_binH',Math.round(grid.getBoundingClientRect().height))}catch(e){}}
+    try{localStorage.setItem('ps_binH',Math.round(grid.getBoundingClientRect().height));localStorage.setItem('ps_binTile',curTile());}catch(e){}}
   grip.addEventListener('pointerup',end);grip.addEventListener('pointercancel',end);
 })();
 try{const d=localStorage.getItem('vuot.dpi');if(d)$('#expDpi').value=d}catch(e){}
