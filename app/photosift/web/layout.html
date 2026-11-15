@@ -406,6 +406,10 @@ dialog select,dialog input[type=number],dialog input[type=text]{border-radius:va
 .expItem:not(.off) canvas{border-color:var(--accent)}
 .expItem input{width:21px;height:21px;border-radius:5px;top:7px;right:7px}
 .expItem .expDim{display:block;margin-top:5px;font:11px var(--mono);color:var(--muted);text-align:center;font-variant-numeric:tabular-nums}
+.expItem .expMB{display:block;margin-top:1px;font:11px var(--mono);color:var(--accent);text-align:center;font-variant-numeric:tabular-nums}
+.expItem.off .expMB{color:var(--muted)}
+.expTotal{margin:6px 0 0;color:var(--fg);font-size:13px}
+.expTotal .muted{color:var(--muted)}
 .expItem b{border-radius:var(--r-sm);left:6px;top:6px}
 /* text / shape / swatch tabs */
 .textadd button{padding:12px 13px;font-weight:600}
@@ -677,6 +681,7 @@ dialog select,dialog input[type=number],dialog input[type=text]{border-radius:va
     <div class="dpiRow"><input type="range" id="expDpi" min="72" max="600" step="1" value="300" aria-label="Độ phân giải DPI"><input type="number" id="expDpiN" min="72" max="600" step="1" value="300" aria-label="Nhập số DPI"><span>dpi</span></div></div>
   <div class="dpiPre" id="expDpiPre"><button type="button" data-d="72">72</button><button type="button" data-d="150">150</button><button type="button" data-d="240">240</button><button type="button" data-d="300">300</button></div>
   <p class="dpiInfo" id="expDpiInfo"></p>
+  <p class="expTotal" id="expTotal"></p>
   <div class="expHead"><p>Tick trang muốn xuất. Một trang tải thành một file ảnh, nhiều trang tải thành file ZIP.</p><button type="button" class="btn" id="expPick"></button></div>
   <div class="exp" id="expList"></div>
   <div class="dlgfoot">
@@ -2020,15 +2025,38 @@ function ask(title,body,yes){return new Promise(ok=>{const d=$('#confirmDlg');$(
   const done=v=>{d.close();$('#confirmYes').onclick=$('#confirmNo').onclick=null;ok(v)};$('#confirmYes').onclick=()=>done(true);$('#confirmNo').onclick=()=>done(false);d.showModal()})}
 let toastT;function toast(m){const t=$('#toast');t.textContent=m;try{t.hidePopover()}catch(e){}try{t.showPopover()}catch(e){}clearTimeout(toastT);toastT=setTimeout(()=>{try{t.hidePopover()}catch(e){}},3200)}
 let expSel=new Set();
-function openExport(){const l=$('#expList');l.replaceChildren();if(firstEmpty())toast('Còn khung ảnh trống. Khung trống sẽ không xuất hiện trong ảnh.');
+function openExport(){const l=$('#expList');l.replaceChildren();expSizeCache.clear();if(firstEmpty())toast('Còn khung ảnh trống. Khung trống sẽ không xuất hiện trong ảnh.');
   expSel=new Set(Array.from({length:doc.slides},(_,i)=>i));
   [...$('#expSize').options].forEach(o=>{const w=Math.round(W*+o.value),h=Math.round(doc.h*+o.value);o.textContent=`${w} × ${h} px`+({1080:', chuẩn Instagram',4000:', in album'}[w]||'')});
   for(let i=0;i<doc.slides;i++){const box=el('input',{type:'checkbox',checked:true,'aria-label':`Xuất trang ${i+1}`,onchange:e=>{e.target.checked?expSel.add(i):expSel.delete(i);paintExpPick()}});
-    l.append(el('label',{className:'expItem'},renderSlide(i,.16),el('b',{textContent:i+1}),box,el('span',{className:'expDim'})))}
-  paintDpi();paintExpPick();$('#exportDlg').showModal()}
+    l.append(el('label',{className:'expItem'},renderSlide(i,.16),el('b',{textContent:i+1}),box,el('span',{className:'expDim'}),el('span',{className:'expMB'})))}
+  paintDpi();paintExpPick();$('#exportDlg').showModal();recalcSizes()}
 function paintExpPick(){const n=expSel.size,all=n===doc.slides,z=$('#expZip');$('#expPick').textContent=all?'Bỏ chọn tất cả':'Chọn tất cả';
-  z.disabled=!n;z.textContent=!n?'Chưa chọn trang':n===1?'Tải 1 trang':`Tải ${n} trang (.zip)`;
+  z.disabled=!n;let base=!n?'Chưa chọn trang':n===1?'Tải 1 trang':`Tải ${n} trang (.zip)`;
+  const sb=n?selectedBytes():null;
+  z.textContent=n&&sb.tot?`${base} · ≈ ${fmtBytes(sb.tot)}${sb.done?'':'…'}`:base;
+  const info=$('#expTotal');
+  if(!n)info.textContent='';
+  else info.innerHTML=`Dung lượng ước tính ${n} trang: <b>≈ ${sb.tot?fmtBytes(sb.tot):'…'}</b>${sb.done?'':' <span class="muted">(đang tính…)</span>'} · ${fmtOf()==='png'?'PNG':'JPG'}. <span class="muted">Đổi DPI không làm thay đổi dung lượng.</span>`;
   [...$('#expList').querySelectorAll('.expItem')].forEach((it,i)=>it.classList.toggle('off',!expSel.has(i)))}
+/* ---- ước tính dung lượng file: ĐO THẬT từng trang ở đúng cỡ + định dạng (cache theo cỡ|định dạng; DPI không ảnh hưởng) ---- */
+const expSizeCache=new Map();let expCalcTimer=null,expCalcRun=0;
+function fmtBytes(b){if(b<1024)return b+' B';const kb=b/1024;if(kb<1000)return (kb<10?kb.toFixed(1).replace('.',','):String(Math.round(kb)))+' KB';
+  const mb=kb/1024;return (mb<100?mb.toFixed(1):String(Math.round(mb))).replace('.',',')+' MB'}
+function selectedBytes(){const s=scaleOf(),f=fmtOf();let tot=0,done=true;
+  for(const i of expSel){const v=expSizeCache.get(i+'|'+s+'|'+f);if(v==null)done=false;else tot+=v}return{tot,done}}
+async function measureBytes(i,s,f){return (await withFull(slideIds(i),()=>toBlob(renderSlide(i,s,true,true),f))).size}
+function recalcSizes(){clearTimeout(expCalcTimer);expCalcTimer=setTimeout(runSizeCalc,250)}
+async function runSizeCalc(){const s=scaleOf(),f=fmtOf(),run=++expCalcRun;
+  const items=[...$('#expList').querySelectorAll('.expItem')];
+  items.forEach((it,i)=>{const mb=it.querySelector('.expMB'),v=expSizeCache.get(i+'|'+s+'|'+f);if(mb)mb.textContent=v!=null?'≈ '+fmtBytes(v):'đang tính…'});
+  paintExpPick();
+  for(let i=0;i<items.length;i++){const k=i+'|'+s+'|'+f;if(expSizeCache.has(k))continue;
+    let sz=null;try{sz=await measureBytes(i,s,f)}catch(e){sz=null}
+    if(run!==expCalcRun)return;
+    if(sz!=null)expSizeCache.set(k,sz);
+    const mb=items[i]&&items[i].querySelector('.expMB');if(mb)mb.textContent=sz!=null?'≈ '+fmtBytes(sz):'—';
+    paintExpPick();await new Promise(r=>setTimeout(r));}}
 const fmtOf=()=>$('#expFmt').value,extOf=f=>f==='png'?'png':'jpg',scaleOf=()=>+$('#expSize').value;
 const fileName=(i,f)=>`${safeName()}_${String(i+1).padStart(2,'0')}.${extOf(f)}`;
 const slideIds=i=>[...doc.items.filter(t=>t.type==='photo'&&t.src&&aabb(t).x<(i+1)*W&&aabb(t).x2>i*W).map(t=>t.src),...(doc.bg.type==='image'&&doc.bg.src?[doc.bg.src]:[])];
@@ -2065,7 +2093,8 @@ $('#binAdd').onclick=()=>pickFiles();$('#binAuto').onclick=autoFlow;$('#binFilte
 $('#binSize').oninput=e=>{$('#binGrid').style.setProperty('--tile',e.target.value+'px')};
 $('#binToggle').onclick=e=>{const g=$('#binGrid');g.hidden=!g.hidden;e.currentTarget.textContent=g.hidden?'▴':'▾';e.currentTarget.setAttribute('aria-label',g.hidden?'Mở khay ảnh':'Thu gọn khay ảnh')};
 try{const d=localStorage.getItem('vuot.dpi');if(d)$('#expDpi').value=d}catch(e){}
-$('#expDpi').oninput=e=>pickDpi(e.target.value);$('#expDpiN').onchange=e=>pickDpi(e.target.value);$('#expSize').onchange=paintDpi;
+$('#expDpi').oninput=e=>pickDpi(e.target.value);$('#expDpiN').onchange=e=>pickDpi(e.target.value);
+$('#expSize').onchange=()=>{paintDpi();recalcSizes()};$('#expFmt').onchange=recalcSizes;
 $('#expDpiPre').onclick=e=>{if(e.target.dataset.d)pickDpi(e.target.dataset.d)};
 $('#btnExport').onclick=openExport;$('#expClose').onclick=()=>$('#exportDlg').close();$('#expZip').onclick=exportZip;
 $('#expPick').onclick=()=>{const all=expSel.size===doc.slides;expSel=new Set(all?[]:Array.from({length:doc.slides},(_,i)=>i));$('#expList').querySelectorAll('input').forEach(c=>{c.checked=!all});paintExpPick()};
