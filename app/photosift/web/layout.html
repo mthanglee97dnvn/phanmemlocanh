@@ -830,10 +830,10 @@ let _agpsdP=null;   // nạp lười bộ đọc PSD, chỉ khi người dùng c
 function loadAgPsd(){return _agpsdP||(_agpsdP=new Promise((ok,no)=>{
   if(window.agPsd)return ok(window.agPsd);
   const s=document.createElement('script');s.src='/vendor-psd.js';s.onload=()=>window.agPsd?ok(window.agPsd):no(new Error('psd'));s.onerror=()=>no(new Error('psd'));document.head.appendChild(s)}))}
-function canvasToLogoData(c){const MAX=2000;let w=c.width,h=c.height;
-  if(Math.max(w,h)>MAX){const s=MAX/Math.max(w,h);const o=document.createElement('canvas');o.width=Math.round(w*s);o.height=Math.round(h*s);
-    o.getContext('2d').drawImage(c,0,0,o.width,o.height);c=o}
-  return c.toDataURL('image/png')}
+function canvasToLogoData(src){const sw=src.naturalWidth||src.width,sh=src.naturalHeight||src.height;
+  const MAX=2000,s=Math.min(1,MAX/Math.max(sw,sh));
+  const o=document.createElement('canvas');o.width=Math.max(1,Math.round(sw*s));o.height=Math.max(1,Math.round(sh*s));
+  o.getContext('2d').drawImage(src,0,0,o.width,o.height);return o.toDataURL('image/png')}
 function compositePsd(psd){const cv=document.createElement('canvas');cv.width=psd.width;cv.height=psd.height;const x=cv.getContext('2d');
   (function walk(node){for(const ch of node.children||[]){if(ch.hidden)continue;if(ch.children)walk(ch);else if(ch.canvas)x.drawImage(ch.canvas,ch.left||0,ch.top||0)}})(psd);return cv}
 async function psdToData(file){const ag=await loadAgPsd();const buf=await file.arrayBuffer();
