@@ -30,8 +30,11 @@ jobs:
       - name: Tạo bản phát hành
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-          TAG: v1.1.${{ github.event.workflow_run.run_number }}
         run: |
+          # Số phiên bản lấy từ file VERSION ở gốc kho (đặt tay, vd 1.2) — khớp với version.json mà package_app.py ghi.
+          # Thiếu file thì tự đánh theo thứ tự lần build như trước.
+          if [ -s VERSION ]; then TAG="v$(tr -d ' \t\r\n' < VERSION)"; else TAG="v1.1.${{ github.event.workflow_run.run_number }}"; fi
+          echo "TAG=$TAG"
           exe=$(find out -name '*.exe' | head -1)
           test -n "$exe"
           dmgs=$(find out -name '*.dmg')   # bản macOS (nếu build được) — đi kèm cùng bản phát hành

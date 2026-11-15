@@ -18,9 +18,12 @@ with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
     for f in os.listdir(os.path.join(root, "app", "models")):
         if f.endswith((".onnx", ".yaml")):
             z.write(os.path.join(root, "app", "models", f), "models/" + f); n += 1
-    # số phiên bản và nơi cập nhật; số cuối là thứ tự lần build nên tự tăng, release.yml dùng cùng công thức
-    z.writestr("version.json", json.dumps({"version": "1.1." + os.environ.get("GITHUB_RUN_NUMBER", "0"),
-                                           "repo": release_repo}))
+    # số phiên bản: lấy từ file VERSION ở gốc kho (đặt tay, vd 1.2); thiếu file thì tự đánh theo lần build.
+    # release.yml dùng CÙNG nguồn này để tag bản phát hành cho khớp.
+    _vf = os.path.join(root, "VERSION")
+    ver = (open(_vf, encoding="utf-8").read().strip() if os.path.isfile(_vf) else "") \
+          or ("1.1." + os.environ.get("GITHUB_RUN_NUMBER", "0"))
+    z.writestr("version.json", json.dumps({"version": ver, "repo": release_repo}))
     for f in ("README.md", "HUONG_DAN.txt"):
         z.write(os.path.join(root, "app", f), f); n += 1
     z.write(os.path.join(root, "legal", "DIEU_KHOAN_SU_DUNG.txt"), "DIEU_KHOAN_SU_DUNG.txt"); n += 1
