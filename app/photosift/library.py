@@ -1292,7 +1292,8 @@ class Library:
                 out.append(dict(
                     id=r["id"], name=os.path.basename(r["path"]), dir=r["dir"], w=r["w"], h=r["h"], taken=self._et(r),
                     smile=-1, sharp=0, fsharp=0, lum=0, nf=0, ear=-1, rating=r["rating"], label=r["label"], grp=0, best=0,
-                    score=0, people=[], flags=[], an=False, err=bool(r["err"]), tv=r["tv"], hl=False, scene=None))
+                    score=0, people=[], flags=[], an=False, err=bool(r["err"]), tv=r["tv"], hl=False, scene=None,
+                    cam=(r["cam"] if "cam" in r.keys() else None)))
                 continue
             if self._sharp_val(r, ref_g, ref_f) < S["blur_ratio"]:
                 flags.append("blur")
@@ -1322,7 +1323,8 @@ class Library:
                 rating=r["rating"], label=r["label"], grp=r["grp"], best=r["best"], score=r["score"],
                 away=r["away"] or 0, people=pmap.get(r["id"], []), flags=flags, an=True, err=False, tv=r["tv"], hl=hl,
                 scene=(r["scene"] if "scene" in r.keys() else None),
-                focus=[r["focus_x"], r["focus_y"], r["focus_c"]] if ("focus_x" in r.keys() and r["focus_x"] is not None) else None))
+                focus=[r["focus_x"], r["focus_y"], r["focus_c"]] if ("focus_x" in r.keys() and r["focus_x"] is not None) else None,
+                cam=(r["cam"] if "cam" in r.keys() else None)))
         return out
 
     def faces_of(self, photo_id: int):
