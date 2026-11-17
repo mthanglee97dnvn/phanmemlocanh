@@ -1201,19 +1201,31 @@ const WORKER_SRC=`self.onmessage=async e=>{const{id,blob,rw,rh,prevLong,thumbLon
   const prev=await pc.convertToBlob(alpha?{type:'image/webp',quality:.85}:{type:'image/jpeg',quality:.86}),thumb=await tc.convertToBlob({type:'image/jpeg',quality:.8});
   self.postMessage({id,prev,thumb,fw,fh})}catch(err){self.postMessage({id,error:String(err)})}}`;
 let pool=null,workerUrl=null;const jobQ=[],busy=new Map();let jobsDone=0,jobsAll=0;
-function makePool(){pool=[];try{workerUrl=URL.createObjectURL(new Blob([WORKER_SRC],{type:'text/javascript'}));const n=clamp((navigator.hardwareConcurrency||4)-1,2,6);
+function makePool(){pool=[];
+  // WebKit/Safari cũ (macOS) thiếu OffscreenCanvas.convertToBlob trong worker → giải mã trên trang chính
+  if(typeof OffscreenCanvas==='undefined'||!OffscreenCanvas.prototype.convertToBlob||typeof createImageBitmap!=='function')return;
+  try{workerUrl=URL.createObjectURL(new Blob([WORKER_SRC],{type:'text/javascript'}));const n=clamp((navigator.hardwareConcurrency||4)-1,2,6);
   for(let i=0;i<n;i++){const w=new Worker(workerUrl);w.onmessage=e=>finishJob(w,e.data);w.onerror=()=>{busy.delete(w);pool=pool.filter(x=>x!==w);pump()};pool.push(w)}}catch(e){pool=[]}}
 async function decodeOnPage(id,blob){try{const r=images[id];const u=URL.createObjectURL(blob),im=await loadImage(u);URL.revokeObjectURL(u);const pc=shrink(im,r&&r.bg?2600:PREV_LONG),tc=shrink(pc,THUMB_LONG);
     finishJob(null,{id,prev:await canvasBlob(pc,'image/jpeg',.86),thumb:await canvasBlob(tc),fw:im.naturalWidth,fh:im.naturalHeight})}catch(e){finishJob(null,{id,error:String(e)})}}
 function updateProgress(){const e=$('#binProg');if(e)e.textContent=jobsDone<jobsAll?`Đang tạo ảnh xem trước ${jobsDone}/${jobsAll}`:'';if(jobsDone>=jobsAll){jobsDone=jobsAll=0}}
+const pageQ=[];let pageBusy=0;   // giải mã trên trang chính, tối đa 2 ảnh cùng lúc cho đỡ tốn RAM
+function pumpPage(){while(pageBusy<2&&pageQ.length){const j=pageQ.shift();if(!images[j.id]){jobsDone++;continue}pageBusy++;
+    decodeOnPage(j.id,j.blob).finally(()=>{pageBusy--;pumpPage()})}updateProgress()}
 function pump(){if(!pool)makePool();
-  if(!pool.length){const j=jobQ.shift();if(j)decodeOnPage(j.id,j.blob).then(pump);return}
-  for(const w of pool){if(busy.has(w))continue;const j=jobQ.shift();if(!j)break;const r=images[j.id];if(!r){jobsDone++;continue}busy.set(w,j.id);
+  if(!pool.length){while(jobQ.length)pageQ.push(jobQ.shift());pumpPage();return}
+  for(const w of pool){if(busy.has(w))continue;const j=jobQ.shift();if(!j)break;const r=images[j.id];if(!r){jobsDone++;continue}busy.set(w,j.id);r.jobBlob=j.blob;
     const long=r.bg?2600:PREV_LONG,known=r.w&&!r.linked,k=known?Math.min(1,long/Math.max(r.w,r.h)):1;
     w.postMessage({id:j.id,blob:j.blob,rw:known?Math.max(1,Math.round(r.w*k)):0,rh:known?Math.max(1,Math.round(r.h*k)):0,prevLong:long,thumbLong:THUMB_LONG,alpha:/png|webp|gif|avif/.test(j.blob.type)})}
   updateProgress()}
-function enqueue(id,blob,front,counted){if(jobQ.some(j=>j.id===id)||[...busy.values()].includes(id))return;if(!counted)jobsAll++;jobQ[front?'unshift':'push']({id,blob});pump()}
-function finishJob(w,m){if(w)busy.delete(w);jobsDone++;const r=images[m.id];
+function enqueue(id,blob,front,counted){if(jobQ.some(j=>j.id===id)||pageQ.some(j=>j.id===id)||[...busy.values()].includes(id))return;if(!counted)jobsAll++;jobQ[front?'unshift':'push']({id,blob});pump()}
+let workerFails=0;
+function finishJob(w,m){if(w)busy.delete(w);const r0=images[m.id];
+  // worker không giải mã được (thường do WebKit/macOS thiếu API) → KHÔNG bỏ ảnh, giải mã lại trên trang chính
+  if(w&&m.error&&r0&&!r0.retried&&(r0.jobBlob||r0.blob)){r0.retried=true;console.warn('worker decode failed, retry on page:',m.error);
+    if(++workerFails>=2)pool=[];   // worker hỏng hẳn → các ảnh còn lại giải mã trên trang
+    const b=r0.jobBlob||r0.blob;r0.jobBlob=null;pageQ.push({id:m.id,blob:b});pumpPage();pump();return}
+  jobsDone++;const r=images[m.id];if(r)r.jobBlob=null;
   if(r){
     if(m.error){console.warn(m.error);r.failed=true;r.ready();r.ready=()=>{};if(doc){doc.items=doc.items.filter(t=>!(t.isBg&&t.src===m.id)).map(t=>t.src===m.id?{...t,src:null}:t);if(doc.bg.src===m.id)doc.bg={...doc.bg,type:'solid',src:null};forgetImage(m.id);renderBin();dirty=true;toast('Bỏ qua một file ảnh bị lỗi')}}
     else{if(!r.w){r.w=m.fw;r.h=m.fh}else if(r.linked&&(m.fw>=m.fh)!==(r.w>=r.h)){const q=r.w;r.w=r.h;r.h=q}setPreview(r,m.prev,m.thumb);DB.set(m.id,{prev:m.prev,thumb:m.thumb},'cache').catch(()=>{});r.ready();r.ready=()=>{}}}
@@ -1242,7 +1254,10 @@ async function registerLinked(id,m){const q=encodeURIComponent(m.linked);
 async function blobOf(id,rec){const r=rec||images[id];if(r&&r.blob)return r.blob;const l=r&&r.linked;if(l){const x=await fetch(`/api/file?path=${encodeURIComponent(l)}`);if(x.ok)return x.blob()}return DB.get(id,'img')}
 function ensurePrev(id){const r=images[id];if(!r)return Promise.resolve();if(r.prev)return Promise.resolve();
   return r.prevP||(r.prevP=(async()=>{if(!r.prevBlob){const q=jobQ.findIndex(j=>j.id===id);if(q>0)jobQ.unshift(...jobQ.splice(q,1));const lq=linkQ.indexOf(id);if(lq>0)linkQ.unshift(...linkQ.splice(lq,1));await r.decoded}
-    if(!images[id]||!r.prevBlob)return;r.prev=await createImageBitmap(r.prevBlob);dirty=true;scheduleThumbs()})())}
+    if(!images[id]||!r.prevBlob)return;r.prev=await toBitmap(r.prevBlob);dirty=true;scheduleThumbs()})())}
+async function toBitmap(blob){   // createImageBitmap nếu có; WebKit lỗi/thiếu thì dùng <img>
+  if(typeof createImageBitmap==='function'){try{return await createImageBitmap(blob)}catch(e){}}
+  const u=URL.createObjectURL(blob);try{return await loadImage(u)}finally{URL.revokeObjectURL(u)}}
 function ensureUsed(){if(!doc)return Promise.resolve();const u=new Set(doc.items.filter(t=>t.type==='photo'&&t.src).map(t=>t.src));if(doc.bg.src)u.add(doc.bg.src);return Promise.all([...u].filter(i=>images[i]&&!images[i].prev).map(ensurePrev))}
 function forgetImage(id){const r=images[id];if(!r)return;const lq=linkQ.indexOf(id);if(lq>=0){linkQ.splice(lq,1);jobsDone++}const q=jobQ.findIndex(j=>j.id===id);if(q>=0){jobQ.splice(q,1);jobsDone++;updateProgress()}URL.revokeObjectURL(r.url);if(r.thumb)URL.revokeObjectURL(r.thumb);if(r.prev&&r.prev.close)r.prev.close();r.ready();delete images[id];imgOrder=imgOrder.filter(i=>i!==id)}
 async function withFull(ids,fn){const recs=[...new Set(ids)].map(i=>images[i]).filter(Boolean);for(const r of recs)r.full=await loadImage(r.url).catch(()=>null);try{return await fn()}finally{for(const r of recs)r.full=null}}
