@@ -72,3 +72,18 @@ def test_estimate_matches_old_small():
     rnd = random.Random(5)
     ref = sorted(T0 + rnd.uniform(0, 3600) for _ in range(40))
     assert Library._estimate_offset(ref, [t - 13 for t in ref])[0] == 13.0
+
+
+def test_photos_include_own_offset(lib_with):
+    # ảnh thêm vào sau khi đã đồng bộ có toff=0: giao diện phải thấy lệch của TỪNG ảnh, như cam_pair dùng
+    L, ids = lib_with([(A, T0), (A, T0 + 10)])
+    L.db.x("UPDATE photos SET toff=-30 WHERE id=?", (ids[0],))
+    assert L.cam_photos(A)["photos"] == [[ids[0], T0, -30.0], [ids[1], T0 + 10, 0.0]]
+
+
+def test_cam_list_negative_offset(lib_with):
+    L, ids = lib_with([(A, T0), (A, T0 + 1), (B, T0)])
+    L.cameras_apply({A: -45})
+    L.db.x("UPDATE photos SET toff=0 WHERE id=?", (ids[1],))
+    offs = {c["key"]: c["offset"] for c in L.cam_list()["cams"]}
+    assert offs[A] == -45

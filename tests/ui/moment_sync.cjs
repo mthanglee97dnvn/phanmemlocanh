@@ -29,11 +29,14 @@ assert.equal(s.Lcam,A); assert.equal(s.Rcam,B);
 assert.ok(s.img.includes('id=21'),'phải tự nhảy tới tấm gần khoảnh khắc nhất: '+s.img);
 assert.match(s.res,/^Lệch: \+7 giây \(máy chạy chậm\) · áp cho 6 ảnh của SONY · ILCE-7M4 · 222/);
 await pg.screenshot({path:process.argv[2]||path.join(require('os').tmpdir(),'moment.png')});
-// → đi từng tấm qua 3 tấm cùng giây
-await pg.focus('#mmGo');
+// → đi từng tấm qua 3 tấm cùng giây — KHÔNG tự đặt focus: phím đầu tiên sau khi mở phải lật bên phải
 for(const id of [22,23]){await pg.keyboard.press('ArrowRight');await pg.waitForTimeout(60);assert.ok((await st()).img.includes('id='+id),'→ tới '+id)}
 await pg.keyboard.press('ArrowLeft');await pg.keyboard.press('ArrowLeft');await pg.waitForTimeout(60);
 assert.ok((await st()).img.includes('id=21'));
+// đang đứng ở ô chọn máy mốc: ← → vẫn lật ảnh phải, không đổi máy
+await pg.focus('#mmLCam');await pg.keyboard.press('ArrowRight');await pg.waitForTimeout(60);s=await st();
+assert.equal(s.Lcam,A,'← → trên ô chọn máy không được đổi máy mốc'); assert.ok(s.img.includes('id=22'),'lật phải: '+s.img);
+await pg.keyboard.press('ArrowLeft');await pg.waitForTimeout(60);await pg.focus('#mmGo');
 // Shift+→ đổi bên trái
 await pg.keyboard.press('Shift+ArrowRight');await pg.waitForTimeout(60);s=await st();
 assert.ok(s.L.startsWith('3/5'),'Shift+→ lật trái: '+s.L);
@@ -60,5 +63,10 @@ assert.ok(calls.some(c=>c[0]==='estimate'&&c[2]===C));
 // chọn bên phải trùng máy mốc → từ chối, giữ máy cũ
 await pg.selectOption('#mmRCam',A);await pg.waitForTimeout(80);
 assert.equal((await st()).Rcam,C);
+// lệch của TỪNG ảnh mốc (ảnh thêm sau khi đồng bộ có thể khác cả máy): tấm mốc id 2 đang lệch +60 giây
+await pg.evaluate(()=>document.querySelectorAll('.back').forEach(b=>b.remove()));
+PH[A]=PH[A].map(p=>p[0]===2?[2,p[1],60]:[p[0],p[1],0]);
+await pg.evaluate(()=>openMomentSync(2));await pg.waitForTimeout(400);
+assert.match((await st()).res,/^Lệch: \+1 phút 7 giây/,'dùng giờ hiệu dụng của chính tấm mốc');
 assert.deepEqual(errs,[]);
 console.log('ok (moment sync)');await b.close()})().catch(e=>{console.error(e.message);process.exit(1)});

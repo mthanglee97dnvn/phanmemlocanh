@@ -1131,11 +1131,13 @@ class Library:
         """Các máy trong thư mục đang mở: số ảnh, độ lệch đang dùng, ảnh đầu tiên (theo giờ chụp)."""
         self._fill_cams()
         out = []
-        for c in self.db.q("SELECT p.cam k, COUNT(*) n, MAX(COALESCE(p.toff,0)) off FROM photos p JOIN cur ON cur.id=p.id "
+        for c in self.db.q("SELECT p.cam k, COUNT(*) n, MAX(COALESCE(p.toff,0)) mx, MIN(COALESCE(p.toff,0)) mn "
+                           "FROM photos p JOIN cur ON cur.id=p.id "
                            "WHERE p.taken IS NOT NULL AND p.taken>0 GROUP BY p.cam ORDER BY n DESC"):
+            off = c["mx"] if abs(c["mx"] or 0) >= abs(c["mn"] or 0) else c["mn"]   # lệch đang dùng (kể cả âm)
             f = self.db.one("SELECT p.id FROM photos p JOIN cur ON cur.id=p.id WHERE p.cam=? AND p.taken>0 "
                             "ORDER BY p.taken, p.id LIMIT 1", (c["k"],))
-            out.append(dict(key=c["k"] or "?", n=c["n"], offset=round(c["off"] or 0), first=f["id"] if f else None))
+            out.append(dict(key=c["k"] or "?", n=c["n"], offset=round(off or 0), first=f["id"] if f else None))
         return dict(cams=out)
 
     def cam_step(self, pid: int, step: int):
@@ -1180,11 +1182,11 @@ class Library:
 
     # ---- ghép cặp KHOẢNH KHẮC CHUNG: một tấm máy mốc + một tấm cùng lúc của máy cần chỉnh
     def cam_photos(self, cam: str):
-        """Ảnh của một máy (đang mở, có giờ chụp) theo giờ gốc: [[id, taken], ...]."""
+        """Ảnh của một máy (đang mở, có giờ chụp) theo giờ gốc: [[id, taken, toff], ...]."""
         self._fill_cams()
-        rows = self.db.q("SELECT p.id, p.taken FROM photos p JOIN cur ON cur.id=p.id WHERE p.cam=? "
+        rows = self.db.q("SELECT p.id, p.taken, COALESCE(p.toff,0) toff FROM photos p JOIN cur ON cur.id=p.id WHERE p.cam=? "
                          "AND p.taken IS NOT NULL AND p.taken>0 ORDER BY p.taken, p.id", (cam,))
-        return dict(photos=[[r["id"], r["taken"]] for r in rows])
+        return dict(photos=[[r["id"], r["taken"], float(r["toff"])] for r in rows])
 
     def cam_estimate(self, ref_cam: str, cam: str):
         """Lệch đề xuất cho 'cam' so với 'ref_cam': lệch đang dùng nếu có, không thì dò tự động."""

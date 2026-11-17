@@ -1640,7 +1640,7 @@ async function openMomentSync(startId){
   const side={L:{cam:null,ph:[],idx:0},R:{cam:null,ph:[],idx:0}};
   const camOf=k=>cams.find(c=>c.key===k);
   const cur=k=>side[k].ph[side[k].idx];
-  const refEff=()=>{ const p=cur('L'); return p?p[1]+((camOf(side.L.cam)||{}).offset||0):NaN; };
+  const refEff=()=>{ const p=cur('L'); return p?p[1]+(p.length>2?p[2]:((camOf(side.L.cam)||{}).offset||0)):NaN; };   // giờ hiệu dụng của chính tấm mốc (giống máy chủ)
   const diff=()=>{ const r=cur('R'); return r?Math.round(refEff()-r[1]):NaN; };
   const nearest=(ph,t)=>{ let lo=0,hi=ph.length; while(lo<hi){ const mid=(lo+hi)>>1; if(ph[mid][1]<t) lo=mid+1; else hi=mid; }
     if(lo>=ph.length) return ph.length-1; if(lo>0&&t-ph[lo-1][1]<=ph[lo][1]-t) return lo-1; return lo; };
@@ -1675,7 +1675,8 @@ async function openMomentSync(startId){
   $m('#mmRCam').onchange=async e=>{ const key=e.target.value; if(key===side.L.cam){ toast('Hai bên cùng một máy — hãy chọn máy khác',3000); e.target.value=side.R.cam; return; } await pickR(key); };
   [['L','#mmLView'],['R','#mmRView']].forEach(([k,id])=>{ const v=$m(id); v.onclick=()=>{ const p=cur(k); if(!p) return; const z=v.classList.toggle('z');
     $m(id+' img').src=`/api/preview?id=${p[0]}&s=${z?0:1200}`; $m(id+' .ck-tip').textContent=z?'Bấm để thu nhỏ':'Bấm để phóng to'; }; });
-  m.addEventListener('keydown',e=>{ if(['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)&&e.target!==rng) return;
+  m.addEventListener('keydown',e=>{ const camSel=e.target.id==='mmLCam'||e.target.id==='mmRCam';   // ô chọn máy: ←/→ lật ảnh, ↑/↓ mới đổi máy
+    if(['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)&&e.target!==rng&&!(camSel&&(e.key==='ArrowLeft'||e.key==='ArrowRight'))) return;
     const k={ArrowLeft:-1,ArrowRight:1,Home:-2,End:2}[e.key]; if(!k) return;
     if(e.target===rng&&!e.shiftKey) return;   // thanh kéo tự xử lý mũi tên
     e.preventDefault(); stepK(e.shiftKey&&Math.abs(k)===1?'L':'R',k); });
@@ -1683,6 +1684,7 @@ async function openMomentSync(startId){
     try{ const r=await api('/api/cameras/pair',{ref:a[0],id:b[0]});
       if(r.error){ toast(r.error,4000); return; }
       const c=camOf(r.cam); if(c){ c.offset=r.offset; ['#mmLCam','#mmRCam'].forEach(id=>{ const o=$m(id).querySelector(`option[value="${CSS.escape(r.cam)}"]`); if(o) o.outerHTML=opt(c); }); $m('#mmLCam').value=side.L.cam; $m('#mmRCam').value=side.R.cam; }
+      for(const k of ['L','R']) if(side[k].cam===r.cam) side[k].ph.forEach(p=>{ p[2]=r.offset; });   // máy vừa chỉnh: mọi ảnh cùng lệch mới
       preview(); await loadPhotos();
       toast(`Đã chỉnh ${fmt(r.n)} ảnh của máy ${camName(r.cam)} lệch ${sgn(r.offset)}. Chọn máy khác để chỉnh tiếp.`,4200); }
     catch(e){ toast(e.message,4000); } finally{ go.disabled=false; } };
@@ -1690,6 +1692,7 @@ async function openMomentSync(startId){
   await loadCam('L',cams[0].key);
   if(startId!=null){ const i=side.L.ph.findIndex(p=>p[0]===startId); if(i>=0) side.L.idx=i; }
   draw('L'); await pickR(cams[1].key);
+  if(m.isConnected) go.focus();   // phím ← → ngay sau khi mở là lật bên phải, không đổi nhầm máy mốc
 }
 
 /* ---------- chỉnh giờ theo ẢNH CHỤP ĐỒNG HỒ (giống "Adjust Absolute" của Photo Mechanic) ----------
