@@ -8,7 +8,7 @@ const mk=id=>({id,name:`MT_${String(id).padStart(4,'0')}.JPG`,dir:'/s',cam:'X',t
 const PH=Array.from({length:20},(_,i)=>mk(i+1));
 const ROLLS=[{root:'/w/2026-10-01 Hoa & Nam',n:812,kept:304,on:true},{root:'C:\\Wedding\\Tuấn - Linh',n:540,kept:121,on:true},{root:'/w/<i>x',n:90,kept:20,on:true}];
 let TASTE={source:'default',rolls:ROLLS,n_rolls:3,n_photos:1442,agree:null,learned:null,stale:false};
-let LEARN_ERR='';
+let LEARN_ERR='', LEARN_NOTE='';
 let SUGG={ids:[1,2,3],note:'Bạn đã chọn 5 tấm, nhiều hơn 400'};
 const calls=[];
 (async()=>{const b=await chromium.launch();const pg=await b.newPage({viewport:{width:1920,height:1000},deviceScaleFactor:1});
@@ -21,7 +21,7 @@ await pg.route('**/*',async r=>{const u=new URL(r.request().url()), J=o=>r.fulfi
   if(p==='/api/photos')return J(PH);
   if(p==='/api/status')return J({state:'done',root:'/s',online:true,eyes:true,total:20,done:20,thumbs:20,settings:{blur_ratio:.45,dark:.2,bright:.8,ear:.19,dup_hamming:10,dup_seconds:20,emotion_priority:1,face_threshold:.4}});
   if(p==='/api/taste')return J(TASTE);
-  if(p==='/api/taste/learn'){await new Promise(z=>setTimeout(z,400));if(LEARN_ERR)return J({...TASTE,error:LEARN_ERR});TASTE={...TASTE,stale:false,paused:false};return J(TASTE)}
+  if(p==='/api/taste/learn'){await new Promise(z=>setTimeout(z,400));if(LEARN_ERR)return J({...TASTE,error:LEARN_ERR});if(LEARN_NOTE)return J({...TASTE,note:LEARN_NOTE});TASTE={...TASTE,stale:false,paused:false};return J(TASTE)}
   if(p==='/api/taste/reset'){TASTE={...TASTE,source:'default',agree:null,learned:null,paused:true,stale:true};return J(TASTE)}
   if(p==='/api/taste/rolls'){const off=new Set(bd.off);TASTE={...TASTE,rolls:ROLLS.map(x=>({...x,on:!off.has(x.root)})),stale:true};return J(TASTE)}
   if(p==='/api/taste/export')return J({ok:true,path:bd.dest+'/taste_data.npz',rows:1442});
@@ -56,7 +56,8 @@ assert.equal(await pg.$$eval('#grid .cell',c=>c.length),3);
 assert.equal(await pg.$$eval('#grid .cell .sugg',c=>c.length),3,'ô đề xuất có dấu ✦');
 assert.ok(await shown('#bSuggRate')&&await shown('#bSuggClear'),'hai nút thanh hiện khi có đề xuất');
 assert.match(await pg.textContent('#bSuggRate'),/Chấm 1 sao cho tất cả đề xuất/);
-let t=await toasts();assert.ok(t.some(m=>/Đã đề xuất 3 tấm/.test(m)&&/nhiều hơn 400/.test(m)),'toast có note "nhiều hơn": '+t);
+let t=await toasts();assert.ok(t.includes('Bạn đã chọn 5 tấm, nhiều hơn 400 — đã đánh dấu đề xuất cho các tấm đó'),'sao vượt N: toast chỉ có ghi chú: '+t);
+assert.ok(!t.some(m=>/Đã đề xuất/.test(m)),'sao vượt N: không ghép "Đã đề xuất…" với ghi chú: '+t);
 // lưới Tất cả: chỉ ô đề xuất có ✦
 await pg.selectOption('#fFilter','all');await W();
 assert.equal(await pg.$$eval('#grid .cell .sugg',c=>c.length),3);
@@ -107,6 +108,12 @@ await W(500);assert.ok(!(await pg.isDisabled('#gLearn')),'học xong mở lại 
 LEARN_ERR='Chưa có đám nào đã lọc xong để học';
 await pg.click('#gLearn');await W(600);LEARN_ERR='';
 t=await toasts();assert.ok(t.at(-1).includes('Chưa có đám nào đã lọc xong để học'),'lỗi học phải hiện thành toast: '+t.at(-1));
+// bỏ tick mọi đám rồi Học lại → máy chủ trả note (đã về gu mặc định) → toast hiện note
+LEARN_NOTE='Chưa có đám nào được chọn — đang dùng gu mặc định';
+await pg.click('#gLearn');await W(600);LEARN_NOTE='';
+t=await toasts();assert.equal(t.at(-1),'Chưa có đám nào được chọn — đang dùng gu mặc định','note học lại phải hiện thành toast');
+// độ trùng khớp chưa đo được (agree=null) → ẩn phần trăm
+assert.equal(await pg.evaluate(()=>tasteLabel({source:'personal',n_rolls:4,agree:null})),'Đang dùng: gu của bạn (học từ 4 đám)');
 // Dùng lại gu mặc định = xoá gu đã học (POST /api/taste/reset), KHÔNG đổi đám bật/tắt, không học lại
 TASTE={...TASTE,source:'personal',n_rolls:2,agree:0.8,learned:1790000000,stale:false};
 const L0=n('/api/taste/learn').length, R0=n('/api/taste/rolls').length;

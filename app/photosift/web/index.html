@@ -1577,7 +1577,8 @@ function tasteSec(m){
     m.close(); setPreviewFilter(false);
     if(ids.size){ S.filter='sugg'; S.lastFilter='sugg'; S.keep.clear(); $('#fFilter').value='sugg'; }
     await loadPhotos();
-    toast(ids.size?`Đã đề xuất ${fmt(r.n)} tấm`+(r.note?` — ${r.note}`:''):'Chưa có ảnh nào phân tích xong để đề xuất', r.note?6000:3500);
+    const over=/nhiều hơn/.test(r.note||'');   // số tấm có sao đã vượt N: chỉ hiện ghi chú, không lặp "Đã đề xuất…"
+    toast(!ids.size?'Chưa có ảnh nào phân tích xong để đề xuất':over?`${r.note} — đã đánh dấu đề xuất cho các tấm đó`:`Đã đề xuất ${fmt(r.n)} tấm`+(r.note?` — ${r.note}`:''), r.note?6000:3500);
   };
   go.onclick=run; N.onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); run(); } };
   m.querySelector('#tTaste').onclick=e=>{ const alt=e.altKey; m.close(); openTaste({alt}); };
@@ -1608,7 +1609,7 @@ async function openTaste({alt=false}={}){
     try{ t=await tasteLearn(); paint(); return t; }catch(e){ toast(e.message,4000); return null; }
     finally{ L.disabled=R.disabled=false; L.textContent='Học lại'; }
   };
-  L.onclick=async()=>{ const r=await learn(); if(r) toast(r.error||('Đã học xong. '+tasteLabel(r)),4000); };
+  L.onclick=async()=>{ const r=await learn(); if(r) toast(r.error||r.note||('Đã học xong. '+tasteLabel(r)),4000); };
   R.onclick=async()=>{ if(L.disabled||R.disabled) return; R.disabled=true;
     try{ t=await api('/api/taste/reset',{}); paint(); toast(`Đã bỏ gu đã học. ${tasteLabel(t)}. Bấm Học lại khi muốn app học lại từ các đám`,5000); }
     catch(e){ toast(e.message,4000); } finally{ R.disabled=false; } };
