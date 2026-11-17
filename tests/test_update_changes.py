@@ -36,3 +36,8 @@ def test_cap_six_versions():
 
 def test_up_to_date_is_empty():
     assert _changes([R("v1.2.2", "✨ x")], "1.2.2", "1.2.2") == []
+
+
+def test_markdown_lines_not_highlights():
+    body = "## Có gì mới\n- gạch đầu dòng\n* sao\n**Full Changelog**: v1...v2\n> trích\n[link](x)\n(chú thích)\n🍎 Sửa nhập ảnh Mac"
+    assert _changes([R("v1.2.5", body)], "1.2.4", "1.2.5") == [{"ver": "1.2.5", "lines": ["🍎 Sửa nhập ảnh Mac"]}]

@@ -1659,18 +1659,20 @@ async function openMomentSync(startId){
     const w=d>0?'máy chạy chậm':d<0?'máy chạy nhanh':'khớp sẵn';
     res.innerHTML=`Lệch: <b>${sgn(d)}</b> (${w}) · áp cho <b>${fmt(c?c.n:side.R.ph.length)}</b> ảnh của <b>${esc(camName(side.R.cam))}</b>`+(c&&c.offset===d?' — <span style="color:#7bd88f">đang dùng đúng lệch này</span>':''); };
   const jumpR=(off,keep)=>{ if(!side.R.ph.length) return; side.R.idx=nearest(side.R.ph,refEff()-off); draw('R'); preview(keep); };
-  const loadCam=async(k,key)=>{ side[k].cam=key; $m('#mm'+k+'Cam').value=key;
-    const r=await api('/api/cameras/photos?cam='+encodeURIComponent(key)); side[k].ph=r.photos||[]; side[k].idx=0; };
-  const pickR=async key=>{ await loadCam('R',key); let off=0;
+  const tok={L:0,R:0};   // đổi máy liên tục: bỏ phản hồi đến muộn của lần chọn trước
+  const loadCam=async(k,key)=>{ const t=++tok[k]; side[k].cam=key; $m('#mm'+k+'Cam').value=key;
+    const r=await api('/api/cameras/photos?cam='+encodeURIComponent(key)); if(t!==tok[k]) return false;
+    side[k].ph=r.photos||[]; side[k].idx=0; return true; };
+  const pickR=async key=>{ if(!await loadCam('R',key)) return; const t=tok.R; let off=0;
     try{ const e=await api(`/api/cameras/estimate?ref=${encodeURIComponent(side.L.cam)}&cam=${encodeURIComponent(key)}`); off=e.offset||0; }catch(e){}
-    jumpR(off); };
+    if(t===tok.R) jumpR(off); };
   const other=k=>{ const c=cams.find(c=>c.key!==k); return c&&c.key; };
   const stepK=(k,d)=>{ const s=side[k]; const i=Math.min(s.ph.length-1,Math.max(0,d===-2?0:d===2?s.ph.length-1:s.idx+d)); if(i===s.idx) return; s.idx=i; draw(k); if(k==='L') draw('R'); preview(); };
   $m('#mmLPrev').onclick=()=>stepK('L',-1); $m('#mmLNext').onclick=()=>stepK('L',1);
   $m('#mmRPrev').onclick=()=>stepK('R',-1); $m('#mmRNext').onclick=()=>stepK('R',1);
   rng.oninput=()=>{ side.R.idx=+rng.value; draw('R'); preview(); };
   m.querySelectorAll('.dur input,.dur select').forEach(el=>el.onchange=()=>jumpR(readDur(),true));
-  $m('#mmLCam').onchange=async e=>{ const key=e.target.value; await loadCam('L',key); draw('L');
+  $m('#mmLCam').onchange=async e=>{ const key=e.target.value; if(!await loadCam('L',key)) return; draw('L');
     if(side.R.cam===key) await pickR(other(key)); else jumpR(isFinite(diff())?readDur():0); };
   $m('#mmRCam').onchange=async e=>{ const key=e.target.value; if(key===side.L.cam){ toast('Hai bên cùng một máy — hãy chọn máy khác',3000); e.target.value=side.R.cam; return; } await pickR(key); };
   [['L','#mmLView'],['R','#mmRView']].forEach(([k,id])=>{ const v=$m(id); v.onclick=()=>{ const p=cur(k); if(!p) return; const z=v.classList.toggle('z');
@@ -1960,7 +1962,9 @@ function sortCmp(key,rev){
 }
 function updatePairCnt(){
   const ps=pairStats(S.photos), b=document.getElementById('pairCnt'); S.oddSet=ps.odd;
-  if(S.filter==='odd'&&!ps.odd.size){ S.filter=S.prevFilter&&S.prevFilter!=='odd'?S.prevFilter:'all'; const sel=$('#fFilter'); if(sel) sel.value=S.filter; if(S.photos.length) toast('Đã đủ cặp RAW–JPEG'); }
+  if(S.filter==='odd'&&!ps.odd.size){ S.filter=S.prevFilter&&S.prevFilter!=='odd'?S.prevFilter:'all'; const sel=$('#fFilter'); if(sel) sel.value=S.filter; if(ps.raw&&ps.jpg) toast('Đã đủ cặp RAW–JPEG'); }
+  const fs=document.getElementById('fSort');   // file lẻ luôn xếp theo máy rồi giờ → ô Sắp xếp tạm không dùng
+  if(fs){ const odd=S.filter==='odd'; fs.disabled=odd; fs.title=odd?'Đang xem file lẻ cặp: luôn xếp theo máy rồi giờ chụp':'Sắp xếp'; }
   if(!b) return;
   b.hidden=!(ps.raw&&ps.jpg); if(b.hidden) return;
   const n=ps.odd.size;

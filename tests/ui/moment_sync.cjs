@@ -1,11 +1,12 @@
 // Màn hình "Ghép khoảnh khắc chung": chạy index.html với API giả (node tests/ui/moment_sync.cjs [ảnh_chụp.png])
 const {chromium}=require('playwright'),fs=require('fs'),path=require('path'),assert=require('assert');
 const html=fs.readFileSync(path.join(__dirname,'../../app/photosift/web/index.html'),'utf8');
-const T=1790000000, A='SONY · ILCE-7RM3 · 111', B='SONY · ILCE-7M4 · 222', C='Canon · R6 · 333';
+const T=1790000000, A='SONY · ILCE-7RM3 · 111', B='SONY · ILCE-7M4 · 222', C='Canon · R6 · 333', D='Nikon · Z6 · 444';
+let slowC=false;
 // máy B chạy chậm 7 giây; có 3 tấm cùng giây (ids 21,22,23); thêm 1 tấm lệch cả ngày (id 30)
 const PH={[A]:[[1,T+0],[2,T+31],[3,T+100],[4,T+200],[5,T+300]],
           [B]:[[20,T+10],[21,T+24],[22,T+24],[23,T+24],[24,T+193],[30,T+24-86400+86400*2]],
-          [C]:[[40,T+5],[41,T+6]]};
+          [C]:[[40,T+5],[41,T+6]], [D]:[[50,T+31]]};
 const calls=[];
 const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==','base64');
 (async()=>{const b=await chromium.launch();const pg=await b.newPage({viewport:{width:1300,height:900},deviceScaleFactor:2});
@@ -13,8 +14,8 @@ const errs=[];pg.on('pageerror',e=>errs.push(e.message));
 await pg.route('**/*',async r=>{const u=new URL(r.request().url()), q=u.searchParams, J=o=>r.fulfill({body:JSON.stringify(o),contentType:'application/json'});
   if(u.pathname==='/')return r.fulfill({body:html,contentType:'text/html'});
   if(u.pathname==='/api/preview')return r.fulfill({body:png,contentType:'image/png'});
-  if(u.pathname==='/api/cameras/list')return J({cams:[{key:A,n:5,offset:0,first:1},{key:B,n:6,offset:0,first:20},{key:C,n:2,offset:0,first:40}]});   // máy chủ đã xếp theo số ảnh
-  if(u.pathname==='/api/cameras/photos')return J({photos:PH[q.get('cam')]||[]});
+  if(u.pathname==='/api/cameras/list')return J({cams:[{key:A,n:5,offset:0,first:1},{key:B,n:6,offset:0,first:20},{key:C,n:2,offset:0,first:40},{key:D,n:1,offset:0,first:50}]});   // máy chủ đã xếp theo số ảnh
+  if(u.pathname==='/api/cameras/photos'){ if(slowC&&q.get('cam')===C) await new Promise(z=>setTimeout(z,500)); return J({photos:PH[q.get('cam')]||[]}); }
   if(u.pathname==='/api/cameras/estimate'){calls.push(['estimate',q.get('ref'),q.get('cam')]);return J({offset:q.get('cam')===B?7:0,conf:0.8,source:'auto'})}
   if(u.pathname==='/api/cameras/pair'){const bd=JSON.parse(r.request().postData());calls.push(['pair',bd]);return J({ok:true,cam:B,offset:7,n:6})}
   if(u.pathname.startsWith('/api/'))return J({});
@@ -63,6 +64,9 @@ assert.ok(calls.some(c=>c[0]==='estimate'&&c[2]===C));
 // chọn bên phải trùng máy mốc → từ chối, giữ máy cũ
 await pg.selectOption('#mmRCam',A);await pg.waitForTimeout(80);
 assert.equal((await st()).Rcam,C);
+// đổi máy liên tục: máy C trả chậm, chọn D ngay sau → bên phải phải là ảnh của D, không bị C đè
+slowC=true; await pg.selectOption('#mmRCam',C); await pg.selectOption('#mmRCam',D); await pg.waitForTimeout(800); slowC=false;
+s=await st(); assert.equal(s.Rcam,D); assert.ok(s.img.includes('id=50'),'phản hồi muộn của máy C đè lên D: '+s.img);
 // lệch của TỪNG ảnh mốc (ảnh thêm sau khi đồng bộ có thể khác cả máy): tấm mốc id 2 đang lệch +60 giây
 await pg.evaluate(()=>document.querySelectorAll('.back').forEach(b=>b.remove()));
 PH[A]=PH[A].map(p=>p[0]===2?[2,p[1],60]:[p[0],p[1],0]);

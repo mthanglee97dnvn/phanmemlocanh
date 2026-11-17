@@ -60,6 +60,8 @@ def _note_lines(body: str) -> tuple[list[str], bool]:
         s = raw.strip()
         if not s or s.startswith(("•", "Cảm ơn", "©")):
             continue
+        if s[0] in "#-*>[(|_=~`+":       # ký hiệu markdown (ghi chú sửa tay trên GitHub) — không phải dòng nổi bật
+            continue
         if s[0].isalnum():
             if s.startswith(("Sửa lỗi", "Cải thiện")):
                 fix = True

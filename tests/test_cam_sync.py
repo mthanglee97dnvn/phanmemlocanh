@@ -87,3 +87,10 @@ def test_cam_list_negative_offset(lib_with):
     L.db.x("UPDATE photos SET toff=0 WHERE id=?", (ids[1],))
     offs = {c["key"]: c["offset"] for c in L.cam_list()["cams"]}
     assert offs[A] == -45
+
+
+def test_pair_photo_not_open(lib_with):
+    L, ids = lib_with([(A, T0 + 31), (B, T0 + 24), (B, T0 + 50)])
+    L.db.x("DELETE FROM cur WHERE id=?", (ids[1],))     # tấm của máy B không thuộc thư mục đang mở
+    assert "error" in L.cam_pair(ids[0], ids[1])
+    assert toffs(L, B) == [0, 0]

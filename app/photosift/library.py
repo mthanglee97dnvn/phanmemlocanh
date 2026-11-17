@@ -1207,8 +1207,8 @@ class Library:
     def cam_pair(self, ref_id: int, pid: int):
         """Hai tấm cùng khoảnh khắc → lệch = giờ hiệu dụng tấm mốc − giờ gốc tấm kia, áp cho cả máy tấm kia."""
         self._fill_cams()
-        a = self.db.one("SELECT taken, toff, cam FROM photos WHERE id=?", (int(ref_id),))
-        b = self.db.one("SELECT taken, cam FROM photos WHERE id=?", (int(pid),))
+        a = self.db.one("SELECT p.taken, p.toff, p.cam FROM photos p JOIN cur ON cur.id=p.id WHERE p.id=?", (int(ref_id),))
+        b = self.db.one("SELECT p.taken, p.cam FROM photos p JOIN cur ON cur.id=p.id WHERE p.id=?", (int(pid),))   # chỉ ảnh đang mở
         if not a or not b or not a["taken"] or not b["taken"]:
             return dict(error="Không tìm thấy ảnh hoặc ảnh không có giờ chụp")
         if not b["cam"] or b["cam"] == "?" or not a["cam"] or a["cam"] == "?":
