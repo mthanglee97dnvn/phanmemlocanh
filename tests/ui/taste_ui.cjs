@@ -8,6 +8,7 @@ const mk=id=>({id,name:`MT_${String(id).padStart(4,'0')}.JPG`,dir:'/s',cam:'X',t
 const PH=Array.from({length:20},(_,i)=>mk(i+1));
 const ROLLS=[{root:'/w/2026-10-01 Hoa & Nam',n:812,kept:304,on:true},{root:'C:\\Wedding\\Tuấn - Linh',n:540,kept:121,on:true},{root:'/w/<i>x',n:90,kept:20,on:true}];
 let TASTE={source:'default',rolls:ROLLS,n_rolls:3,n_photos:1442,agree:null,learned:null,stale:false};
+let LEARN_ERR='';
 let SUGG={ids:[1,2,3],note:'Bạn đã chọn 5 tấm, nhiều hơn 400'};
 const calls=[];
 (async()=>{const b=await chromium.launch();const pg=await b.newPage({viewport:{width:1920,height:1000},deviceScaleFactor:1});
@@ -20,7 +21,8 @@ await pg.route('**/*',async r=>{const u=new URL(r.request().url()), J=o=>r.fulfi
   if(p==='/api/photos')return J(PH);
   if(p==='/api/status')return J({state:'done',root:'/s',online:true,eyes:true,total:20,done:20,thumbs:20,settings:{blur_ratio:.45,dark:.2,bright:.8,ear:.19,dup_hamming:10,dup_seconds:20,emotion_priority:1,face_threshold:.4}});
   if(p==='/api/taste')return J(TASTE);
-  if(p==='/api/taste/learn'){await new Promise(z=>setTimeout(z,400));TASTE={...TASTE,stale:false};return J(TASTE)}
+  if(p==='/api/taste/learn'){await new Promise(z=>setTimeout(z,400));if(LEARN_ERR)return J({...TASTE,error:LEARN_ERR});TASTE={...TASTE,stale:false,paused:false};return J(TASTE)}
+  if(p==='/api/taste/reset'){TASTE={...TASTE,source:'default',agree:null,learned:null,paused:true,stale:true};return J(TASTE)}
   if(p==='/api/taste/rolls'){const off=new Set(bd.off);TASTE={...TASTE,rolls:ROLLS.map(x=>({...x,on:!off.has(x.root)})),stale:true};return J(TASTE)}
   if(p==='/api/taste/export')return J({ok:true,path:bd.dest+'/taste_data.npz',rows:1442});
   if(p==='/api/suggest'){PH.forEach(x=>x.sugg=SUGG.ids.includes(x.id)?1:0);return J({ids:SUGG.ids,n:SUGG.ids.length,note:SUGG.note,source:TASTE.source})}
@@ -101,12 +103,25 @@ assert.ok(await pg.isDisabled('#gLearn'),'đang học: khóa nút');
 await pg.$eval('#gLearn',e=>e.click());await W(60);
 assert.equal(n('/api/taste/learn').length,1,'không gửi 2 lần');assert.deepEqual(n('/api/taste/learn')[0][1],{});
 await W(500);assert.ok(!(await pg.isDisabled('#gLearn')),'học xong mở lại nút');
-// Dùng lại gu mặc định = tắt mọi đám rồi học lại
-const L0=n('/api/taste/learn').length;
-await pg.click('#gReset');await W(700);
-assert.deepEqual(n('/api/taste/rolls').at(-1)[1],{off:ROLLS.map(x=>x.root)});
-assert.equal(n('/api/taste/learn').length,L0+1);
-assert.equal(await pg.$$eval('.grow input:checked',x=>x.length),0);
+// lỗi từ máy chủ khi học → toast
+LEARN_ERR='Chưa có đám nào đã lọc xong để học';
+await pg.click('#gLearn');await W(600);LEARN_ERR='';
+t=await toasts();assert.ok(t.at(-1).includes('Chưa có đám nào đã lọc xong để học'),'lỗi học phải hiện thành toast: '+t.at(-1));
+// Dùng lại gu mặc định = xoá gu đã học (POST /api/taste/reset), KHÔNG đổi đám bật/tắt, không học lại
+TASTE={...TASTE,source:'personal',n_rolls:2,agree:0.8,learned:1790000000,stale:false};
+const L0=n('/api/taste/learn').length, R0=n('/api/taste/rolls').length;
+await pg.click('#gReset');await W(300);
+assert.deepEqual(n('/api/taste/reset').at(-1)[1],{});
+assert.equal(n('/api/taste/learn').length,L0,'reset không gọi học');assert.equal(n('/api/taste/rolls').length,R0,'reset không đổi đám');
+assert.equal(await pg.$$eval('.grow input:checked',x=>x.length),2);
+assert.equal(await pg.textContent('#gSrc'),'Đang dùng: gu mặc định');
+assert.match(await pg.textContent('#gSub'),/tạm dừng tự học/);
+t=await toasts();assert.ok(/Đang dùng: gu mặc định/.test(t.at(-1))&&!/gu của bạn/.test(t.at(-1)),'toast sau reset theo nguồn mới: '+t.at(-1));
+await pg.keyboard.press('Escape');await W();
+// đang tạm dừng: mở Chọn ảnh đẹp không tự học nền dù stale
+await pg.click('#bCull');await W(600);
+assert.equal(n('/api/taste/learn').length,L0,'tạm dừng: không tự học nền');
+assert.match(await pg.textContent('#tInfo'),/^Đang dùng: gu mặc định$/);
 await pg.keyboard.press('Escape');await W();
 // Alt + mở hộp → nút Xuất dữ liệu học
 await pg.click('#bCull');await W(250);await pg.click('#tTaste',{modifiers:['Alt']});await W(250);
@@ -117,10 +132,10 @@ assert.deepEqual(n('/api/taste/export').at(-1)[1],{dest:'/tmp/gu'});
 t=await toasts();assert.ok(t.some(m=>m.includes('/tmp/gu/taste_data.npz')),'toast đường dẫn file: '+t);
 await pg.keyboard.press('Escape');await W();
 // 6) gu cũ (stale) + có đám bật → mở phần Chọn ảnh đẹp tự học nền
-TASTE={...TASTE,rolls:ROLLS,source:'personal',n_rolls:12,agree:0.78,stale:true};
+TASTE={...TASTE,rolls:ROLLS,source:'personal',n_rolls:12,agree:0.78,stale:true,paused:false};
 const L1=n('/api/taste/learn').length;
 await pg.click('#bCull');await W(250);
-assert.equal(n('/api/taste/learn').length,L1+1,'stale: tự học nền');
+assert.equal(n('/api/taste/learn').length,L1+1,'stale: tự học nền');assert.deepEqual(n('/api/taste/learn').at(-1)[1],{auto:true});
 assert.ok(!(await pg.isDisabled('#tGo')),'học nền không khóa giao diện');
 await W(600);
 assert.match(await pg.textContent('#tInfo'),/Đang dùng: gu của bạn \(học từ 12 đám, trùng khớp 78%\)/);

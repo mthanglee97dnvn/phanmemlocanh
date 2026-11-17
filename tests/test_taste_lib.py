@@ -168,3 +168,26 @@ def test_learn_with_default_prior(lib_with):
     assert info["source"] == "personal" and info["agree"] >= 0.6
     meta = taste.load(library.TASTE_FILE)[1]
     assert meta["prior"] is True and meta["rolls"] == 3 and meta["agree"] == info["agree"]
+
+
+def test_reset_drops_personal_and_pauses_auto_learn(lib_with):
+    L, _ = _three(lib_with)
+    L.taste_rolls_set(["/r1"])
+    assert L.taste_learn()["source"] == "personal"
+    info = L.taste_reset()
+    assert not library.TASTE_FILE.exists()
+    assert info["source"] == "basic" and info["paused"] is True
+    assert {r["root"]: r["on"] for r in info["rolls"]} == {"/r3": True, "/r2": True, "/r1": False}, "reset không đổi đám bật/tắt"
+    L.taste_reset()   # không có file: không lỗi
+    # có gu mặc định → về "default"
+    m = taste.fit(np.random.default_rng(0).random((50, len(taste.FEATS)), dtype=np.float32), None,
+                  np.r_[np.ones(10), np.zeros(40)], np.ones(50))
+    taste.save(library.TASTE_DEFAULT, m, {"rolls": 1})
+    assert L.taste_info()["source"] == "default"
+    # học nền (auto) bị chặn khi đang tạm dừng
+    r = L.taste_learn(auto=True)
+    assert r["source"] == "default" and r["paused"] is True and not library.TASTE_FILE.exists()
+    # bấm Học lại (học thật) → bỏ tạm dừng, có gu riêng
+    r = L.taste_learn()
+    assert r["source"] == "personal" and r["paused"] is False and library.TASTE_FILE.exists()
+    assert L.taste_learn(auto=True)["source"] == "personal"

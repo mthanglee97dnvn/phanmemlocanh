@@ -784,7 +784,9 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                     lib.cull_clear()
                     return self._json(dict(ok=True))
                 if u.path == "/api/taste/learn":
-                    return self._json(lib.taste_learn())
+                    return self._json(lib.taste_learn(auto=bool(b.get("auto"))))
+                if u.path == "/api/taste/reset":
+                    return self._json(lib.taste_reset())
                 if u.path == "/api/taste/rolls":
                     return self._json(lib.taste_rolls_set(b.get("off") or []))
                 if u.path == "/api/taste/export":

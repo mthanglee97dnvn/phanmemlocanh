@@ -1719,16 +1719,35 @@ class Library:
         return dict(source=src,
                     rolls=[dict(root=r["root"], n=r["n"], kept=r["kept"], on=r["on"]) for r in rolls],
                     n_rolls=len(on), n_photos=sum(r["n"] for r in on),
-                    agree=pm.get("agree"), learned=pm.get("learned"),
+                    agree=pm.get("agree"), learned=pm.get("learned"), paused=self._taste_paused(),
                     stale=self._taste_sig(on[:TASTE_ROLLS]) != (pm.get("sig") or []))
+
+    def _taste_paused(self):
+        return bool(self.db.one("SELECT 1 FROM meta WHERE k='taste_paused' AND v='1'"))
+
+    def taste_reset(self):
+        """Dùng lại gu mặc định: xoá gu riêng (HOME/taste.npz), giữ nguyên đám bật/tắt;
+        tạm dừng học nền tới khi người dùng bấm Học lại."""
+        self.db.x("INSERT OR REPLACE INTO meta(k,v) VALUES('taste_paused','1')")
+        try:
+            Path(TASTE_FILE).unlink()
+        except FileNotFoundError:
+            pass
+        return self.taste_info()
 
     def taste_rolls_set(self, off):
         off = sorted({str(x) for x in (off or [])})
         self.db.x("INSERT OR REPLACE INTO meta(k,v) VALUES('taste_off',?)", (json.dumps(off, ensure_ascii=False),))
         return self.taste_info()
 
-    def taste_learn(self):
-        """Học gu riêng (đồng bộ) từ tối đa 40 đám đã lọc xong đang bật; lưu HOME/taste.npz."""
+    def taste_learn(self, auto=False):
+        """Học gu riêng (đồng bộ) từ tối đa 40 đám đã lọc xong đang bật; lưu HOME/taste.npz.
+        auto=True (học nền khi mở Chọn ảnh đẹp): bỏ qua nếu đang tạm dừng sau Dùng lại gu mặc định;
+        học thật (bấm Học lại) thì bỏ tạm dừng."""
+        if auto and self._taste_paused():
+            return self.taste_info()
+        if not auto:
+            self.db.x("DELETE FROM meta WHERE k='taste_paused'")
         from . import scene as _scene
         mid = _scene.MODEL_ID
         every = self._taste_rolls()

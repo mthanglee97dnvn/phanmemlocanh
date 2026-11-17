@@ -322,16 +322,15 @@ details.adv{margin:6px 0;border-top:1px solid var(--line);padding-top:6px}detail
 
 /* ---- layout pass ---- */
 :root{--s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px}
-.bar{flex-wrap:nowrap;gap:var(--s2);padding:var(--s2) var(--s3);container-type:inline-size;container-name:bar;min-width:0}
+.bar{flex-wrap:wrap;gap:var(--s2);row-gap:6px;padding:var(--s2) var(--s3);container-type:inline-size;container-name:bar;min-width:0}   /* không đủ chỗ: các nhóm xuống hàng thứ hai thay vì bị cắt */
 .bar .grp{display:flex;align-items:center;gap:var(--s1);flex:none;min-width:0}
 .bar .grp+.grp,.bar .sp+.grp{padding-left:var(--s2);border-left:1px solid var(--line)}
 .bar .sp+.grp{border-left:0;padding-left:0}
 .bar .grp.util{gap:2px}
 .bar .grp label.hint{white-space:nowrap;margin-left:var(--s1)}
 .bar button{white-space:nowrap}
-@container bar (max-width:1440px){ .bar #bCull .lbl,.bar #bUndo .lbl,.bar #bUnrej .lbl,.bar #bSuggRate .lbl,.bar #bSuggClear .lbl{display:none} }
+/* thanh chật thì các nhóm xuống hàng (flex-wrap), nên giữ nguyên chữ trên nút; chỉ dưới 1200px mới còn biểu tượng */
 .bar #bUnrej[hidden],.bar #bSuggRate[hidden],.bar #bSuggClear[hidden]{display:none}
-@container bar (max-width:2000px){ .bar #bSuggRate .lbl{display:none} }   /* thanh đã chật: nút chấm sao đề xuất chỉ còn biểu tượng, chữ đầy đủ ở chú thích */
 .bar label.rev{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--mut);cursor:pointer;white-space:nowrap}.bar label.rev input{margin:0}
 .paircnt{white-space:nowrap;font-variant-numeric:tabular-nums;border:1px solid var(--line);background:var(--field);border-radius:6px;padding:4px 9px;font-size:12px;cursor:pointer}
 .paircnt.ok{color:#7cc57f;border-color:rgba(67,160,71,.45);cursor:default}.paircnt.warn{color:#f0a24a;border-color:rgba(240,162,74,.55)}
@@ -570,7 +569,7 @@ button.lnk:hover{transform:none;color:var(--tx)}
     </select><button id="pairCnt" class="paircnt" type="button" hidden></button><button id="bCamSync" title="Đồng bộ thời gian giữa nhiều máy ảnh của ekip (đồng hồ mỗi máy lệch nhau) để các ảnh về đúng một dòng thời gian"><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg><span class="lbl">Đồng bộ máy</span></button></div>
     <div class="grp"><div class="qbox"><input id="qPhoto" type="search" inputmode="numeric" autocomplete="off" placeholder="Tìm mã ảnh… vd 3928" aria-label="Tìm ảnh theo mã số" title="Gõ mã số ảnh khách gửi (nhiều số cách nhau bởi dấu cách hoặc phẩy) để lọc nhanh ra đúng ảnh đó — rồi chọn và Xuất ảnh. Phím tắt: /"><svg class="ic qic" aria-hidden="true"><use href="#i-search"/></svg><button id="qClear" class="qclr" type="button" aria-label="Xoá ô tìm" tabindex="-1">✕</button></div><span id="qCount" class="hint" aria-live="polite" style="min-width:0;white-space:nowrap"></span></div>
     <span class="sp"></span>
-    <div class="grp"><button id="bCull" aria-label="Tự động lọc"><svg class="ic" aria-hidden="true"><use href="#i-funnel"/></svg><span class="lbl">Tự động lọc</span></button><button id="bUndo" aria-label="Hoàn tác" disabled><svg class="ic" aria-hidden="true"><use href="#i-undo"/></svg><span class="lbl">Hoàn tác</span></button><button id="bUnrej" title="Khôi phục ảnh đã bị đánh dấu loại" hidden></button><button id="bSuggRate" hidden aria-label="Chấm 1 sao cho tất cả đề xuất" title="Chấm 1 sao cho mọi ảnh ✦ đề xuất chưa có sao (hoàn tác được)"><span aria-hidden="true">✦ ★1</span> <span class="lbl">Chấm 1 sao cho tất cả đề xuất</span></button><button id="bSuggClear" hidden aria-label="Bỏ đề xuất" title="Gỡ dấu ✦ đề xuất (không đụng tới sao)"><span aria-hidden="true">✦✕</span> <span class="lbl">Bỏ đề xuất</span></button><button id="bExport" class="pri" aria-label="Xuất ảnh" aria-keyshortcuts="Control+Y" title="Xuất ảnh (Ctrl+Y)"><svg class="ic" aria-hidden="true"><use href="#i-export"/></svg><span class="lbl">Xuất ảnh</span></button><button id="bLayout" aria-label="Gửi ảnh sang Dàn trang" title="Gửi ảnh đã lọc sang Dàn trang" hidden><svg class="ic" aria-hidden="true"><use href="#i-layout"/></svg><span class="lbl">Dàn trang</span></button></div>
+    <div class="grp"><button id="bCull" aria-label="Tự động lọc"><svg class="ic" aria-hidden="true"><use href="#i-funnel"/></svg><span class="lbl">Tự động lọc</span></button><button id="bUndo" aria-label="Hoàn tác" disabled><svg class="ic" aria-hidden="true"><use href="#i-undo"/></svg><span class="lbl">Hoàn tác</span></button><button id="bUnrej" title="Khôi phục ảnh đã bị đánh dấu loại" hidden></button><button id="bSuggRate" hidden aria-label="Chấm 1 sao cho tất cả đề xuất" title="Chấm 1 sao cho mọi ảnh ✦ đề xuất chưa có sao (hoàn tác được)"><span aria-hidden="true">✦★</span> <span class="lbl">Chấm 1 sao cho tất cả đề xuất</span></button><button id="bSuggClear" hidden aria-label="Bỏ đề xuất" title="Gỡ dấu ✦ đề xuất (không đụng tới sao)"><span aria-hidden="true">✦✕</span> <span class="lbl">Bỏ đề xuất</span></button><button id="bExport" class="pri" aria-label="Xuất ảnh" aria-keyshortcuts="Control+Y" title="Xuất ảnh (Ctrl+Y)"><svg class="ic" aria-hidden="true"><use href="#i-export"/></svg><span class="lbl">Xuất ảnh</span></button><button id="bLayout" aria-label="Gửi ảnh sang Dàn trang" title="Gửi ảnh đã lọc sang Dàn trang" hidden><svg class="ic" aria-hidden="true"><use href="#i-layout"/></svg><span class="lbl">Dàn trang</span></button></div>
     <div class="grp util"><button id="bInfo" title="Bật/tắt khung thông số ảnh" aria-label="Bật/tắt khung thông số ảnh"><svg class="ic" aria-hidden="true"><use href="#i-info"/></svg></button><button id="bTheme" title="Đổi giao diện: Kính / Tối trung tính (xem màu ảnh chuẩn)" aria-label="Đổi giao diện"><svg class="ic" aria-hidden="true"><use href="#i-theme"/></svg></button><button id="bHelp" title="Phím tắt và trợ giúp" aria-label="Phím tắt và trợ giúp"><svg class="ic" aria-hidden="true"><use href="#i-help"/></svg></button></div>
   </div>
   <div id="prog"><i></i></div>
@@ -1001,7 +1000,7 @@ async function undoCull(batch){
 }
 async function undo(){
   const top=S.undo[S.undo.length-1];
-  if(top&&top.t==='suggrate'){ S.undo.pop(); const r=await api('/api/suggest/rate/undo',{batch:top.batch});
+  if(top&&top.t==='suggrate'){ const r=await api('/api/suggest/rate/undo',{batch:top.batch}); S.undo.pop();
     (r.ids||[]).forEach(i=>{ const p=S.by.get(i); if(p) p.rating=0; });
     applyView(); if(S.viewer) showViewer(); toast(`Đã hoàn tác, bỏ 1 sao của ${fmt(r.n||0)} ảnh đề xuất`); return; }
   if(!top||top.t==='cull'){ const b=top?top.batch:(S.lastCull&&S.lastCull.n?S.lastCull.id:0); if(b) await undoCull(b); return; }
@@ -1556,7 +1555,7 @@ function parseSuggN(v){
   v=v.replace(/[.\s,]/g,''); return /^\d+$/.test(v)?+v:0;
 }
 let tasteJob=null;   // học gu mất vài giây và chạy đồng bộ ở máy chủ: mỗi lúc chỉ một lần
-function tasteLearn(){ if(!tasteJob) tasteJob=api('/api/taste/learn',{}).finally(()=>{ tasteJob=null; }); return tasteJob; }
+function tasteLearn(auto){ if(!tasteJob) tasteJob=api('/api/taste/learn',auto?{auto:true}:{}).finally(()=>{ tasteJob=null; }); return tasteJob; }   // auto: học nền, máy chủ bỏ qua khi đang tạm dừng
 function tasteSec(m){
   const N=m.querySelector('#tN'), H=m.querySelector('#tNh'), I=m.querySelector('#tInfo'), go=m.querySelector('#tGo');
   N.value=lsGet('ps.suggN','12%');
@@ -1564,7 +1563,7 @@ function tasteSec(m){
   N.oninput=showN; showN();
   const paint=(t,extra)=>{ if(I.isConnected) I.textContent=tasteLabel(t)+(extra?' · '+extra:''); };
   api('/api/taste').then(t=>{ paint(t);
-    if(t.stale&&t.rolls.some(r=>r.on)){ paint(t,'đang học thêm từ các đám mới…'); tasteLearn().then(r=>paint(r)).catch(()=>paint(t)); }   // học nền, không khóa hộp
+    if(t.stale&&!t.paused&&t.rolls.some(r=>r.on)){ paint(t,'đang học thêm từ các đám mới…'); tasteLearn(true).then(r=>paint(r)).catch(()=>paint(t)); }   // học nền, không khóa hộp
   }).catch(()=>{ I.textContent='Chưa đọc được gu chọn ảnh'; });
   let busy=false;
   const run=async()=>{
@@ -1594,13 +1593,13 @@ async function openTaste({alt=false}={}){
    <div class="hint">Mỗi đám cũ cần được mở trong app một lần để app đo ảnh.</div>
    ${alt?`<div style="margin-top:14px"><button id="gExp">Xuất dữ liệu học</button><div id="gExpRow" hidden><input id="gDest" type="text" placeholder="Thư mục lưu, ví dụ D:\\GuChonAnh" aria-label="Thư mục lưu dữ liệu học"><button class="pri" id="gExpGo">Xuất</button></div>
      <div class="hint" style="margin-top:4px">Ghi file taste_data.npz gồm số đo ảnh và nhãn giữ/bỏ, không có ảnh hay tên file.</div></div>`:''}
-   <div class="btns"><button onclick="this.closest('.back').remove()">Đóng</button><button id="gReset" title="Bỏ tick mọi đám rồi học lại">Dùng lại gu mặc định (tắt mọi đám)</button><button class="pri" id="gLearn" autofocus>Học lại</button></div>`);
+   <div class="btns"><button onclick="this.closest('.back').remove()">Đóng</button><button id="gReset" title="Bỏ gu app đã học từ các đám của bạn, quay về gu mặc định. Các đám vẫn giữ nguyên; bấm Học lại khi muốn học lại.">Dùng lại gu mặc định</button><button class="pri" id="gLearn" autofocus>Học lại</button></div>`);
   const L=m.querySelector('#gLearn'), R=m.querySelector('#gReset'), boxes=[...m.querySelectorAll('.grow input')];
   const paint=()=>{ const on=t.rolls.filter(r=>r.on).length;
     m.querySelector('#gSrc').textContent=tasteLabel(t);
     m.querySelector('#gSub').textContent=[t.rolls.length?`Đang bật ${on}/${t.rolls.length} đám · ${fmt(t.n_photos||0)} ảnh`:'',
       t.learned?'học lúc '+new Date(t.learned*1000).toLocaleString('vi-VN',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit',year:'numeric'}):'',
-      t.stale&&on?'có thay đổi chưa học, bấm Học lại':''].filter(Boolean).join(' · '); };
+      t.paused?'tạm dừng tự học, bấm Học lại khi muốn app học lại':(t.stale&&on?'có thay đổi chưa học, bấm Học lại':'')].filter(Boolean).join(' · '); };
   paint();
   const offs=()=>boxes.filter(c=>!c.checked).map(c=>t.rolls[+c.dataset.i].root);
   boxes.forEach(c=>c.onchange=async()=>{ try{ t=await api('/api/taste/rolls',{off:offs()}); paint(); }catch(e){ toast(e.message,4000); } });
@@ -1610,9 +1609,9 @@ async function openTaste({alt=false}={}){
     finally{ L.disabled=R.disabled=false; L.textContent='Học lại'; }
   };
   L.onclick=async()=>{ const r=await learn(); if(r) toast(r.error||('Đã học xong. '+tasteLabel(r)),4000); };
-  R.onclick=async()=>{ if(L.disabled) return;
-    try{ t=await api('/api/taste/rolls',{off:t.rolls.map(r=>r.root)}); }catch(e){ toast(e.message,4000); return; }
-    boxes.forEach(c=>c.checked=false); paint(); const r=await learn(); if(r) toast('Đã tắt mọi đám. '+tasteLabel(r),4000); };
+  R.onclick=async()=>{ if(L.disabled||R.disabled) return; R.disabled=true;
+    try{ t=await api('/api/taste/reset',{}); paint(); toast(`Đã bỏ gu đã học. ${tasteLabel(t)}. Bấm Học lại khi muốn app học lại từ các đám`,5000); }
+    catch(e){ toast(e.message,4000); } finally{ R.disabled=false; } };
   if(tasteJob) learn();   // đang học nền (mở từ Chọn ảnh đẹp): hiện trạng thái bận
   if(alt){
     const E=m.querySelector('#gExp'), row=m.querySelector('#gExpRow'), D=m.querySelector('#gDest'), G=m.querySelector('#gExpGo');
@@ -1633,10 +1632,11 @@ $('#bSuggRate').onclick=async()=>{
     S.undo.push({t:'suggrate',batch:r.batch}); $('#bUndo').disabled=false;
     applyView(); if(S.viewer) showViewer();
     toast(`Đã chấm 1 sao cho ${fmt(r.n)} ảnh đề xuất chưa có sao. Lỡ tay thì bấm Hoàn tác`,4000);
-  } finally{ b.disabled=false; }
+  } catch(e){ toast(e.message,4000); } finally{ b.disabled=false; }
 };
 $('#bSuggClear').onclick=async()=>{
-  await api('/api/suggest/clear',{}); S.photos.forEach(p=>p.sugg=0);
+  try{ await api('/api/suggest/clear',{}); }catch(e){ toast(e.message,4000); return; }
+  S.photos.forEach(p=>p.sugg=0);
   if(S.filter==='sugg'){ S.filter='all'; $('#fFilter').value='all'; }
   await loadPhotos(); toast('Đã bỏ đề xuất');
 };
