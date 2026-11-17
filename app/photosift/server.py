@@ -641,6 +641,12 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                     return self._json(lib.export_status())
                 if u.path == "/api/cameras":
                     return self._json(lib.cam)
+                if u.path == "/api/cameras/list":    # các máy + ảnh đầu tiên mỗi máy
+                    return self._json(lib.cam_list())
+                if u.path == "/api/cameras/ref":     # ảnh mốc: máy, giờ gốc, giờ đang dùng
+                    return self._json(lib.cam_ref(int(q["id"])))
+                if u.path == "/api/cameras/step":    # ảnh trước/sau cùng máy
+                    return self._json(lib.cam_step(int(q["id"]), int(q.get("d", 1))))
                 if u.path == "/api/photos":
                     return self._json(lib.photos())
                 if u.path == "/api/people":
@@ -826,6 +832,8 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                     return self._json(lib.cam)
                 if u.path == "/api/cameras/apply":
                     return self._json(lib.cameras_apply(b.get("offsets") or {}))
+                if u.path == "/api/cameras/settime":   # gõ giờ thật của ảnh mốc → chỉnh lệch cả máy
+                    return self._json(lib.cam_settime(int(b["id"]), str(b.get("date", "")), str(b.get("time", ""))))
                 if u.path == "/api/person/rename":
                     lib.rename_person(int(b["id"]), str(b["name"])[:60])
                     return self._json(dict(ok=True))
