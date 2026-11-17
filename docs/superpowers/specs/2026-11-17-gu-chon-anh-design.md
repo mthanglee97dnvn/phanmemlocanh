@@ -136,6 +136,12 @@ Anh Thắng chấm sao các đám cũ trong Photo Mechanic, các đám gần đ�
 - **Phiên bản CLIP:** ghi tên model CLIP kèm vector và kèm `taste.npz`. Model đổi thì vector cũ coi như chưa có.
 - **Sao đã nhiều hơn N:** đề xuất đúng các ảnh có sao và báo "Bạn đã chọn X tấm, nhiều hơn N".
 
+## Quy mô dữ liệu (anh Thắng nói)
+- Studio làm tới **khoảng 57 đám mỗi tháng**, cả anh lẫn ekip. Một tháng có thể tới khoảng 150.000 ảnh đã chấm.
+- Học gu riêng chỉ dùng **40 đám gần nhất**. Trong mỗi đám, giữ toàn bộ ảnh được chọn và lấy mẫu ảnh bỏ, tối đa 4 ảnh bỏ cho mỗi ảnh giữ. Cách này giữ thời gian học dưới 10 giây và không phình bộ nhớ.
+- Gu mặc định luyện từ toàn bộ dữ liệu anh Thắng xuất ra. Không giới hạn số đám, vì việc luyện chạy trên máy dựng chứ không chạy trên máy khách.
+- Hàm học phải xử lý được khoảng 200.000 dòng × khoảng 540 cột bằng numpy mà không cần thư viện khác. Dùng mini-batch và float32.
+
 ## Để người làm tự quyết
 - Cách chuẩn hoá trong từng đám (z-score hay thứ hạng phần trăm) và hệ số phạt L2. Chọn theo độ trùng khớp đo được trên dữ liệu thử.
 - Bố cục chi tiết của hộp và các nút. Hình dạng dấu ✦ trên ô ảnh.
