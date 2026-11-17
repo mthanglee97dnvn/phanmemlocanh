@@ -37,6 +37,7 @@ button{background:var(--panel2);border:1px solid var(--line);border-radius:999px
 button:hover{border-color:rgba(255,255,255,.6);transform:translateY(-1px)}
 button.pri{background:var(--pri);border-color:transparent;color:var(--pri-tx);font-weight:700;box-shadow:var(--pri-sh)}
 button:disabled{opacity:.4;cursor:default;transform:none}
+html[data-theme=neutral] button.pri:disabled{background:transparent;border-color:var(--line);color:var(--mut);opacity:1}
 input[type=text],input[type=number],select{background:var(--field);border:1px solid var(--line);border-radius:12px;padding:6px 10px}
 select option{background:#0b2a4a;color:#fff}
 input[type=range]{accent-color:var(--acc)}input[type=checkbox]{accent-color:var(--acc)}
@@ -51,12 +52,12 @@ input[type=range]{accent-color:var(--acc)}input[type=checkbox]{accent-color:var(
 #main.noinfo{grid-template-columns:var(--sideW,230px) 1fr}
 #main.noinfo #info{display:none}
 #side{overflow:auto;padding:12px 10px}
-#side h3{margin:4px 6px 10px;color:var(--mut);font-weight:600;text-transform:uppercase;font-size:11px;letter-spacing:.9px;display:flex;justify-content:space-between;align-items:center}
+#side h3{margin:4px 6px 10px;color:var(--mut);font-weight:600;text-transform:uppercase;font-size:12px;letter-spacing:.9px;display:flex;justify-content:space-between;align-items:center}
 .person{display:flex;gap:10px;align-items:center;padding:6px;border-radius:16px;cursor:pointer;border:1px solid transparent}
 .person:hover{background:var(--panel2)}.person.on{background:var(--sel);border-color:var(--acc2)}
 .person img{width:40px;height:40px;border-radius:50%;object-fit:cover;background:#000;border:2px solid rgba(255,255,255,.55)}
 .person .meta{flex:1;min-width:0;display:flex;flex-direction:column}
-.person .n{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}.person .c{color:var(--mut);font-size:11px;font-weight:400}
+.person .n{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500}.person .c{color:var(--mut);font-size:12px;font-weight:400}
 /* chế độ HẸP: chỉ avatar + số ảnh dưới avatar (kéo mép panel để bật) */
 #side.narrow{padding:12px 4px}
 #side.narrow #bFaceCfg{display:none}
@@ -64,7 +65,9 @@ input[type=range]{accent-color:var(--acc)}input[type=checkbox]{accent-color:var(
 #side.narrow .person{flex-direction:column;gap:3px;padding:7px 2px;text-align:center}
 #side.narrow .person .meta{align-items:center}
 #side.narrow .person .n{display:none}
-#side.narrow .person img{width:44px;height:44px}
+#side.narrow .person img{width:40px;height:40px}
+.person .cs{display:none}#side.narrow .person .cl{display:none}#side.narrow .person .cs{display:inline;font-variant-numeric:tabular-nums}
+#side.narrow .person.on img{box-shadow:0 0 0 2px var(--panel),0 0 0 4px var(--acc)}
 /* tay kéo co giãn panel Người */
 #sideGrip{position:absolute;top:0;left:var(--sideW,230px);width:11px;height:100%;cursor:col-resize;z-index:30;display:flex;align-items:center;justify-content:center}
 #sideGrip::before{content:"";width:3px;height:46px;border-radius:3px;background:var(--line);transition:background .12s}
@@ -81,16 +84,16 @@ input[type=range]{accent-color:var(--acc)}input[type=checkbox]{accent-color:var(
 .im img{width:100%;height:100%;object-fit:contain;display:block}
 .im.noimg{display:flex;align-items:center;justify-content:center}.im.noimg img{display:none}.im.noimg::after{content:'⚠';color:var(--mut);font-size:30px;opacity:.55}
 .cell.rej .im img{opacity:.28;filter:grayscale(1)}
-.cell .nm{font-size:11px;color:var(--mut);padding:5px 6px 1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cell .nm{font-size:12px;color:var(--mut);padding:5px 6px 1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lab{position:absolute;left:0;top:0;bottom:0;width:6px}
 .l-red{background:var(--red)}.l-yellow{background:var(--yel)}.l-green{background:var(--grn)}.l-blue{background:var(--blu)}.l-purple{background:var(--pur)}
 .stars{position:absolute;left:10px;bottom:5px;color:#ffca28;text-shadow:0 1px 3px #000;font-size:13px;letter-spacing:1px}
 .flags{position:absolute;right:5px;top:5px;display:flex;flex-direction:column;gap:3px;align-items:flex-end}
-.chip{font-size:10px;font-weight:600;padding:2px 7px;border-radius:999px;background:rgba(4,14,30,.72);color:#fff}
+.chip{font-size:11px;font-weight:600;padding:2px 7px;border-radius:999px;background:rgba(4,14,30,.72);color:#fff}
 .chip.blur{background:#d9661a}.chip.dark{background:#4b647a}.chip.bright{background:#b8a01f}.chip.eyes{background:#8a47b0}.chip.away{background:#7A4A9E}.chip.dup{background:#0c9585}
 .xmark{position:absolute;inset:0;display:none;align-items:center;justify-content:center;font-size:52px;color:var(--red);font-weight:700;pointer-events:none}
 .cell.rej .xmark{display:flex}
-.nface{position:absolute;right:6px;bottom:5px;font-size:10px;background:rgba(4,14,30,.7);padding:2px 7px;border-radius:999px}
+.nface{position:absolute;right:6px;bottom:5px;font-size:12px;background:rgba(4,14,30,.7);padding:2px 7px;border-radius:999px}
 #status{display:flex;gap:16px;padding:7px 18px;color:var(--mut);font-size:12px;border-radius:999px}
 body.cat #app{visibility:hidden}
 #catalog{display:none;position:fixed;inset:0;z-index:5;flex-direction:column;gap:12px;padding:14px 18px}
@@ -119,7 +122,7 @@ body.cat #catalog{display:flex}
 .cgrid.sm .cinf b{font-size:12px}
 .cinf span{display:block;color:var(--mut);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cgrid:not(.lg) .cinf .cpath,.cgrid.sm .cinf .cdate{display:none}
-.cbadge{position:absolute;top:8px;left:8px;padding:1px 9px;border-radius:999px;background:rgba(4,14,30,.82);font-size:11px;color:#fff}
+.cbadge{position:absolute;top:8px;left:8px;padding:1px 9px;border-radius:999px;background:rgba(4,14,30,.82);font-size:12px;color:#fff}
 .cbadge.warn{background:var(--red)}
 .cdel{position:absolute;top:6px;right:6px;width:26px;height:26px;padding:0;border-radius:50%;background:rgba(4,14,30,.82);color:#fff;font-size:12px;opacity:0}
 .ccard:hover .cdel,.ccard:focus-within .cdel,tr:hover .cdel{opacity:1}
@@ -182,14 +185,14 @@ body.cat #catalog{display:flex}
 .sc{position:absolute;top:6px;width:92px;height:102px;cursor:pointer;border-radius:8px;overflow:hidden;border:2px solid transparent;background:rgba(255,255,255,.05)}
 .sc:hover{border-color:rgba(255,255,255,.35)}.sc.cur{border-color:#ffca28;background:rgba(255,202,40,.14)}
 .sc img{width:100%;height:78px;object-fit:contain;display:block;background:rgba(0,0,0,.35)}
-.sc .nm{font-size:10px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--mut);padding:2px 2px 0}
-.sc .rt{position:absolute;top:3px;left:3px;font-size:10px;font-weight:700;line-height:1;padding:2px 4px;border-radius:4px;background:rgba(0,0,0,.72);color:#ffca28;font-variant-numeric:tabular-nums}
+.sc .nm{font-size:11px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--mut);padding:2px 2px 0}
+.sc .rt{position:absolute;top:3px;left:3px;font-size:11px;font-weight:700;line-height:1;padding:2px 4px;border-radius:4px;background:rgba(0,0,0,.72);color:#ffca28;font-variant-numeric:tabular-nums}
 #vrate{position:absolute;left:12px;bottom:12px;z-index:2;display:none;align-items:center;gap:6px;padding:5px 10px;border-radius:8px;background:rgba(0,0,0,.66);color:#ffca28;font-size:20px;line-height:1;letter-spacing:1px;pointer-events:none}
 #vrate.on{display:flex}#vrate.rej{color:#ff6b6b;font-size:14px;font-weight:600;letter-spacing:0}#vrate small{font-size:12px;color:#e8e8e8;letter-spacing:0;font-weight:600}
 #vstage.zoom #vrate{display:none}
 .sc .lb{position:absolute;top:4px;right:4px;width:9px;height:9px;border-radius:50%;box-shadow:0 0 0 1px rgba(0,0,0,.5)}
 .sc.rej img{opacity:.3}.sc.rej:after{content:'✕';position:absolute;left:0;right:0;top:22px;text-align:center;color:#ff6b6b;font-size:26px;line-height:1}
-.fbox{position:absolute;transform:translate(-50%,-100%);pointer-events:none;font-size:11px;line-height:1.6;white-space:nowrap;padding:0 7px;border-radius:999px;background:rgba(4,14,30,.72);color:#fff}
+.fbox{position:absolute;transform:translate(-50%,-100%);pointer-events:none;font-size:12px;line-height:1.6;white-space:nowrap;padding:0 7px;border-radius:999px;background:rgba(4,14,30,.72);color:#fff}
 .fbox.shut{background:#ba68c8}
 .focusbox{position:absolute;transform:translate(-50%,-50%);pointer-events:none;aspect-ratio:1;border:3px solid #ff2b2b;border-radius:6px;box-shadow:0 0 0 1px rgba(0,0,0,.55),0 0 10px rgba(255,43,43,.5)}
 .focusbox:before{content:"";position:absolute;inset:0;margin:auto;width:6px;height:6px;border-radius:50%;background:#ff2b2b}
@@ -202,7 +205,7 @@ body.cat #catalog{display:flex}
 #vinfo h4{margin:0 0 4px;word-break:break-all}.kv{display:flex;justify-content:space-between;color:var(--mut)}.kv b{color:var(--tx);font-weight:500}
 #vinfo .st{font-size:24px;color:#ffca28;cursor:pointer;letter-spacing:2px;margin:10px 0}
 .lbtn{display:inline-block;width:22px;height:22px;border-radius:50%;margin-right:6px;cursor:pointer;border:2px solid transparent}.lbtn.on{border-color:#fff}
-.kbd{font-family:ui-monospace,monospace;background:var(--field);border:1px solid var(--line);border-radius:6px;padding:0 6px;font-size:11px}
+.kbd{font-family:ui-monospace,monospace;background:var(--field);border:1px solid var(--line);border-radius:6px;padding:0 6px;font-size:12px}
 /* bảng phím tắt */
 .kbmap{display:grid;grid-template-columns:repeat(auto-fit,minmax(248px,1fr));gap:14px 28px;margin-top:6px}
 .kbmap section{display:grid;gap:6px;align-content:start}
@@ -212,8 +215,8 @@ body.cat #catalog{display:flex}
 .kbmap dt{display:flex;flex-wrap:wrap;gap:3px;align-items:center;white-space:nowrap}
 .kbmap dd{margin:0;color:var(--mut);font-size:12.5px;line-height:1.45}
 .kbmap dd b{color:var(--tx);font-weight:600}
-.kbmap kbd{font-family:ui-monospace,monospace;font-size:11px;line-height:1.85;min-width:20px;text-align:center;padding:0 6px;border-radius:7px;background:var(--field);border:1px solid var(--line);box-shadow:0 1px 0 rgba(0,0,0,.18);color:var(--tx)}
-.kbmap .sep{color:var(--mut);font-size:10px;margin:0 1px}
+.kbmap kbd{font-family:ui-monospace,monospace;font-size:12px;line-height:1.85;min-width:20px;text-align:center;padding:0 6px;border-radius:7px;background:var(--field);border:1px solid var(--line);box-shadow:0 1px 0 rgba(0,0,0,.18);color:var(--tx)}
+.kbmap .sep{color:var(--mut);font-size:11px;margin:0 1px}
 .kbmap .sw{color:var(--tx);white-space:nowrap;margin-right:7px;display:inline-block}
 .kbmap .sw:before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--c);margin-right:4px}
 .kbmap .mouse{color:var(--mut);font-size:11.5px}
@@ -224,7 +227,7 @@ body.cat #catalog{display:flex}
 .sec .sb{padding:10px 12px}
 .ex{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:12px;margin:0}.ex dt{color:var(--mut)}.ex dd{margin:0;text-align:right;word-break:break-word;min-height:1em}
 canvas.hist{width:100%;height:120px;display:block;border-radius:10px;background:rgba(4,14,30,.62)}
-.hstat{display:flex;justify-content:space-between;font-size:11px;color:var(--mut);margin-top:6px}
+.hstat{display:flex;justify-content:space-between;font-size:12px;color:var(--mut);margin-top:6px}
 .hs label{display:block;padding:3px 0;cursor:pointer}
 #info{overflow:auto;padding:10px}
 #vwrap #vmask{position:absolute;left:0;top:0;width:100%;height:100%;max-width:none;max-height:none;pointer-events:none;display:none;cursor:default}
@@ -247,7 +250,7 @@ select option{background:var(--modal);color:var(--tx)}
 .qbox input::-webkit-search-cancel-button,.qbox input::-webkit-search-decoration{-webkit-appearance:none;display:none}
 .qbox .qic{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--mut);pointer-events:none;transition:color .12s}
 .qbox input:focus~.qic{color:var(--acc)}
-.qbox .qclr{position:absolute;right:7px;top:50%;transform:translateY(-50%);width:19px;height:19px;display:none;align-items:center;justify-content:center;padding:0;border:0;border-radius:50%;background:var(--panel2);color:var(--mut);font-size:11px;line-height:1;cursor:pointer;transition:background .12s,color .12s}
+.qbox .qclr{position:absolute;right:7px;top:50%;transform:translateY(-50%);width:19px;height:19px;display:none;align-items:center;justify-content:center;padding:0;border:0;border-radius:50%;background:var(--panel2);color:var(--mut);font-size:12px;line-height:1;cursor:pointer;transition:background .12s,color .12s}
 .qbox .qclr:hover{background:var(--line);color:var(--tx)}
 .qbox input:not(:placeholder-shown)~.qclr{display:inline-flex}
 .bar{border-radius:var(--r);padding:7px 10px;gap:6px}
@@ -274,7 +277,7 @@ canvas.hist{border-radius:6px;background:var(--inset)}
 #vinfo{background:var(--panel);-webkit-backdrop-filter:none;backdrop-filter:none}
 #vback button{background:rgba(20,22,26,.82);border-color:var(--line);color:var(--tx)}
 #vbadge .chip{padding:3px 9px}
-.chip{font-size:11px}.chip.dup{background:#0A6B60}.chip.blur{background:#A84C0E}.chip.topdup{background:#101216;color:#F2B01E;box-shadow:inset 0 0 0 1px #F2B01E}
+.chip{font-size:12px}.chip.dup{background:#0A6B60}.chip.blur{background:#A84C0E}.chip.topdup{background:#101216;color:#F2B01E;box-shadow:inset 0 0 0 1px #F2B01E}
 #vinfo .st button{background:none;border:0;padding:0 2px;font:inherit;color:#ffca28;cursor:pointer;border-radius:4px}
 #vinfo .st .vrej{font-size:18px;margin-left:4px}
 button.lbtn{padding:0;vertical-align:middle}button.lbtn.on{border-color:var(--tx)}
@@ -286,7 +289,7 @@ button.lbtn{padding:0;vertical-align:middle}button.lbtn.on{border-color:var(--tx
 #sAdv[aria-pressed=true],#sStack[aria-pressed=true]{color:var(--tx);border-color:var(--acc)}
 #sAdv[aria-pressed=true] .sw,#sStack[aria-pressed=true] .sw{background:var(--acc)}
 #sAdv[aria-pressed=true] .sw::after,#sStack[aria-pressed=true] .sw::after{transform:translateX(16px)}
-#sAdv kbd,#sStack kbd{font-family:ui-monospace,monospace;font-size:10px;line-height:1.7;min-width:16px;text-align:center;padding:0 4px;border-radius:5px;background:var(--field);border:1px solid var(--line);color:var(--mut)}
+#sAdv kbd,#sStack kbd{font-family:ui-monospace,monospace;font-size:11px;line-height:1.7;min-width:16px;text-align:center;padding:0 4px;border-radius:5px;background:var(--field);border:1px solid var(--line);color:var(--mut)}
 #sAdv[aria-pressed=true] kbd,#sStack[aria-pressed=true] kbd{color:var(--tx);border-color:var(--acc)}
 .cpre{display:flex;gap:6px;margin:4px 0 10px}.cpre button[aria-pressed=true]{border-color:var(--acc);color:var(--acc)}
 details.adv{margin:6px 0;border-top:1px solid var(--line);padding-top:6px}details.adv summary{cursor:pointer;color:var(--mut);padding:4px 0}details.adv summary:hover{color:var(--tx)}
@@ -335,7 +338,7 @@ details.adv{margin:6px 0;border-top:1px solid var(--line);padding-top:6px}detail
 .chip.more{background:rgba(20,22,26,.82);color:var(--tx);border:1px solid var(--line)}
 
 /* ---- xếp chồng ảnh trùng ---- */
-.chip.stk{border:0;cursor:pointer;background:#101216;color:#F2B01E;box-shadow:inset 0 0 0 1px rgba(242,176,30,.75);font:inherit;font-size:11px;font-weight:600;padding:2px 7px;border-radius:4px;line-height:1.3}
+.chip.stk{border:0;cursor:pointer;background:#101216;color:#F2B01E;box-shadow:inset 0 0 0 1px rgba(242,176,30,.75);font:inherit;font-size:12px;font-weight:600;padding:2px 7px;border-radius:4px;line-height:1.3}
 .chip.stk:hover{background:#1E2127}.chip.stk:focus-visible{outline:2px solid #F2B01E;outline-offset:1px}
 .cell.stack .im{box-shadow:0 -4px 0 -2px #3A404B,0 -8px 0 -5px #2A2F37}   /* hai lớp mỏng phía trên: trông như một chồng ảnh, không làm lệch hàng */
 .cell.ingrp{background:rgba(242,176,30,.06);border-color:rgba(242,176,30,.28)}
@@ -344,7 +347,7 @@ details.adv{margin:6px 0;border-top:1px solid var(--line);padding-top:6px}detail
 .chip.topdup{background:#101216;color:#F2B01E;box-shadow:inset 0 0 0 1px #F2B01E}
 #vbadge .chip.topdup{background:#101216;color:#F2B01E;box-shadow:inset 0 0 0 1px #F2B01E}
 #vbadge .chip.stk{font-size:12px;padding:3px 9px;margin-left:6px}
-#vbadge .chip.stk .kbd{font-size:10px;padding:0 4px;margin-left:4px}
+#vbadge .chip.stk .kbd{font-size:11px;padding:0 4px;margin-left:4px}
 #dropzone{position:fixed;inset:10px;z-index:98;display:none;align-items:center;justify-content:center;flex-direction:column;gap:8px;border:2px dashed var(--pri,#F2B01E);border-radius:16px;background:rgba(10,12,16,.82);pointer-events:none;text-align:center}
 #dropzone.on{display:flex}#dropzone b{font-size:20px;color:var(--pri,#F2B01E)}#dropzone span{color:var(--mut,#9aa3ad)}
 #xjob{position:fixed;inset:0;z-index:60;background:rgba(6,8,12,.62);display:none;align-items:center;justify-content:center}
@@ -370,20 +373,22 @@ details.adv{margin:6px 0;border-top:1px solid var(--line);padding-top:6px}detail
 #xjcard.stop .bar,#xjcard.err .bar{stroke:#8b93a1}
 #xjmini{position:fixed;right:18px;bottom:46px;z-index:59;display:none;align-items:center;gap:10px;padding:8px 14px 8px 8px;background:var(--panel,#1E2127);border:1px solid var(--line);border-radius:999px;box-shadow:0 10px 30px rgba(0,0,0,.5);cursor:pointer;color:var(--tx);font:inherit;text-align:left}
 #xjmini.on{display:flex}#xjmini .r{position:relative;width:40px;height:40px}#xjmini svg{width:40px;height:40px;transform:rotate(-90deg)}
-#xjmini .r span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
+#xjmini .r span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
 #xjmini .t{font-size:12px}#xjmini .t small{display:block;color:var(--mut)}
 @media (prefers-reduced-motion:reduce){#xjcard .spin{animation-duration:3s}}
 .lrop{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;margin-bottom:8px;border:1px solid var(--line);border-radius:10px;cursor:pointer;line-height:1.5}
 .lrop:has(input:checked){border-color:var(--acc);background:rgba(242,176,30,.08)}.lrop input{margin-top:4px}
 .chist{margin-top:22px}.chist .hh{display:flex;align-items:center;gap:10px;margin:0 0 8px}.chist .hh h3{margin:0;font-size:15px}.chist .hh .sp{flex:1}
 .chist .hh button{font-size:12px;padding:5px 10px}
-.hrow{display:grid;grid-template-columns:28px minmax(160px,1.4fr) minmax(90px,.6fr) minmax(150px,.9fr) 130px auto;align-items:center;gap:10px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel);margin-bottom:6px;cursor:pointer}
+.chist{max-width:1400px}
+.hhd{display:grid;grid-template-columns:28px minmax(160px,2.2fr) minmax(90px,.7fr) minmax(150px,.9fr) 130px 92px;gap:10px;padding:0 13px 6px;font-size:12px;color:var(--mut)}
+.hrow{display:grid;grid-template-columns:28px minmax(160px,2.2fr) minmax(90px,.7fr) minmax(150px,.9fr) 130px 92px;align-items:center;gap:10px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel);margin-bottom:6px;cursor:pointer}
 .hrow:hover{border-color:var(--mut)}.hrow.on{border-color:var(--acc);background:rgba(242,176,30,.07)}.hrow.gone{opacity:.55}
 .hrow input{width:16px;height:16px;margin:0;cursor:pointer}.hrow .hn b{display:block}.hrow .hn span,.hrow .hs,.hrow .hd{font-size:12px;color:var(--mut)}
 .hrow .hn span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hrow .hc{font-variant-numeric:tabular-nums;font-size:12px}.hrow .hc b{color:#ffca28}
-.hrow .hb{display:flex;gap:4px}.hrow .hb button{font-size:12px;padding:4px 9px}.hrow .hb .cdel{position:static;width:auto;height:auto;border-radius:6px;background:var(--panel2);color:var(--mut);opacity:0}.hrow:hover .cdel,.hrow:focus-within .cdel{opacity:1}
+.hrow .hb{display:flex;gap:4px;justify-content:flex-end}.hrow .hb button{font-size:12px;padding:4px 9px}.hrow .hb .cdel{position:static;width:auto;height:auto;border-radius:6px;background:var(--panel2);color:var(--mut);opacity:0}.hrow:hover .cdel,.hrow:focus-within .cdel{opacity:1}
 .chist .hnone{color:var(--mut);font-size:12px;padding:10px 12px;border:1px dashed var(--line);border-radius:10px}
-@media (max-width:900px){.hrow{grid-template-columns:28px 1fr auto}.hrow .hs,.hrow .hd,.hrow .hc{display:none}}
+@media (max-width:900px){.hhd{display:none}.hrow{grid-template-columns:28px 1fr auto}.hrow .hs,.hrow .hd,.hrow .hc{display:none}}
 
 /* Dàn trang đã tắt: buộc ẩn nút khi còn thuộc tính hidden (một số rule nút đè lên [hidden]) */
 #bLayout[hidden]{display:none !important}
@@ -499,7 +504,7 @@ html[data-theme=neutral] #xjcard{border-radius:18px}
     <h2>Catalog thư mục</h2>
     <button class="pri" id="catAdd" title="Hoặc kéo thả thư mục ảnh từ máy tính vào cửa sổ app"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Thêm thư mục</button>
     <button id="catBack" hidden>← Về thư mục đang mở</button>
-    <button class="pri" id="catLr" hidden disabled title="Tick các thư mục đã lọc trong Lịch sử xuất ảnh bên dưới">Add vào Lightroom</button>
+    <button class="pri" id="catLr" hidden disabled title="Tick các thư mục đã lọc trong Lịch sử xuất ảnh bên dưới">Thêm vào Lightroom</button>
     <span class="sp"></span>
     <input type="text" id="catQ" placeholder="Tìm thư mục…" aria-label="Tìm thư mục">
     <select id="catSort" aria-label="Sắp xếp"><option value="opened">Mở gần nhất</option><option value="name">Tên thư mục</option><option value="t1">Ngày chụp mới nhất</option><option value="n">Nhiều ảnh nhất</option><option value="size">Dung lượng lớn nhất</option></select>
@@ -731,7 +736,7 @@ function cellHTML(p){
       : (p.best ? `<span class="chip topdup" title="Ảnh tốt nhất trong nhóm ảnh trùng: ${bestWhy(p)}">Tốt nhất</span>` : `<span class="chip dup" title="Ảnh trùng — nhóm ${p.grp}">Trùng</span>`);
   return `<div class="im"><img loading="lazy" decoding="async" src="/thumb/${p.id}.jpg?v=${p.tv}" alt="" onerror="this.closest('.im').classList.add('noimg')"><div class="lab ${p.label?'l-'+p.label:''}"></div>
     <div class="flags">${capChips(grp+flags)}</div><div class="xmark">✕</div>
-    <div class="stars">${p.rating>0?'★'.repeat(p.rating):''}</div>${p.nf?`<span class="nface">${p.nf} mặt</span>`:''}</div>
+    <div class="stars">${p.rating>0?'★'.repeat(p.rating):''}</div>${p.nf>1?`<span class="nface">${p.nf} mặt</span>`:''}</div>
     <div class="nm" title="${esc(p.name)}">${esc(p.name)}</div>`;
 }
 const sigs = new Map();
@@ -843,29 +848,38 @@ function renderPeople(){
   $('#main').classList.toggle('nopeople', !S.people.length);
   for(const p of S.people){
     const d=document.createElement('div'); d.className='person'+(S.person===p.id?' on':'');
-    d.innerHTML=`<img src="/face/${p.face}.jpg" alt=""><div class="meta"><span class="n">${esc(p.name||'Người '+p.id)}</span><span class="c">${p.n} ảnh</span></div>`;
+    d.innerHTML=`<img src="/face/${p.face}.jpg" alt=""><div class="meta"><span class="n">${esc(p.name||'Người '+p.id)}</span><span class="c"><span class="cl">${p.n} ảnh</span><span class="cs">${p.n<1000?p.n:(Math.round(p.n/100)/10+'k').replace('.',',')}</span></span></div>`;
     d.onclick=()=>{ S.person = S.person===p.id?null:p.id; S.keep.clear(); renderPeople(); applyView(); };
     d.ondblclick=()=>personModal(p);
-    d.title='Nhấp: lọc • Nhấp đúp: đổi tên / gộp';
+    d.title=(p.name||'Người '+p.id)+' · '+p.n+' ảnh\nNhấp: lọc • Nhấp đúp: đổi tên / gộp';
     box.appendChild(d);
   }
 }
-/* ---- kéo mép panel Người để phóng to / thu nhỏ (rộng: tên + số ảnh; hẹp: chỉ avatar + số ảnh) ---- */
+/* ---- kéo mép panel Người: kéo có nấc (đầy đủ 200–360px; kéo dưới 140px → gọn; ở dạng gọn kéo quá 180px → mở lại) ---- */
+function snapPeople(curW,compact,lastFullW,dragW){
+  const full=Math.min(360,Math.max(200,lastFullW||230));
+  if(compact) return dragW>180?{compact:false,w:full,lastFullW:full}:{compact:true,w:76,lastFullW:full};
+  if(dragW<140) return {compact:true,w:76,lastFullW:full};
+  const w=Math.min(360,Math.max(200,Math.round(dragW)));
+  return {compact:false,w,lastFullW:w};
+}
 (function sideResize(){
   const main=$('#main'),side=$('#side'),grip=$('#sideGrip');if(!grip)return;
-  const MIN=76,MAX=320,NARROW=150;
-  function apply(w){w=Math.max(MIN,Math.min(MAX,Math.round(w)));main.style.setProperty('--sideW',w+'px');side.classList.toggle('narrow',w<NARROW);return w}
-  let saved=null;try{saved=localStorage.getItem('ps_sideW')}catch(e){}
-  apply(saved?+saved:(side.getBoundingClientRect().width||230));
-  let drag=false;
-  grip.addEventListener('pointerdown',e=>{drag=true;grip.setPointerCapture(e.pointerId);main.classList.add('sideResizing');e.preventDefault()});
-  grip.addEventListener('pointermove',e=>{if(!drag)return;apply(e.clientX-main.getBoundingClientRect().left)});
-  function end(){if(!drag)return;drag=false;main.classList.remove('sideResizing');
-    let w=parseInt(getComputedStyle(main).getPropertyValue('--sideW'))||230;
-    if(w<NARROW)w=apply(88);            // thả ở vùng hẹp → chốt gọn về chế độ avatar
-    try{localStorage.setItem('ps_sideW',w)}catch(e){}}
+  const st={compact:false,w:230,lastFullW:230};
+  function show(r){Object.assign(st,r);main.style.setProperty('--sideW',st.w+'px');side.classList.toggle('narrow',st.compact)}
+  function save(){try{localStorage.setItem('ps_sideW',st.lastFullW);localStorage.setItem('ps_sideCompact',st.compact?'1':'0')}catch(e){}}
+  let sw=null,sc=null;try{sw=localStorage.getItem('ps_sideW');sc=localStorage.getItem('ps_sideCompact')}catch(e){}
+  sw=+sw||230; const compact0 = sc==='1' || (sc===null && sw<150);
+  const full0=Math.min(360,Math.max(200,sw<150?230:sw));
+  show({compact:compact0,w:compact0?76:full0,lastFullW:full0});
+  let drag=null;
+  grip.addEventListener('pointerdown',e=>{drag={x:e.clientX,w:st.w,compact:st.compact,last:st.lastFullW};grip.setPointerCapture(e.pointerId);main.classList.add('sideResizing');e.preventDefault()});
+  grip.addEventListener('pointermove',e=>{if(!drag)return;show(snapPeople(drag.w,drag.compact,drag.last,drag.w+(e.clientX-drag.x)))});
+  function end(e){if(!drag)return;const d=drag;drag=null;main.classList.remove('sideResizing');
+    const x=e&&typeof e.clientX==='number'?e.clientX:d.x;show(snapPeople(d.w,d.compact,d.last,d.w+(x-d.x)));save()}
   grip.addEventListener('pointerup',end);grip.addEventListener('pointercancel',end);
-  grip.addEventListener('dblclick',()=>{const w=apply(230);try{localStorage.setItem('ps_sideW',w)}catch(e){}});  // nhấp đúp: về mặc định
+  grip.addEventListener('dblclick',()=>{show(st.compact?{compact:false,w:st.lastFullW,lastFullW:st.lastFullW}:{compact:true,w:76,lastFullW:st.lastFullW});save()});
+  grip.title='Kéo để đổi độ rộng • Nhấp đúp để thu gọn / mở rộng';
 })();
 function personModal(p){
   const others=S.people.filter(o=>o.id!==p.id);
@@ -1123,7 +1137,7 @@ function renderInfo(p, ix){
    <span class="kbd">6-9</span> nhãn màu &nbsp; <span class="kbd">F</span> điểm nét &nbsp; <span class="kbd">H</span> tên người &nbsp; Lăn chuột phóng to, giữ chuột phải kéo ảnh, <span class="kbd">Z</span> phóng nhanh<br><span class="kbd">V</span> vùng cháy/tối &nbsp; <span class="kbd">S</span> Tất cả ↔ tab lọc &nbsp; <span class="kbd">T</span> bật/tắt dải ảnh thu nhỏ &nbsp; <span class="kbd">Esc</span> quay lại</div>`;
   $('#vstars').onclick=e=>{ const r=e.target.dataset.r; if(r!==undefined) rate([p.id], +r===p.rating?0:+r); };
   fillSections('#vsec', p.id, 'v');
-  $('#vdiag').onclick=async()=>{ const r=await api('/api/diag?id='+p.id); const m=modal(`<h3>Chẩn đoán file</h3><pre id="dt" style="white-space:pre-wrap;word-break:break-all;font-size:11px;max-height:55vh;overflow:auto;background:#101114;padding:10px;border-radius:8px"></pre><div class="btns"><button id="dc">Sao chép</button><button class="pri" onclick="this.closest('.back').remove()">Đóng</button></div>`); m.querySelector('#dt').textContent=r.text; m.querySelector('#dc').onclick=()=>{ navigator.clipboard.writeText(r.text); toast('Đã sao chép'); }; };
+  $('#vdiag').onclick=async()=>{ const r=await api('/api/diag?id='+p.id); const m=modal(`<h3>Chẩn đoán file</h3><pre id="dt" style="white-space:pre-wrap;word-break:break-all;font-size:12px;max-height:55vh;overflow:auto;background:#101114;padding:10px;border-radius:8px"></pre><div class="btns"><button id="dc">Sao chép</button><button class="pri" onclick="this.closest('.back').remove()">Đóng</button></div>`); m.querySelector('#dt').textContent=r.text; m.querySelector('#dc').onclick=()=>{ navigator.clipboard.writeText(r.text); toast('Đã sao chép'); }; };
   $('#vinfo').querySelectorAll('[data-l]').forEach(el=>el.onclick=()=>label([p.id], el.dataset.l));
 }
 
@@ -1330,7 +1344,7 @@ async function dropOpen(dt){
   addEventListener('dragleave',e=>{ if(!has(e)) return; if(--n<=0){ n=0; z.classList.remove('on'); } });
   addEventListener('drop',e=>{ if(!has(e)) return; e.preventDefault(); n=0; z.classList.remove('on'); if(document.querySelector('.back')) return; dropOpen(e.dataTransfer); });
 }
-/* ---------- Catalog: lịch sử xuất ảnh đã lọc (vd. ảnh 5 sao) → tick chọn để Add vào Lightroom ---------- */
+/* ---------- Catalog: lịch sử xuất ảnh đã lọc (vd. ảnh 5 sao) → tick chọn để Thêm vào Lightroom ---------- */
 Cat.hist=[]; Cat.lrSel=new Set();
 const _drawCatalog0=drawCatalog;
 drawCatalog=function(){ _drawCatalog0(); drawHist(); };
@@ -1342,16 +1356,16 @@ function drawHist(){
   const srcName=p=>(p||'').replace(/[\\/]+$/,'').split(/[\\/]/).pop()||'—';
   const when=t=>t?new Date(t*1000).toLocaleString('vi-VN',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
   const rows=l.map(x=>`<div class="hrow ${Cat.lrSel.has(x.id)?'on':''} ${x.missing?'gone':''}" data-hid="${x.id}" title="${esc(x.dest)}">
-     <input type="checkbox" ${Cat.lrSel.has(x.id)?'checked':''} ${x.missing?'disabled':''} aria-label="Chọn ${esc(x.name)} để Add vào Lightroom">
+     <input type="checkbox" ${Cat.lrSel.has(x.id)?'checked':''} ${x.missing?'disabled':''} aria-label="Chọn ${esc(x.name)} để Thêm vào Lightroom">
      <div class="hn"><b>${esc(x.parent?x.parent+' / ':'')}${esc(x.name)}</b><span>${esc(x.dest)}</span></div>
-     <div class="hs">từ <b>${esc(srcName(x.src))}</b></div>
+     <div class="hs">${esc(srcName(x.src))}</div>
      <div class="hc">${fmt(x.n)} ảnh${x.n5>0?` · <b>${fmt(x.n5)} ★5</b>`:''}${x.state==='stopped'?' · <span class="warn">đã dừng giữa chừng</span>':''}${x.missing?' · <span class="warn">không tìm thấy</span>':''}</div>
      <div class="hd">${when(x.time)}</div>
      <div class="hb"><button data-hopen="${x.id}" ${x.missing?'disabled':''}>Mở</button><button class="cdel" data-hdel="${x.id}" title="Bỏ khỏi lịch sử (không xoá file)" aria-label="Bỏ ${esc(x.name)} khỏi lịch sử">✕</button></div></div>`).join('');
-  box.insertAdjacentHTML('beforeend',`<section class="chist" aria-label="Lịch sử xuất ảnh"><div class="hh"><h3>Lịch sử xuất ảnh đã lọc</h3><span class="hint">${l.length?'Tick thư mục rồi bấm “Add vào Lightroom” ở trên':''}</span><span class="sp"></span><button id="hAdd">+ Thêm thư mục đã xuất</button></div>
-    ${rows||'<div class="hnone">Chưa có lần xuất nào. Ảnh xuất bằng nút “Xuất ảnh” sẽ hiện ở đây, hoặc bấm “Thêm thư mục đã xuất” để thêm thư mục đã lọc từ trước.</div>'}</section>`);
+  box.insertAdjacentHTML('beforeend',`<section class="chist" aria-label="Lịch sử xuất ảnh"><div class="hh"><h3>Lịch sử xuất ảnh đã lọc</h3><span class="hint">${l.length?'Tick thư mục rồi bấm “Thêm vào Lightroom” ở trên':''}</span><span class="sp"></span><button id="hAdd">+ Thêm thư mục đã xuất</button></div>
+    ${rows?'<div class="hhd" aria-hidden="true"><span></span><span>Thư mục xuất</span><span>Lọc từ</span><span>Số ảnh</span><span>Thời gian</span><span></span></div>':''}${rows||'<div class="hnone">Chưa có lần xuất nào. Ảnh xuất bằng nút “Xuất ảnh” sẽ hiện ở đây, hoặc bấm “Thêm thư mục đã xuất” để thêm thư mục đã lọc từ trước.</div>'}</section>`);
   const b=$('#catLr'); b.hidden=!(Cat.hist||[]).length; b.disabled=!Cat.lrSel.size;
-  b.textContent=Cat.lrSel.size?`Add vào Lightroom (${Cat.lrSel.size})`:'Add vào Lightroom';
+  b.textContent=Cat.lrSel.size?`Thêm vào Lightroom (${Cat.lrSel.size})`:'Thêm vào Lightroom';
   $('#hAdd').onclick=()=>pickFolder(lsGet('ps_xd',''),async p=>{ try{ await api('/api/export/history/add',{path:p,src:S.status.root||''}); Cat.hist=await api('/api/export/history'); drawHist(); toast('Đã thêm vào lịch sử'); }catch(e){ toast(e.message,4000); } },'Chọn thư mục ảnh đã lọc');
 }
 $('#catBody').addEventListener('click',async e=>{
@@ -1368,7 +1382,7 @@ $('#catLr').onclick=()=>{
   const sep=sel[0].dest.includes('\\')?'\\':'/', common=parts[0].slice(0,k).join(sep);
   const tooHigh=k<2||/^[A-Za-z]:$/.test(common)||(common.startsWith('\\\\')&&k<5);
   if(tooHigh){ toast('Lightroom chỉ nhận một thư mục nguồn mỗi lần: hãy tick các thư mục nằm chung một thư mục tổng (vd. MTH và MH của cùng buổi chụp).',6000); return; }
-  const m=modal(`<h3>Add vào Lightroom</h3><div class="hint" style="margin-bottom:10px">Lightroom nhận một thư mục nguồn mỗi lần, nên app sẽ mở Import cho thư mục tổng<br><b>${esc(common)}</b><br>gồm ${sel.map(x=>'<b>'+esc(x.name)+'</b>').join(', ')} (Include Subfolders). Nếu thư mục tổng còn thư mục con khác, bạn có thể bỏ tick chúng trong hộp Import.</div><div class="btns"><button onclick="this.closest('.back').remove()">Huỷ</button><button class="pri" id="lrAll">Mở Lightroom</button></div>`);
+  const m=modal(`<h3>Thêm vào Lightroom</h3><div class="hint" style="margin-bottom:10px">Lightroom nhận một thư mục nguồn mỗi lần, nên app sẽ mở Import cho thư mục tổng<br><b>${esc(common)}</b><br>gồm ${sel.map(x=>'<b>'+esc(x.name)+'</b>').join(', ')} (Include Subfolders). Nếu thư mục tổng còn thư mục con khác, bạn có thể bỏ tick chúng trong hộp Import.</div><div class="btns"><button onclick="this.closest('.back').remove()">Huỷ</button><button class="pri" id="lrAll">Mở Lightroom</button></div>`);
   m.querySelector('#lrAll').onclick=()=>{ m.close(); lrRun(common); };
 };
 const mainDirNav={hist:[],idx:-1};  // nhớ qua các lần mở hộp chọn, để lùi được cả khi đã lỡ bấm "Chọn thư mục này"
