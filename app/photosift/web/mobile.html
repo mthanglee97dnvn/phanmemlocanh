@@ -151,13 +151,24 @@
   #sortRow{display:flex;align-items:center;gap:10px}
   #sortRow select{flex:1;min-height:44px;border-radius:10px;background:var(--bg);border:1px solid var(--line2);color:var(--tx);font:inherit;padding:0 10px}
   #sortRow label{display:flex;align-items:center;gap:6px;color:var(--mut)}
+
+  /* iPad / màn rộng: lưới trái, ảnh phải */
+  body.split #gridcol{flex:0 0 44%;border-right:1px solid var(--line)}
+  body.split #view{position:relative;inset:auto;flex:1 1 auto;min-width:0;z-index:auto}
+  body.split #vtop{padding-top:8px}
+  body.split #vBack{display:none}
+  body.split #wtools{display:flex}
+  body.split #gopts [data-c],body.split #gopts>span:first-child{display:none}
+  #wtools button{min-height:44px;padding:0 16px;border-radius:12px;font-weight:600;cursor:pointer;background:var(--panel);border:1px solid var(--line)}
+  #wtools #wSugg{background:var(--acc);border:none;color:var(--acc-ink);font-weight:700}
+  body.split #toast{left:72%}
 </style>
 </head>
 <body>
   <div id="top">
     <button class="ib" id="btnFold" aria-label="Đổi thư mục"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     <div class="t"><div id="fname">Lọc ảnh</div><div id="fsub"></div></div>
-    <div id="wtools"></div>
+    <div id="wtools"><button id="wCull">Tự động lọc</button><button id="wSugg">✦ Chọn ảnh đẹp</button></div>
     <button class="ib" id="btnTools" aria-label="Công cụ"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
   </div>
   <div id="tally"></div>
@@ -325,7 +336,7 @@ function toast(t,undoFn,ms){ var el=$('toast'); $('toastT').textContent=t; toast
 $('toastUndo').addEventListener('click',function(){ var f=toastUndoFn; $('toast').classList.remove('on'); toastUndoFn=null; if(f) f(); });
 function fmt(n){return (n||0).toLocaleString('vi-VN');}
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
-function colsNow(){ if(M.cols) return M.cols; return innerWidth>innerHeight&&!M.split?5:3; }
+function colsNow(){ if(M.split) return 5; if(M.cols) return M.cols; return innerWidth>innerHeight?5:3; }
 function mSetCols(n){ M.cols=n; lsSet('m.cols',String(n)); paintOpts(); layoutGrid(true); }
 function setData(list){
   M.all=list||[]; M.by={}; for(var i=0;i<M.all.length;i++) M.by[M.all[i].id]=M.all[i];
@@ -403,7 +414,16 @@ addEventListener('resize',function(){ applySplit(); layoutGrid(); });
 $('chips').addEventListener('click',function(e){ var b=e.target.closest('.chip'); if(!b) return; M.filter=b.dataset.f; $('grid').scrollTop=0; mRender(); });
 document.querySelectorAll('#gopts [data-c]').forEach(function(b){ b.addEventListener('click',function(){ mSetCols(+b.dataset.c); }); });
 $('btnStack').addEventListener('click',function(){ M.stack=!M.stack; lsSet('m.stack',M.stack?'1':'0'); mRender(true); });
-function applySplit(){ M.split=false; }
+function applySplit(){
+  var on=!!(window.matchMedia&&matchMedia('(min-width: 900px)').matches);
+  var was=M.split; M.split=on; document.body.classList.toggle('split',on);
+  var v=$('view');
+  if(on){ if(v.parentNode!==$('main')) $('main').appendChild(v); v.classList.remove('hide');
+    if(!M.cur&&M.tiles.length) M.cur=M.tiles[0].p.id; if(M.cur&&typeof openView==='function') openView(M.cur,true); }
+  else { if(v.parentNode!==document.body) document.body.insertBefore(v,$('folders')); if(was&&!V.open) v.classList.add('hide');
+    if(was) V.open=false, v.classList.add('hide'); }
+  if(typeof vApply==='function'&&M.cur) vApply();
+}
 
 
 /* ---------- chấm sao (lạc quan, có hoàn tác) ---------- */
@@ -456,6 +476,7 @@ function openView(id,keepZoom){
     img.src='/api/preview?id='+id;
   }
   vPaint(); vApply(); vPrefetch();
+  if(M.split&&prev!==id) repaintTiles();
 }
 function vLoadHq(){
   var id=M.cur; if(V.hqFor===id) return; V.hqFor=id;
@@ -499,6 +520,7 @@ function vPaint(){
   $('strip').innerHTML=g.map(function(x){ return '<button class="sb'+(x.id===p.id?' on':'')+(x.rating===-1?' r':'')+(x.rating>0?' k':'')+'" data-id="'+x.id+'" aria-label="Tấm '+esc(x.name)+'"><img alt="" src="/thumb/'+x.id+'.jpg?v='+(x.tv||0)+'"></button>'; }).join('');
 }
 function closeView(){
+  if(M.split) return;
   V.open=false; clearTimeout(V.timer); $('view').classList.add('hide'); document.body.classList.remove('viewing');
   repaintTiles();
   var i=tileIndexOf(M.cur); if(i>=0){ var g=$('grid'), top=Math.floor(i/G.n)*G.rowH; if(top<g.scrollTop||top>g.scrollTop+g.clientHeight-G.rowH){ g.scrollTop=Math.max(0,top-g.clientHeight/3); drawRows(); } }
@@ -653,6 +675,8 @@ function paintTaste(t){
   $('tInfo').textContent=s;
 }
 $('btnTools').addEventListener('click',sheetOpen);
+$('wCull').addEventListener('click',sheetOpen);
+$('wSugg').addEventListener('click',function(){ sheetOpen(); setTimeout(function(){ $('tN').focus(); },50); });
 $('sheetBack').addEventListener('click',sheetClose);
 $('kchips').addEventListener('change',paintSheet);
 $('lv').addEventListener('click',function(e){ var b=e.target.closest('button'); if(!b) return; SH.level=b.dataset.l;
@@ -694,7 +718,7 @@ function mSync(force){
     if(!force&&M.ver!==null&&v.ver===M.ver) return;
     M.ver=v.ver;
     return Promise.all([api('/api/photos'),api('/api/people').catch(function(){return M.people;})]).then(function(r){
-      setData(r[0]); M.people=r[1]||[]; mRender(true); if(typeof onSynced==='function') onSynced();
+      setData(r[0]); M.people=r[1]||[]; mRender(true); if(M.split&&(!M.cur||!M.by[M.cur])&&M.tiles.length) openView(M.tiles[0].p.id); else if(V.open&&M.by[M.cur]) vPaint();
     });
   }).catch(function(e){ if(e&&e.code===402) err402(); }).then(function(){ syncing=false; });
 }
