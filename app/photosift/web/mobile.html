@@ -79,7 +79,40 @@
   #toast{position:fixed;left:50%;bottom:calc(96px + var(--safe-b));transform:translateX(-50%);background:#000d;border:1px solid var(--line2);padding:8px 8px 8px 16px;border-radius:999px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:60;display:flex;align-items:center;gap:10px;max-width:92vw}
   #toast.on{opacity:1;pointer-events:auto}
   #toast button{min-height:34px;padding:0 12px;border-radius:999px;background:var(--acc);color:var(--acc-ink);border:none;font-weight:700;cursor:pointer}
+  #toast button{white-space:nowrap} body.viewing #toast{bottom:calc(236px + var(--safe-b))}
   #toast:not(.has) button{display:none} #toast:not(.has){padding-right:16px}
+
+  /* Xem từng tấm */
+  #view{position:fixed;inset:0;z-index:20;background:#000;display:flex;flex-direction:column}
+  #vtop{display:flex;align-items:center;gap:8px;padding:calc(8px + var(--safe-t)) 12px 8px;background:var(--bg)}
+  #vcount{flex:1;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #vcount span{color:var(--mut);font-weight:500}
+  #vstage{flex:1 1 auto;position:relative;overflow:hidden;touch-action:none;background:#000}
+  #vwrap{position:absolute;left:50%;top:50%;transform-origin:center center;will-change:transform}
+  #vimg{width:100%;height:100%;display:block;user-select:none;-webkit-user-drag:none;-webkit-touch-callout:none}
+  #fbox{position:absolute;border:2px solid var(--acc);border-radius:4px;box-shadow:0 0 0 1px rgba(0,0,0,.5);transform:translate(-50%,-50%);pointer-events:none}
+  #vchips{position:absolute;left:12px;top:12px;display:flex;gap:6px;flex-wrap:wrap;font-size:11px;font-weight:700;pointer-events:none;max-width:calc(100% - 90px)}
+  #vchips span{padding:4px 8px;border-radius:8px;background:rgba(15,15,17,.8)}
+  #vchips .b{background:var(--acc);color:var(--acc-ink)} #vchips .s{color:var(--acc)} #vchips .w{background:#C9443A;color:#fff}
+  #vzoom{position:absolute;right:12px;top:12px;font-size:12px;font-weight:700;padding:5px 9px;border-radius:8px;background:rgba(15,15,17,.8);pointer-events:none}
+  #vmark{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;font-weight:800;padding:8px 18px;border-radius:14px;border:3px solid;opacity:0;pointer-events:none}
+  #vbot{background:var(--bg);border-top:1px solid var(--line);padding:10px 12px calc(10px + var(--safe-b));display:flex;flex-direction:column;gap:10px}
+  #stripRow{display:flex;align-items:center;gap:10px}
+  #strip{flex:1;display:flex;gap:5px;overflow-x:auto;scrollbar-width:none}
+  #strip::-webkit-scrollbar{display:none}
+  #strip .sb{flex:0 0 auto;width:40px;height:52px;padding:0;border-radius:5px;overflow:hidden;border:none;background:var(--panel2);opacity:.55;cursor:pointer;position:relative}
+  #strip .sb img{width:100%;height:100%;object-fit:cover;display:block}
+  #strip .sb.on{opacity:1;outline:2px solid var(--acc);outline-offset:1px}
+  #strip .sb.r::after{content:"✕";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--redtx);background:rgba(0,0,0,.45)}
+  #strip .sb.k::before{content:"★";position:absolute;left:2px;bottom:1px;font-size:10px;color:var(--acc)}
+  #pickBtn{min-height:44px;padding:0 12px;border-radius:12px;background:var(--acc);color:var(--acc-ink);border:none;font-weight:700;font-size:13px;white-space:nowrap;cursor:pointer}
+  #vstars{display:flex;justify-content:center;gap:2px}
+  #vstars button{width:46px;height:44px;border:none;background:none;font-size:30px;line-height:1;color:var(--line2);cursor:pointer;padding:0}
+  #vstars button.on{color:var(--acc)}
+  #vbtns{display:flex;gap:8px}
+  #vbtns .nav{width:52px;height:50px;border-radius:14px;background:var(--panel);border:1px solid var(--line);font-size:22px;cursor:pointer}
+  #vbtns .big{flex:1;height:50px;border-radius:14px;font-weight:700;font-size:15px;cursor:pointer}
+  #vRej{background:#2A1D20;border:1px solid #6B3238;color:var(--redtx)} #vKeep{background:rgba(232,163,61,.14);border:1px solid #8A6326;color:var(--acc)}
 </style>
 </head>
 <body>
@@ -101,6 +134,25 @@
           <button id="btnStack" aria-pressed="true">Gộp ảnh trùng</button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Xem từng tấm -->
+  <div id="view" class="hide">
+    <div id="vtop">
+      <button class="ib" id="vBack" aria-label="Về lưới"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
+      <div id="vcount"></div>
+      <button class="ib" id="btnFocus" aria-label="Hiện điểm lấy nét" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/></svg></button>
+      <button class="ib" id="vUndo" aria-label="Hoàn tác"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button>
+    </div>
+    <div id="vstage">
+      <div id="vwrap"><img id="vimg" alt="" draggable="false"><div id="fbox" class="hide"></div></div>
+      <div id="vchips"></div><div id="vzoom" class="hide"></div><div id="vmark"></div>
+    </div>
+    <div id="vbot">
+      <div id="stripRow"><div id="strip"></div><button id="pickBtn">Chọn tấm này</button></div>
+      <div id="vstars"><button data-v="1" aria-label="1 sao">★</button><button data-v="2" aria-label="2 sao">★</button><button data-v="3" aria-label="3 sao">★</button><button data-v="4" aria-label="4 sao">★</button><button data-v="5" aria-label="5 sao">★</button></div>
+      <div id="vbtns"><button class="nav" id="vPrev" aria-label="Tấm trước">‹</button><button class="big" id="vRej">✕ Loại</button><button class="big" id="vKeep">✓ Giữ</button><button class="nav" id="vNext" aria-label="Tấm sau">›</button></div>
     </div>
   </div>
   <!-- chọn thư mục -->
@@ -168,6 +220,24 @@ function mSort(key,rev){
          score:function(a,b){return (b.score||0)-(a.score||0)||nm(a,b);},
          type:function(a,b){return (RAWRE.test(b.name)-RAWRE.test(a.name))||(a.taken||0)-(b.taken||0)||nm(a,b);}}[key]||function(){return 0;};
   return rev?function(a,b){return f(b,a);}:f;
+}
+
+/* ---- toán zoom: z = {scale, tx, ty} (tx,ty: dịch tâm ảnh so với tâm khung, px màn hình) ---- */
+function zoomMax(iw,natW){ return Math.max(4,(natW||0)/(iw||1)); }
+function zoomClamp(z,vw,vh,iw,ih,natW){
+  var s=Math.min(zoomMax(iw,natW),Math.max(1,z.scale));
+  var mx=Math.max(0,(iw*s-vw)/2), my=Math.max(0,(ih*s-vh)/2);
+  return {scale:s,tx:Math.min(mx,Math.max(-mx,z.tx)),ty:Math.min(my,Math.max(-my,z.ty))};
+}
+function zoomAt(z,factor,cx,cy,vw,vh,iw,ih,natW){
+  var ns=Math.min(zoomMax(iw,natW),Math.max(1,z.scale*factor));
+  var px=cx-vw/2, py=cy-vh/2;
+  var u=(px-z.tx)/z.scale, v=(py-z.ty)/z.scale;
+  return zoomClamp({scale:ns,tx:px-u*ns,ty:py-v*ns},vw,vh,iw,ih,natW);
+}
+function focusZoom(focus,vw,vh,iw,ih,natW){
+  var s=Math.max(1,(natW||iw)/iw);
+  return zoomClamp({scale:s,tx:-(focus[0]-0.5)*iw*s,ty:-(focus[1]-0.5)*ih*s},vw,vh,iw,ih,natW);
 }
 </script>
 <script>
@@ -268,6 +338,174 @@ document.querySelectorAll('#gopts [data-c]').forEach(function(b){ b.addEventList
 $('btnStack').addEventListener('click',function(){ M.stack=!M.stack; lsSet('m.stack',M.stack?'1':'0'); mRender(true); });
 function applySplit(){ M.split=false; }
 
+
+/* ---------- chấm sao (lạc quan, có hoàn tác) ---------- */
+// ops: [{id, from, to}] — gửi theo từng giá trị đích; lỗi thì trả lại như cũ
+function rateOps(ops,label){
+  ops=ops.filter(function(o){return o.from!==o.to;});
+  if(!ops.length) return Promise.resolve(ops);
+  var by={}; ops.forEach(function(o){ var p=M.by[o.id]; if(p){p.rating=o.to; M.pending[o.id]=o.to;} (by[o.to]=by[o.to]||[]).push(o.id); });
+  afterRate();
+  var reqs=Object.keys(by).map(function(r){ return post('/api/rate',{ids:by[r],rating:+r}); });
+  return Promise.all(reqs).then(function(){
+    ops.forEach(function(o){ if(M.pending[o.id]===o.to) delete M.pending[o.id]; });
+    if(typeof undoPush==='function') undoPush({t:'rate',ops:ops},label);
+    return ops;
+  },function(){
+    ops.forEach(function(o){ var p=M.by[o.id]; if(p) p.rating=o.from; delete M.pending[o.id]; });
+    afterRate(); toast('Không lưu được'); throw {code:'rate'};
+  });
+}
+function rateIds(ids,r,label){ return rateOps(ids.map(function(id){ var p=M.by[id]; return {id:id,from:p?(p.rating||0):0,to:r}; }),label); }
+function afterRate(){ recompute(); paintTally(); repaintTiles(); if(V.open) vPaint(); }
+
+/* ---------- Xem từng tấm ---------- */
+var V={open:false,timer:null,lastTap:0,lastX:0,lastY:0,hqFor:null,origFor:null,showFocus:lsGet('m.focus','1')==='1'};
+M.zoom={scale:1,tx:0,ty:0};
+function curP(){ return M.by[M.cur]; }
+function vFit(){
+  var st=$('vstage'), vw=st.clientWidth||1, vh=st.clientHeight||1, p=curP()||{};
+  var ar=(p.w&&p.h)?p.w/p.h:1.5, iw=vw, ih=vw/ar; if(ih>vh){ ih=vh; iw=vh*ar; }
+  return {vw:vw,vh:vh,iw:iw,ih:ih,natW:Math.max(p.w||0,1)};
+}
+function vApply(){
+  var f=vFit(), w=$('vwrap'), z=M.zoom=zoomClamp(M.zoom,f.vw,f.vh,f.iw,f.ih,f.natW);
+  w.style.width=f.iw+'px'; w.style.height=f.ih+'px';
+  w.style.transform='translate(-50%,-50%) translate('+z.tx+'px,'+z.ty+'px) scale('+z.scale+')';
+  var pct=Math.round(z.scale*f.iw/f.natW*100);
+  $('vzoom').classList.toggle('hide',z.scale<1.01); $('vzoom').textContent=pct+'%';
+  if(z.scale>1.5) vLoadOrig();
+}
+function tileIndexOf(id){ for(var i=0;i<M.tiles.length;i++) if(M.tiles[i].ids.indexOf(id)>=0) return i; return -1; }
+function openView(id,keepZoom){
+  var p=M.by[id]; if(!p) return;
+  var prev=M.cur; M.cur=id; V.open=true;
+  if(!keepZoom) M.zoom={scale:1,tx:0,ty:0};
+  $('view').classList.remove('hide'); document.body.classList.add('viewing');
+  var img=$('vimg');
+  if(prev!==id||!img.getAttribute('src')){
+    V.hqFor=null; V.origFor=null;
+    img.onload=function(){ if(M.cur===id) vLoadHq(); };
+    img.src='/api/preview?id='+id;
+  }
+  vPaint(); vApply(); vPrefetch();
+}
+function vLoadHq(){
+  var id=M.cur; if(V.hqFor===id) return; V.hqFor=id;
+  var f=vFit(), side=Math.min(2400,Math.round(Math.max(f.vw,f.vh)*(window.devicePixelRatio||1)));
+  var im=new Image(); im.onload=function(){ if(M.cur===id&&V.origFor!==id) $('vimg').src=im.src; };
+  im.src='/api/preview?id='+id+'&s='+side+'&hq=1';
+}
+function vLoadOrig(){
+  var id=M.cur; if(V.origFor===id) return; V.origFor=id;
+  var im=new Image(); im.onload=function(){ if(M.cur===id) $('vimg').src=im.src; };
+  im.src='/api/preview?id='+id+'&s=0';
+}
+function vPrefetch(){
+  var i=tileIndexOf(M.cur), ids=[];
+  [1,2,-1].forEach(function(d){ var t=M.tiles[i+d]; if(t) ids.push(t.p.id); });
+  ids.forEach(function(id){ var im=new Image(); im.src='/api/preview?id='+id; });
+  if(ids.length) post('/api/view/ahead',{ids:ids}).catch(function(){});
+}
+function groupOf(p){
+  if(!p||!p.grp) return [];
+  return M.all.filter(function(x){return x.grp===p.grp;}).sort(mSort('time',false));
+}
+function vPaint(){
+  var p=curP(); if(!p) return;
+  var i=tileIndexOf(p.id);
+  $('vcount').innerHTML=(i+1)+' / '+fmt(M.tiles.length)+' <span>· '+esc(new Date((p.taken||0)*1000).toTimeString().slice(0,8))+'</span>';
+  var ch=[]; if(p.grp&&p.best) ch.push('<span class="b">Tốt nhất</span>');
+  if(p.sugg===1) ch.push('<span class="s">✦ Đề xuất</span>');
+  (p.flags||[]).forEach(function(f){ if(WARN[f]) ch.push('<span class="w">'+WARN[f]+'</span>'); });
+  if(p.score!=null) ch.push('<span>Điểm '+Math.round(p.score)+'</span>');
+  if(p.rating===-1) ch.push('<span class="w">✕ Đã loại</span>');
+  $('vchips').innerHTML=ch.join('');
+  var fb=$('fbox'), f=p.focus;
+  var hasF=!!(f&&f[0]!=null&&f[0]>=0&&(f[2]||0)>=4);
+  fb.classList.toggle('hide',!(V.showFocus&&hasF));
+  if(hasF){ fb.style.left=(f[0]*100)+'%'; fb.style.top=(f[1]*100)+'%'; var land=(p.w||1)>=(p.h||1); fb.style.width=land?'':'12%'; fb.style.height=land?'12%':''; fb.style.aspectRatio='1'; }
+  $('btnFocus').classList.toggle('on',V.showFocus); $('btnFocus').setAttribute('aria-pressed',String(V.showFocus));
+  document.querySelectorAll('#vstars button').forEach(function(b){ b.classList.toggle('on',(p.rating||0)>=+b.dataset.v); });
+  var g=groupOf(p);
+  $('stripRow').classList.toggle('hide',g.length<2); $('strip').classList.toggle('hide',g.length<2);
+  $('strip').innerHTML=g.map(function(x){ return '<button class="sb'+(x.id===p.id?' on':'')+(x.rating===-1?' r':'')+(x.rating>0?' k':'')+'" data-id="'+x.id+'" aria-label="Tấm '+esc(x.name)+'"><img alt="" src="/thumb/'+x.id+'.jpg?v='+(x.tv||0)+'"></button>'; }).join('');
+}
+function closeView(){
+  V.open=false; clearTimeout(V.timer); $('view').classList.add('hide'); document.body.classList.remove('viewing');
+  repaintTiles();
+  var i=tileIndexOf(M.cur); if(i>=0){ var g=$('grid'), top=Math.floor(i/G.n)*G.rowH; if(top<g.scrollTop||top>g.scrollTop+g.clientHeight-G.rowH){ g.scrollTop=Math.max(0,top-g.clientHeight/3); drawRows(); } }
+}
+function vStep(d){ var i=tileIndexOf(M.cur), t=M.tiles[i+d]; if(t) openView(t.p.id); else toast(d>0?'Đã tới tấm cuối':'Đây là tấm đầu'); }
+function pickInGroup(id){
+  var p=M.by[id]; if(!p) return [];
+  var ops=[{id:id,from:p.rating||0,to:(p.rating||0)>0?p.rating:1}];
+  groupOf(p).forEach(function(x){ if(x.id!==id&&(x.rating||0)===0) ops.push({id:x.id,from:0,to:-1}); });
+  return ops;
+}
+function vKeep(){ var p=curP(); if(!p) return; var id=p.id; vStep(1); rateIds([id],(p.rating||0)>0?p.rating:1,'Giữ').catch(function(){}); }
+function vReject(){ var p=curP(); if(!p) return; var id=p.id; vStep(1); rateIds([id],-1,'Loại').catch(function(){}); }
+$('vBack').addEventListener('click',closeView);
+$('vPrev').addEventListener('click',function(){ vStep(-1); });
+$('vNext').addEventListener('click',function(){ vStep(1); });
+$('vKeep').addEventListener('click',vKeep);
+$('vRej').addEventListener('click',vReject);
+$('btnFocus').addEventListener('click',function(){ V.showFocus=!V.showFocus; lsSet('m.focus',V.showFocus?'1':'0'); vPaint(); });
+$('vstars').addEventListener('click',function(e){ var b=e.target.closest('button'); var p=curP(); if(!b||!p) return; var v=+b.dataset.v; rateIds([p.id],(p.rating||0)===v?0:v,v+' sao').catch(function(){}); });
+$('strip').addEventListener('click',function(e){ var b=e.target.closest('.sb'); if(b) openView(+b.dataset.id,true); });
+$('pickBtn').addEventListener('click',function(){ var p=curP(); if(!p) return; rateOps(pickInGroup(p.id),'Chọn tấm này').then(function(o){ if(o&&o.length) toast('Đã giữ tấm này, loại '+(o.length-1)+' tấm còn lại',undoLast); }).catch(function(){}); });
+function undoLast(){ if(typeof undoPop==='function') undoPop(); }
+$('vUndo').addEventListener('click',undoLast);
+
+/* cử chỉ: 1 ngón kéo/vuốt/chạm, 2 ngón phóng to */
+(function(){
+  var st=$('vstage'), pts={}, start=null, pinch=null, moved=false, dragX=0;
+  function rel(e){ var r=st.getBoundingClientRect(); return {x:e.clientX-r.left,y:e.clientY-r.top}; }
+  function n(){ return Object.keys(pts).length; }
+  st.addEventListener('pointerdown',function(e){
+    st.setPointerCapture&&st.setPointerCapture(e.pointerId);
+    pts[e.pointerId]=rel(e);
+    if(n()===1){ start={p:rel(e),z:{scale:M.zoom.scale,tx:M.zoom.tx,ty:M.zoom.ty},t:Date.now()}; moved=false; dragX=0; }
+    if(n()===2){ var a=Object.values(pts); pinch={d:Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y)||1,z:M.zoom}; moved=true; }
+  });
+  st.addEventListener('pointermove',function(e){
+    if(!(e.pointerId in pts)) return; pts[e.pointerId]=rel(e);
+    var f=vFit();
+    if(pinch&&n()>=2){ var a=Object.values(pts), d=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y)||1;
+      M.zoom=zoomAt(pinch.z,d/pinch.d,(a[0].x+a[1].x)/2,(a[0].y+a[1].y)/2,f.vw,f.vh,f.iw,f.ih,f.natW); vApply(); return; }
+    if(!start) return;
+    var q=pts[e.pointerId], dx=q.x-start.p.x, dy=q.y-start.p.y;
+    if(Math.abs(dx)>8||Math.abs(dy)>8) moved=true;
+    if(start.z.scale>1.01){ M.zoom={scale:start.z.scale,tx:start.z.tx+dx,ty:start.z.ty+dy}; vApply(); return; }
+    if(Math.abs(dx)>Math.abs(dy)){ dragX=dx; $('vwrap').style.transform='translate(-50%,-50%) translateX('+dx+'px) rotate('+(dx/40)+'deg)';
+      var mk=$('vmark'); mk.textContent=dx>0?'GIỮ':'LOẠI'; mk.style.color=mk.style.borderColor=dx>0?'var(--acc)':'var(--redtx)'; mk.style.opacity=Math.min(1,Math.max(0,(Math.abs(dx)-40)/90)); }
+  });
+  function end(e){
+    if(!(e.pointerId in pts)) return; var q=pts[e.pointerId]; delete pts[e.pointerId];
+    if(pinch){ if(n()<2) pinch=null; if(n()===0) start=null; return; }
+    if(!start) return; var s0=start; start=null; $('vmark').style.opacity=0;
+    var f=vFit(), TH=Math.min(140,f.vw*0.28);
+    if(s0.z.scale<=1.01&&Math.abs(dragX)>TH){ if(dragX>0) vKeep(); else vReject(); vApply(); return; }
+    vApply();
+    if(moved) return;
+    // chạm: phân biệt chạm đúp và chạm mép (chờ 250ms)
+    var now=Date.now();
+    if(now-V.lastTap<300&&Math.hypot(q.x-V.lastX,q.y-V.lastY)<40){ clearTimeout(V.timer); V.lastTap=0; dbl(q); return; }
+    V.lastTap=now; V.lastX=q.x; V.lastY=q.y;
+    clearTimeout(V.timer);
+    if(M.zoom.scale<=1.01){ var x=q.x; V.timer=setTimeout(function(){ if(x<f.vw/3) vStep(-1); else if(x>f.vw*2/3) vStep(1); },250); }
+  }
+  function dbl(q){
+    var f=vFit(), p=curP()||{}, fc=p.focus;
+    if(M.zoom.scale>1.01){ M.zoom={scale:1,tx:0,ty:0}; }
+    else if(fc&&fc[0]!=null&&fc[0]>=0&&(fc[2]||0)>=4){ M.zoom=focusZoom(fc,f.vw,f.vh,f.iw,f.ih,f.natW); }
+    else { M.zoom=zoomAt({scale:1,tx:0,ty:0},2.5,q.x,q.y,f.vw,f.vh,f.iw,f.ih,f.natW); }
+    vApply();
+  }
+  st.addEventListener('pointerup',end); st.addEventListener('pointercancel',end);
+})();
+/* chạm ô lưới → Xem */
+$('gsp').addEventListener('click',function(e){ var t=e.target.closest('.tile'); if(!t||M.selmode) return; openView(+t.dataset.id); });
 /* ---------- đồng bộ với máy tính ---------- */
 var syncing=false;
 function mSync(force){
