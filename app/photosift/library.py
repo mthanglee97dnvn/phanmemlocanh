@@ -19,7 +19,9 @@ import numpy as np
 
 from .analyzer import ALL_EXT, ANALYSIS_SIDE, RAW_EXT, Analyzer, _jpg, diag_raw, focus_point, hamming, load_view, read_exif
 from .errors import friendly
+from . import taste
 from .db import DB, HOME
+from .models import path as _model_path
 from .online import Online
 
 # thư mục hệ thống/phần mềm: bỏ qua khi dò tìm thư mục ảnh được kéo thả (đỡ tốn thời gian, không bao giờ chứa ảnh khách)
@@ -33,6 +35,17 @@ COVERS = HOME / "covers"   # ảnh bìa catalog: giữ qua các lần mở app, 
 FACES = HOME / "faces"
 VIEWS = HOME / "view"      # ảnh nét đúng cỡ màn hình cho trình xem (RAW đã giải mã), dựng sẵn ở nền
 PREVIEWS = HOME / "prev"   # ảnh 1600px đã giải mã sẵn: xem nhanh + phân tích không phải đọc lại RAW từ thẻ nhớ
+# gu chọn ảnh: mô hình riêng của người dùng / mô hình mặc định đóng gói trong app
+TASTE_FILE = HOME / "taste.npz"
+TASTE_DEFAULT = _model_path("taste_default.npz")
+TASTE_ROLLS = 40          # học gu riêng từ tối đa 40 đám gần nhất
+TASTE_NEG = 4             # mỗi đám: giữ mọi ảnh được chọn, lấy mẫu tối đa 4 ảnh bỏ / 1 ảnh giữ
+# phạt L2 về phía gu mặc định (không có thì về 0). taste.fit chia phạt cho tổng trọng số mẫu, nên lam ≈ số mẫu "ảo";
+# trọng số CLIP phải lớn (vector đơn vị 512 chiều) nên lam lớn kìm cả gu riêng lẫn gu mặc định. Đo trên dữ liệu giả
+# (gu người dùng khác / gần gu mặc định, 1–39 đám): lam 1–3 tốt nhất; ít dữ liệu vẫn gần gu mặc định vì luyện
+# bắt đầu từ trọng số mặc định với số bước có hạn.
+TASTE_LAM = 2.0
+CLIP_DIM = 512
 IO_WORKERS = 4             # số luồng đọc file (thẻ nhớ/USB: 4 là hợp lý)
 LABELS = {"", "red", "yellow", "green", "blue", "purple"}
 XMP_LABEL = {"red": "Red", "yellow": "Yellow", "green": "Green", "blue": "Blue", "purple": "Purple"}
@@ -871,14 +884,17 @@ class Library:
             self.db.many(sql, done)
 
     @staticmethod
-    def _clip_vec(row):
-        """Vector CLIP đã giải mã (float32, chuẩn hoá L2) hoặc None nếu thiếu / khác phiên bản model / sai độ dài."""
-        from . import scene as _scene
+    def _clip_vec(row, mid=None):
+        """Vector CLIP đã giải mã (float32, chuẩn hoá L2) hoặc None nếu thiếu / khác phiên bản model / sai độ dài.
+        mid: tên phiên bản model đã đọc sẵn (scene.MODEL_ID stat() file mỗi lần đọc — đọc một lần cho cả loạt ảnh)."""
+        if mid is None:
+            from . import scene as _scene
+            mid = _scene.MODEL_ID
         try:
             blob, ver = row["clip"], row["clipv"]
         except (KeyError, IndexError):
             return None
-        if not blob or ver != _scene.MODEL_ID or len(blob) != 1024:
+        if not blob or ver != mid or len(blob) != 1024:
             return None
         v = np.frombuffer(blob, np.float16).astype(np.float32)
         n = float(np.linalg.norm(v))
@@ -1445,7 +1461,7 @@ class Library:
                     id=r["id"], name=os.path.basename(r["path"]), dir=r["dir"], w=r["w"], h=r["h"], taken=self._et(r),
                     smile=-1, sharp=0, fsharp=0, lum=0, nf=0, ear=-1, rating=r["rating"], label=r["label"], grp=0, best=0,
                     score=0, people=[], flags=[], an=False, err=bool(r["err"]), tv=r["tv"], hl=False, scene=None,
-                    cam=(r["cam"] if "cam" in r.keys() else None)))
+                    cam=(r["cam"] if "cam" in r.keys() else None), sugg=(r["sugg"] if "sugg" in r.keys() else 0)))
                 continue
             if self._sharp_val(r, ref_g, ref_f) < S["blur_ratio"]:
                 flags.append("blur")
@@ -1476,7 +1492,7 @@ class Library:
                 away=r["away"] or 0, people=pmap.get(r["id"], []), flags=flags, an=True, err=False, tv=r["tv"], hl=hl,
                 scene=(r["scene"] if "scene" in r.keys() else None),
                 focus=[r["focus_x"], r["focus_y"], r["focus_c"]] if ("focus_x" in r.keys() and r["focus_x"] is not None) else None,
-                cam=(r["cam"] if "cam" in r.keys() else None)))
+                cam=(r["cam"] if "cam" in r.keys() else None), sugg=(r["sugg"] if "sugg" in r.keys() else 0)))
         return out
 
     def faces_of(self, photo_id: int):
@@ -1591,17 +1607,6 @@ class Library:
                             ORDER BY taken, path""", (len(pre), pre))
         of = self._roll_of([r["path"] for r in rows])
         rows = [r for r in rows if of.get(r["path"]) == root]
-        ids = {r["id"] for r in rows}
-        cnt, pmap = {}, {}
-        for f in self.db.q("""SELECT f.photo_id, f.person_id, f.px FROM faces f JOIN photos p ON p.id=f.photo_id
-                              WHERE f.person_id IS NOT NULL AND substr(p.path,1,?)=?""", (len(pre), pre)):
-            if f["photo_id"] not in ids:
-                continue
-            pmap.setdefault(f["photo_id"], set()).add(f["person_id"])
-            if (f["px"] or 0) >= 90:
-                cnt.setdefault(f["person_id"], set()).add(f["photo_id"])
-        top = sorted(cnt.items(), key=lambda kv: -len(kv[1]))[:2]
-        couple = {pid for pid, s in top if len(s) >= 2}
         nr = self._norm_root(root)
         logged = set()
         for row in self.db.q("SELECT root, ids FROM cull_log"):
@@ -1610,15 +1615,249 @@ class Library:
                     logged.update(self._log_paths(row["ids"]))
                 except Exception:  # noqa: BLE001
                     pass
+        return self._feat_rows(rows, logged)
+
+    def _feat_rows(self, rows, logged=frozenset()):
+        """Hàng ảnh (sqlite Row) → dict đủ cột cho taste.features (+ id, rating, rsrc, score, clip).
+        Cô dâu/chú rể tính lại trong chính tập ảnh này (một đám hoặc thư mục đang mở)."""
+        ids = [r["id"] for r in rows]
+        idset = set(ids)
+        cnt, pmap = {}, {}
+        for k in range(0, len(ids), 900):
+            part = ids[k:k + 900]
+            for f in self.db.q(f"SELECT photo_id, person_id, px FROM faces WHERE person_id IS NOT NULL "
+                               f"AND photo_id IN ({','.join('?' * len(part))})", part):
+                if f["photo_id"] not in idset:
+                    continue
+                pmap.setdefault(f["photo_id"], set()).add(f["person_id"])
+                if (f["px"] or 0) >= 90:
+                    cnt.setdefault(f["person_id"], set()).add(f["photo_id"])
+        top = sorted(cnt.items(), key=lambda kv: -len(kv[1]))[:2]
+        couple = {pid for pid, s in top if len(s) >= 2}
         out = []
         for r in rows:
             d = {k: r[k] for k in ("id", "path", "sharp", "fsharp", "nfaces", "lum", "lo", "hi", "ear_min", "smile",
-                                   "away", "focus_c", "scene", "grp", "best", "rating", "rsrc", "clip", "clipv")}
+                                   "away", "focus_c", "scene", "grp", "best", "rating", "rsrc", "score", "clip", "clipv")}
             d["taken"] = float(r["taken"] or 0) + float(r["toff"] or 0)
             d["couple"] = bool(couple & pmap.get(r["id"], set()))
             d["in_cull_log"] = r["path"] in logged
             out.append(d)
         return out
+
+    # ------------------------------------------------------------------ gu chọn ảnh: học, đề xuất, xuất
+    @staticmethod
+    def _taste_label(r):
+        """(nhãn, trọng số): sao ≥ 1 = giữ (chấm hàng loạt từ đề xuất: 0.3); ✕ của Tự động lọc = bỏ 0.5; còn lại bỏ 1."""
+        rt = r.get("rating") or 0
+        if rt >= 1:
+            return 1, (0.3 if r.get("rsrc") == 1 else 1.0)
+        if rt < 0 and r.get("in_cull_log"):
+            return 0, 0.5
+        return 0, 1.0
+
+    def _taste_off(self):
+        r = self.db.one("SELECT v FROM meta WHERE k='taste_off'")
+        try:
+            v = json.loads(r["v"]) if r else []
+        except (TypeError, ValueError):
+            v = []
+        return [str(x) for x in v] if isinstance(v, list) else []
+
+    def _taste_rolls(self):
+        off = set(self._taste_off())
+        return [dict(r, on=r["root"] not in off) for r in self._finished_rolls()]
+
+    @staticmethod
+    def _taste_sig(rolls):
+        return [[r["root"], int(r["kept"])] for r in rolls]
+
+    @staticmethod
+    def _taste_load(path):
+        return taste.load(path) if Path(path).exists() else None
+
+    def _taste_model(self):
+        """(nguồn, mô hình, meta) của gu đang dùng: gu riêng > gu mặc định > cơ bản (điểm chất lượng sẵn có)."""
+        got = self._taste_load(TASTE_FILE)
+        if got:
+            return ("personal", *got)
+        got = self._taste_load(TASTE_DEFAULT)
+        if got:
+            return ("default", *got)
+        return "basic", None, None
+
+    def _clip_mat(self, rows, mid, dtype=np.float32):
+        """Ma trận vector CLIP (hàng NaN = ảnh chưa có / khác phiên bản model)."""
+        C = np.full((len(rows), CLIP_DIM), np.nan, dtype)
+        for i, r in enumerate(rows):
+            v = self._clip_vec(r, mid)
+            if v is not None and v.shape == (CLIP_DIM,):
+                C[i] = v
+        return C
+
+    def _taste_roll(self, root):
+        rows = self._roll_rows(root)
+        X = taste.features(rows)
+        lab = [self._taste_label(r) for r in rows]
+        y = np.array([a for a, _ in lab], np.int8)
+        w = np.array([b for _, b in lab], np.float32)
+        return rows, X, y, w
+
+    @staticmethod
+    def _taste_sample(y, seed=0):
+        """Chỉ số dòng dùng để học: mọi ảnh giữ + tối đa TASTE_NEG ảnh bỏ cho mỗi ảnh giữ (mẫu cố định)."""
+        pos, neg = np.flatnonzero(y == 1), np.flatnonzero(y == 0)
+        m = TASTE_NEG * len(pos)
+        if len(neg) > m:
+            neg = np.random.default_rng(seed).choice(neg, m, replace=False)
+        return np.sort(np.r_[pos, neg]).astype(np.int64)
+
+    def taste_info(self, _rolls=None):
+        rolls = self._taste_rolls() if _rolls is None else _rolls
+        on = [r for r in rolls if r["on"]]
+        src, _, meta = self._taste_model()
+        pm = (meta or {}) if src == "personal" else {}
+        return dict(source=src,
+                    rolls=[dict(root=r["root"], n=r["n"], kept=r["kept"], on=r["on"]) for r in rolls],
+                    n_rolls=len(on), n_photos=sum(r["n"] for r in on),
+                    agree=pm.get("agree"), learned=pm.get("learned"),
+                    stale=self._taste_sig(on[:TASTE_ROLLS]) != (pm.get("sig") or []))
+
+    def taste_rolls_set(self, off):
+        off = sorted({str(x) for x in (off or [])})
+        self.db.x("INSERT OR REPLACE INTO meta(k,v) VALUES('taste_off',?)", (json.dumps(off, ensure_ascii=False),))
+        return self.taste_info()
+
+    def taste_learn(self):
+        """Học gu riêng (đồng bộ) từ tối đa 40 đám đã lọc xong đang bật; lưu HOME/taste.npz."""
+        from . import scene as _scene
+        mid = _scene.MODEL_ID
+        every = self._taste_rolls()
+        rolls = [r for r in every if r["on"]][:TASTE_ROLLS]
+        parts, newest = [], None
+        for k, r in enumerate(rolls):
+            rows, X, y, w = self._taste_roll(r["root"])
+            if not rows:
+                continue
+            if k == 0 and len(rolls) > 1:   # đám mới nhất: giữ đủ để đo độ trùng khớp
+                newest = (rows, X, self._clip_mat(rows, mid), y)
+            ix = self._taste_sample(y)
+            parts.append((X[ix], self._clip_mat([rows[i] for i in ix], mid), y[ix], w[ix]))
+        if not parts:
+            return dict(self.taste_info(every), error="Chưa có đám nào đã lọc xong để học")
+        got = self._taste_load(TASTE_DEFAULT)
+        prior = got[0] if got else None
+        lam = TASTE_LAM
+
+        def fit(ps):
+            m = taste.fit(np.vstack([p[0] for p in ps]), np.vstack([p[1] for p in ps]),
+                          np.concatenate([p[2] for p in ps]).astype(np.float32),
+                          np.concatenate([p[3] for p in ps]), prior=prior, lam=lam)
+            if m["full"] is None and prior and prior.get("full"):   # chưa có CLIP để học: giữ bản đầy đủ của gu mặc định
+                m["full"] = prior["full"]
+            return m
+        model = fit(parts)
+        agree = None
+        if newest is not None and len(parts) > 1:
+            rows0, X0, C0, y0 = newest
+            agree = round(float(taste.agreement(fit(parts[1:]), X0, C0, y0, rows0)), 4)
+        meta = dict(rolls=len(parts), rows=int(sum(len(p[2]) for p in parts)), learned=time.time(), agree=agree,
+                    sig=self._taste_sig(rolls), clipv=mid, feats=list(taste.FEATS), prior=bool(prior), lam=lam)
+        dest = Path(TASTE_FILE)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        tmp = dest.with_name(dest.name + ".tmp")
+        taste.save(tmp, model, meta)
+        os.replace(tmp, dest)
+        return self.taste_info(every)
+
+    def suggest(self, n):
+        """Gắn dấu đề xuất (sugg=1) cho khoảng n tấm của thư mục đang mở; không đụng tới sao."""
+        try:
+            n = int(n)
+        except (TypeError, ValueError):
+            n = 0
+        if n <= 0:
+            return dict(error="Số ảnh cần chọn phải lớn hơn 0")
+        from . import scene as _scene
+        mid = _scene.MODEL_ID
+        rows = self._feat_rows(self.db.q("SELECT p.* FROM photos p JOIN cur ON cur.id=p.id "
+                                         "WHERE p.analyzed=1 AND p.err IS NULL ORDER BY p.taken, p.path"))
+        src, model, meta = self._taste_model()
+        C = self._clip_mat(rows, mid)
+        if model is None:   # gu cơ bản (chưa học): điểm chất lượng sẵn có 0..100
+            s = np.array([float(r.get("score") or 0) for r in rows], np.float64) / 100.0
+        else:               # model CLIP đổi so với lúc học → chỉ dùng bản cơ bản của mô hình
+            s = taste.score(model, taste.features(rows), C if (meta or {}).get("clipv") in (None, mid) else None)
+        res = taste.pick(n, s, rows, C)
+        self.db.x("UPDATE photos SET sugg=0 WHERE id IN (SELECT id FROM cur)")
+        self.db.many("UPDATE photos SET sugg=1 WHERE id=?", [(int(i),) for i in res["ids"]])
+        self.db.x("INSERT OR REPLACE INTO meta(k,v) VALUES('sugg_n',?)", (str(n),))
+        return dict(ids=[int(i) for i in res["ids"]], n=len(res["ids"]), note=res["note"], source=src)
+
+    def suggest_clear(self):
+        self.db.x("UPDATE photos SET sugg=0 WHERE id IN (SELECT id FROM cur)")
+        return dict(ok=True)
+
+    # Nhật ký chấm sao hàng loạt từ đề xuất: bảng rate_log riêng (không lẫn với cull_log của Tự động lọc),
+    # lưu theo đường dẫn như cull_log. Hoàn tác chỉ đưa về 0 ảnh còn đúng 1 sao do đề xuất (rsrc=1).
+    def suggest_rate(self):
+        hit = self.db.q("SELECT p.id, p.path FROM photos p JOIN cur ON cur.id=p.id WHERE p.sugg=1 AND p.rating=0")
+        if not hit:
+            return dict(ok=True, n=0, batch=0, ids=[])
+        self.db.many("UPDATE photos SET rating=1, rsrc=1 WHERE id=?", [(r["id"],) for r in hit])
+        root = self._root()
+        cur = self.db.x("INSERT INTO rate_log(root,time,ids) VALUES(?,?,?)",
+                        (root, time.time(), json.dumps([r["path"] for r in hit])))
+        self.db.x("DELETE FROM rate_log WHERE root=? AND id NOT IN (SELECT id FROM rate_log WHERE root=? ORDER BY id DESC LIMIT 20)",
+                  (root, root))
+        return dict(ok=True, n=len(hit), batch=cur.lastrowid, ids=[r["id"] for r in hit])
+
+    def suggest_rate_undo(self, batch=None):
+        if batch:
+            row = self.db.one("SELECT id, ids FROM rate_log WHERE id=?", (int(batch),))
+        else:
+            row = self.db.one("SELECT id, ids FROM rate_log WHERE root=? ORDER BY id DESC LIMIT 1", (self._root(),))
+        if not row:
+            return dict(ok=True, ids=[], n=0)
+        paths, left = self._log_paths(row["ids"]), []
+        for k in range(0, len(paths), 500):
+            part = paths[k:k + 500]
+            left += [r["id"] for r in self.db.q(f"SELECT id FROM photos WHERE rating=1 AND rsrc=1 "
+                                                 f"AND path IN ({','.join('?' * len(part))})", part)]
+        self.db.many("UPDATE photos SET rating=0, rsrc=0 WHERE id=?", [(i,) for i in left])
+        self.db.x("DELETE FROM rate_log WHERE id=?", (row["id"],))
+        return dict(ok=True, ids=left, n=len(left))
+
+    def taste_export(self, dest: str):
+        """Ghi dest/taste_data.npz (đặc trưng đã chuẩn hoá, CLIP, nhãn, mã đám) để luyện gu mặc định.
+        Không có ảnh, tên file hay đường dẫn; giờ chụp tính từ đầu mỗi đám."""
+        dest = str(dest or "")
+        if not dest or not os.path.isdir(dest):
+            return dict(error="Không tìm thấy thư mục để lưu")
+        from . import scene as _scene
+        mid = _scene.MODEL_ID
+        Xs, Cs, ys, ws, rs, gs, ts = [], [], [], [], [], [], []
+        for r in self._taste_rolls():
+            if not r["on"]:
+                continue
+            rows, X, y, w = self._taste_roll(r["root"])
+            if not rows:
+                continue
+            Xs.append(X)
+            Cs.append(self._clip_mat(rows, mid, np.float16))
+            ys.append(y)
+            ws.append(w)
+            rs.append(np.full(len(rows), len(rs), np.int32))
+            gs.append(np.array([int(x.get("grp") or 0) for x in rows], np.int32))
+            t = np.array([float(x.get("taken") or 0) for x in rows], np.float64)
+            ts.append(t - t.min())
+        if not Xs:
+            return dict(error="Chưa có đám nào đã lọc xong để xuất")
+        path = os.path.join(dest, "taste_data.npz")
+        with open(path, "wb") as fh:
+            np.savez(fh, X=np.vstack(Xs).astype(np.float32), C=np.vstack(Cs), y=np.concatenate(ys).astype(np.int8),
+                     w=np.concatenate(ws).astype(np.float32), roll=np.concatenate(rs), grp=np.concatenate(gs),
+                     taken=np.concatenate(ts), feats=np.array(taste.FEATS))
+        return dict(ok=True, path=path, rows=int(sum(len(y) for y in ys)))
 
     # ------------------------------------------------------------------ nhật ký tự động lọc
     # Lưu trong CSDL nên vẫn hoàn tác được sau khi tắt app. Tự động lọc chỉ chạm ảnh chưa chấm sao,
@@ -1637,7 +1876,7 @@ class Library:
         return [p for p in json.loads(raw) if isinstance(p, str)]
 
     def _root(self) -> str:
-        return self.status.get("root", "") or ""
+        return (getattr(self, "status", None) or {}).get("root", "") or ""
 
     def cull_apply(self, ids):
         hit = self._rated("id", [int(i) for i in ids], 0)

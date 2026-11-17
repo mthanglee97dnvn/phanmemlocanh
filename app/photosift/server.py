@@ -635,6 +635,8 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                     return self._json(lib.catalog())
                 if u.path == "/api/cull/last":
                     return self._json(lib.cull_last())
+                if u.path == "/api/taste":      # gu chọn ảnh: nguồn, các đám đã lọc xong, độ trùng khớp
+                    return self._json(lib.taste_info())
                 if u.path == "/api/export/history":
                     return self._json(lib.export_history())
                 if u.path == "/api/export/status":
@@ -781,6 +783,22 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                 if u.path == "/api/cull/clear":
                     lib.cull_clear()
                     return self._json(dict(ok=True))
+                if u.path == "/api/taste/learn":
+                    return self._json(lib.taste_learn())
+                if u.path == "/api/taste/rolls":
+                    return self._json(lib.taste_rolls_set(b.get("off") or []))
+                if u.path == "/api/taste/export":
+                    r = lib.taste_export(str(b.get("dest") or ""))
+                    return self._json(r, 400 if r.get("error") else 200)
+                if u.path == "/api/suggest":
+                    r = lib.suggest(b.get("n"))
+                    return self._json(r, 400 if r.get("error") else 200)
+                if u.path == "/api/suggest/clear":
+                    return self._json(lib.suggest_clear())
+                if u.path == "/api/suggest/rate":
+                    return self._json(lib.suggest_rate())
+                if u.path == "/api/suggest/rate/undo":
+                    return self._json(lib.suggest_rate_undo(b.get("batch")))
                 if u.path == "/api/view/ahead":   # trình xem báo các ảnh sắp xem để dựng ảnh nét trước
                     lib.view_focus([int(i) for i in (b.get("ids") or [])[:24]], int(b.get("s") or 0))
                     return self._json(dict(ok=True))
