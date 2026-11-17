@@ -21,3 +21,5 @@ r=pairStats([P(1,'a','A.ARW'),P(2,'a','A.HEIC'),P(3,'a','B.ARW')]); assert.deepE
   assert.deepEqual([...O].sort(sortCmp('oddcam',false)).map(p=>p.id),[3,2,1]);
   console.log('ok (pairStats + sortCmp)');
 }
+// ô đếm ẩn hẳn khi không có cặp RAW/JPEG (CSS .bar button không được đè thuộc tính hidden)
+assert.ok(/\.paircnt\[hidden\]\{display:none\}/.test(src),'thiếu .paircnt[hidden]{display:none}');

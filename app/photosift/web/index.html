@@ -155,6 +155,17 @@ body.cat #catalog{display:flex}
 .ck-nav{display:flex;align-items:center;gap:6px;justify-content:center}
 .ck-nav button{min-width:40px;padding:6px 10px}
 .ck-nav span{min-width:220px;text-align:center;color:var(--mut);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mm-cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.mm-col{min-width:0}
+.mm-col .ck-top select{min-width:0}
+.mm-col .ck-view{height:min(40vh,420px)}
+.mm-col .ck-nav span{min-width:0;flex:1}
+.mm-range{width:100%;margin:6px 0 0}
+.mm-bot{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-top:12px;font-size:13.5px}
+.mm-bot .dur input{width:58px;font-size:14px;padding:4px 6px;background:var(--field);color:var(--tx);border:1px solid var(--line);border-radius:8px;color-scheme:dark}
+.mm-bot .dur select{padding:4px 6px}
+.mm-res{margin-top:8px;font-size:14px}
+@media (max-width:760px){ .mm-cols{grid-template-columns:1fr} }
 .ck-times{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;align-items:center;margin-top:10px;font-size:13.5px}
 .ck-times input{font-size:15px;padding:5px 8px;background:var(--field);color:var(--tx);border:1px solid var(--line);border-radius:8px;color-scheme:dark}
 .ck-times input:focus{outline:2px solid var(--acc);outline-offset:1px}
@@ -322,7 +333,7 @@ details.adv{margin:6px 0;border-top:1px solid var(--line);padding-top:6px}detail
 .bar label.rev{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--mut);cursor:pointer;white-space:nowrap}.bar label.rev input{margin:0}
 .paircnt{white-space:nowrap;font-variant-numeric:tabular-nums;border:1px solid var(--line);background:var(--field);border-radius:6px;padding:4px 9px;font-size:12px;cursor:pointer}
 .paircnt.ok{color:#7cc57f;border-color:rgba(67,160,71,.45);cursor:default}.paircnt.warn{color:#f0a24a;border-color:rgba(240,162,74,.55)}
-.paircnt.on{background:rgba(240,162,74,.16)}.paircnt:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+.paircnt.on{background:rgba(240,162,74,.16)}.paircnt[hidden]{display:none}.paircnt:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
 @container bar (max-width:1200px){ .bar .lbl{display:none} .bar .grp label.hint{display:none} #fFilter{max-width:120px} #fSort{max-width:104px} }
 #grid{grid-template-columns:repeat(auto-fill,minmax(var(--sz),1fr))}
 #app{overflow:clip}
@@ -1556,7 +1567,7 @@ $('#bCamSync').onclick=async()=>{
   const m=modal(`<h3>Đồng bộ thời gian nhiều máy</h3>
     <div class="hint" style="margin-bottom:8px">Khi ekip dùng nhiều máy mà đồng hồ mỗi máy đặt lệch nhau, ảnh trộn vào sẽ sai thứ tự thời gian. App so các khoảnh khắc cả ekip cùng bấm máy để tính độ lệch và đưa mọi ảnh về một dòng thời gian chung. Giờ chụp trong file gốc <b>không</b> bị sửa; có thể bỏ đồng bộ bất cứ lúc nào.</div>
     <div id="camBody" aria-live="polite"></div>
-    <div class="btns"><button onclick="this.closest('.back').remove()">Đóng</button><button id="camReset" hidden>Bỏ đồng bộ</button><button id="camClock" title="Chụp đồng hồ bằng mỗi máy → gõ giờ thấy trên đồng hồ (chính xác tới từng giây)">Chỉnh theo ảnh đồng hồ…</button><button id="camRedo" hidden>Dò lại</button><button class="pri" id="camGo">Dò các máy</button></div>`);
+    <div class="btns"><button onclick="this.closest('.back').remove()">Đóng</button><button id="camReset" hidden>Bỏ đồng bộ</button><button id="camClock" title="Chụp đồng hồ bằng mỗi máy → gõ giờ thấy trên đồng hồ (chính xác tới từng giây)">Chỉnh theo ảnh đồng hồ…</button><button id="camMoment" title="Chọn một tấm của máy mốc và một tấm cùng lúc của máy cần chỉnh — không cần chụp đồng hồ">Ghép khoảnh khắc chung…</button><button id="camRedo" hidden>Dò lại</button><button class="pri" id="camGo">Dò các máy</button></div>`);
   const body=m.querySelector('#camBody'), go=m.querySelector('#camGo'), reset=m.querySelector('#camReset'), redo=m.querySelector('#camRedo');
   let cur=[];
   const render=(st)=>{
@@ -1595,9 +1606,91 @@ $('#bCamSync').onclick=async()=>{
   };
   redo.onclick=detect;
   m.querySelector('#camClock').onclick=()=>{ m.close(); openClockSync(S.cur); };
+  m.querySelector('#camMoment').onclick=()=>{ m.close(); openMomentSync(S.cur); };
   reset.onclick=async()=>{ const offs={}; cur.forEach(c=>offs[c.key]=0); await api('/api/cameras/apply',{offsets:offs}); await loadPhotos(); toast('Đã bỏ đồng bộ — mọi máy về giờ gốc'); m.close(); };
   const init=await api('/api/cameras'); if(init.state==='running'){ await poll(); } else render(init);
 };
+
+/* ---------- đồng bộ giờ bằng KHOẢNH KHẮC CHUNG ----------
+   Một tấm của máy mốc (trái) + một tấm cùng lúc của máy cần chỉnh (phải) → lệch = giờ hiệu dụng tấm trái − giờ gốc tấm phải,
+   áp cho mọi ảnh của máy bên phải. Bên phải tự nhảy tới tấm gần nhất theo lệch ước lượng; ← → lật phải, Shift+← → lật trái. */
+async function openMomentSync(startId){
+  let L; try{ L=await api('/api/cameras/list'); }catch(e){ toast(e.message,4000); return; }
+  const cams=(L.cams||[]).filter(c=>c.first!=null&&c.key!=='?');
+  if(cams.length<2){ toast('Cần ảnh của ít nhất hai máy (đọc được tên máy) để ghép khoảnh khắc.',4000); return; }
+  const camName=k=>k==='?'?'(không đọc được máy)':k;
+  const sgn=s=>{ s=Math.round(s); const a=Math.abs(s),d=Math.floor(a/86400),h=Math.floor(a%86400/3600),mi=Math.floor(a%3600/60),x=a%60;
+    return (s<0?'−':'+')+[d?d+' ngày':'',h?h+' giờ':'',mi?mi+' phút':'',(x||(!d&&!h&&!mi))?x+' giây':''].filter(Boolean).join(' '); };
+  const hms=t=>{ const d=new Date(t*1000), z=n=>String(n).padStart(2,'0'); return `${z(d.getHours())}:${z(d.getMinutes())}:${z(d.getSeconds())}`; };
+  const dmy=t=>{ const d=new Date(t*1000), z=n=>String(n).padStart(2,'0'); return `${z(d.getDate())}/${z(d.getMonth()+1)}`; };
+  const opt=c=>`<option value="${esc(c.key)}">${esc(camName(c.key))} — ${fmt(c.n)} ảnh${c.offset?' · đang lệch '+sgn(c.offset):''}</option>`;
+  const col=(k,t)=>`<div class="mm-col"><div class="ck-top"><label for="mm${k}Cam">${t}</label><select id="mm${k}Cam">${cams.map(opt).join('')}</select></div>
+      <div class="ck-view" id="mm${k}View" title="Bấm để phóng to"><img id="mm${k}Img" alt=""><span class="ck-tip">Bấm để phóng to</span></div>
+      <div class="ck-nav"><button id="mm${k}Prev" title="Tấm trước${k==='L'?' (Shift+←)':' (←)'}">‹</button><span id="mm${k}Name"></span><button id="mm${k}Next" title="Tấm sau${k==='L'?' (Shift+→)':' (→)'}">›</button></div>
+      ${k==='R'?'<input type="range" class="mm-range" id="mmRange" min="0" value="0" aria-label="Kéo nhanh theo giờ" title="Kéo nhanh theo giờ chụp">':''}</div>`;
+  const m=modal(`<h3>Ghép khoảnh khắc chung</h3>
+    <div class="hint">Tìm một khoảnh khắc cả hai máy cùng chụp (trao nhẫn, hôn, nâng ly…). Lật bên phải bằng ← →, bên trái bằng Shift + ← →. Khi hai tấm đúng cùng một lúc, bấm nút bên dưới — mọi ảnh của máy bên phải được chỉnh theo. Ảnh gốc không bị sửa.</div>
+    <div class="mm-cols">${col('L','Máy mốc')}${col('R','Máy cần chỉnh')}</div>
+    <div class="mm-bot"><span>Lệch</span><span class="dur"><select id="mmSg" aria-label="Cộng hay trừ"><option value="1">+</option><option value="-1">−</option></select>
+      ${[['mmD','ngày'],['mmH','giờ'],['mmM','phút'],['mmS','giây']].map(([i,l])=>`<input type="number" id="${i}" min="0" value="0" aria-label="${l}"> ${l}`).join(' ')}</span></div>
+    <div class="mm-res" id="mmRes" aria-live="polite"></div>
+    <div class="btns"><button onclick="this.closest('.back').remove()">Đóng</button><button class="pri" id="mmGo">Hai tấm này cùng lúc</button></div>`);
+  m.firstChild.classList.add('wide');
+  const $m=x=>m.querySelector(x), res=$m('#mmRes'), go=$m('#mmGo'), rng=$m('#mmRange');
+  const side={L:{cam:null,ph:[],idx:0},R:{cam:null,ph:[],idx:0}};
+  const camOf=k=>cams.find(c=>c.key===k);
+  const cur=k=>side[k].ph[side[k].idx];
+  const refEff=()=>{ const p=cur('L'); return p?p[1]+((camOf(side.L.cam)||{}).offset||0):NaN; };
+  const diff=()=>{ const r=cur('R'); return r?Math.round(refEff()-r[1]):NaN; };
+  const nearest=(ph,t)=>{ let lo=0,hi=ph.length; while(lo<hi){ const mid=(lo+hi)>>1; if(ph[mid][1]<t) lo=mid+1; else hi=mid; }
+    if(lo>=ph.length) return ph.length-1; if(lo>0&&t-ph[lo-1][1]<=ph[lo][1]-t) return lo-1; return lo; };
+  const setDur=sec=>{ const a=Math.abs(Math.round(sec||0)); $m('#mmSg').value=sec<0?'-1':'1';
+    $m('#mmD').value=Math.floor(a/86400); $m('#mmH').value=Math.floor(a%86400/3600); $m('#mmM').value=Math.floor(a%3600/60); $m('#mmS').value=a%60; };
+  const readDur=()=>{ const n=i=>Math.max(0,Number($m(i).value)||0); return Number($m('#mmSg').value)*(n('#mmD')*86400+n('#mmH')*3600+n('#mmM')*60+n('#mmS')); };
+  const draw=k=>{ const s=side[k], p=cur(k), v=$m('#mm'+k+'View'), im=$m('#mm'+k+'Img');
+    if(!p){ im.removeAttribute('src'); $m('#mm'+k+'Name').textContent='—'; return; }
+    v.classList.remove('z'); $m('#mm'+k+'View .ck-tip').textContent='Bấm để phóng to'; im.src=`/api/preview?id=${p[0]}&s=1200`;
+    const t=k==='L'?refEff():p[1];
+    $m('#mm'+k+'Name').textContent=`${s.idx+1}/${fmt(s.ph.length)} · ${dmy(t)} ${hms(t)}`;
+    if(k==='R'){ rng.max=Math.max(0,s.ph.length-1); rng.value=s.idx; } };
+  const preview=keep=>{ const d=diff(); if(!isFinite(d)){ res.textContent=''; go.disabled=true; return; }
+    if(!keep) setDur(d);   // đang gõ ô ± thì không ghi đè số người dùng gõ
+    go.disabled=false; const c=camOf(side.R.cam);
+    const w=d>0?'máy chạy chậm':d<0?'máy chạy nhanh':'khớp sẵn';
+    res.innerHTML=`Lệch: <b>${sgn(d)}</b> (${w}) · áp cho <b>${fmt(c?c.n:side.R.ph.length)}</b> ảnh của <b>${esc(camName(side.R.cam))}</b>`+(c&&c.offset===d?' — <span style="color:#7bd88f">đang dùng đúng lệch này</span>':''); };
+  const jumpR=(off,keep)=>{ if(!side.R.ph.length) return; side.R.idx=nearest(side.R.ph,refEff()-off); draw('R'); preview(keep); };
+  const loadCam=async(k,key)=>{ side[k].cam=key; $m('#mm'+k+'Cam').value=key;
+    const r=await api('/api/cameras/photos?cam='+encodeURIComponent(key)); side[k].ph=r.photos||[]; side[k].idx=0; };
+  const pickR=async key=>{ await loadCam('R',key); let off=0;
+    try{ const e=await api(`/api/cameras/estimate?ref=${encodeURIComponent(side.L.cam)}&cam=${encodeURIComponent(key)}`); off=e.offset||0; }catch(e){}
+    jumpR(off); };
+  const other=k=>{ const c=cams.find(c=>c.key!==k); return c&&c.key; };
+  const stepK=(k,d)=>{ const s=side[k]; const i=Math.min(s.ph.length-1,Math.max(0,d===-2?0:d===2?s.ph.length-1:s.idx+d)); if(i===s.idx) return; s.idx=i; draw(k); if(k==='L') draw('R'); preview(); };
+  $m('#mmLPrev').onclick=()=>stepK('L',-1); $m('#mmLNext').onclick=()=>stepK('L',1);
+  $m('#mmRPrev').onclick=()=>stepK('R',-1); $m('#mmRNext').onclick=()=>stepK('R',1);
+  rng.oninput=()=>{ side.R.idx=+rng.value; draw('R'); preview(); };
+  m.querySelectorAll('.dur input,.dur select').forEach(el=>el.onchange=()=>jumpR(readDur(),true));
+  $m('#mmLCam').onchange=async e=>{ const key=e.target.value; await loadCam('L',key); draw('L');
+    if(side.R.cam===key) await pickR(other(key)); else jumpR(isFinite(diff())?readDur():0); };
+  $m('#mmRCam').onchange=async e=>{ const key=e.target.value; if(key===side.L.cam){ toast('Hai bên cùng một máy — hãy chọn máy khác',3000); e.target.value=side.R.cam; return; } await pickR(key); };
+  [['L','#mmLView'],['R','#mmRView']].forEach(([k,id])=>{ const v=$m(id); v.onclick=()=>{ const p=cur(k); if(!p) return; const z=v.classList.toggle('z');
+    $m(id+' img').src=`/api/preview?id=${p[0]}&s=${z?0:1200}`; $m(id+' .ck-tip').textContent=z?'Bấm để thu nhỏ':'Bấm để phóng to'; }; });
+  m.addEventListener('keydown',e=>{ if(['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)&&e.target!==rng) return;
+    const k={ArrowLeft:-1,ArrowRight:1,Home:-2,End:2}[e.key]; if(!k) return;
+    if(e.target===rng&&!e.shiftKey) return;   // thanh kéo tự xử lý mũi tên
+    e.preventDefault(); stepK(e.shiftKey&&Math.abs(k)===1?'L':'R',k); });
+  go.onclick=async()=>{ const a=cur('L'), b=cur('R'); if(!a||!b) return; go.disabled=true;
+    try{ const r=await api('/api/cameras/pair',{ref:a[0],id:b[0]});
+      if(r.error){ toast(r.error,4000); return; }
+      const c=camOf(r.cam); if(c){ c.offset=r.offset; ['#mmLCam','#mmRCam'].forEach(id=>{ const o=$m(id).querySelector(`option[value="${CSS.escape(r.cam)}"]`); if(o) o.outerHTML=opt(c); }); $m('#mmLCam').value=side.L.cam; $m('#mmRCam').value=side.R.cam; }
+      preview(); await loadPhotos();
+      toast(`Đã chỉnh ${fmt(r.n)} ảnh của máy ${camName(r.cam)} lệch ${sgn(r.offset)}. Chọn máy khác để chỉnh tiếp.`,4200); }
+    catch(e){ toast(e.message,4000); } finally{ go.disabled=false; } };
+  // máy mốc = máy nhiều ảnh nhất; bắt đầu ở ảnh đang chọn nếu thuộc máy mốc
+  await loadCam('L',cams[0].key);
+  if(startId!=null){ const i=side.L.ph.findIndex(p=>p[0]===startId); if(i>=0) side.L.idx=i; }
+  draw('L'); await pickR(cams[1].key);
+}
 
 /* ---------- chỉnh giờ theo ẢNH CHỤP ĐỒNG HỒ (giống "Adjust Absolute" của Photo Mechanic) ----------
    Mỗi máy chụp một tấm vào đồng hồ có giây → mở đúng tấm đó → gõ giờ thấy trên đồng hồ → app tính độ lệch
