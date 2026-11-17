@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="vi">
 <head>
+<script src="/cull.js"></script>
 <script>try{document.documentElement.dataset.theme=localStorage.getItem('ps_theme')||'neutral'}catch(e){document.documentElement.dataset.theme='neutral'}</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -1673,7 +1674,7 @@ $('#bCull').onclick=()=>{
     const r=await api('/api/settings',orig); S.settings=r.settings; Object.assign(s,orig); await loadPhotos(); };
   let tmr=null;
   const cand=()=>{ const on=k=>m.querySelector('#k_'+k) && m.querySelector('#k_'+k).checked && !m.querySelector('#k_'+k).disabled;
-    const sel=['blur','dark','bright','eyes','dup'].filter(on); return S.photos.filter(p=>p.rating===0 && p.flags.some(f=>sel.includes(f))); };
+    const sel=['blur','dark','bright','eyes','dup'].filter(on); return cullCandidates(S.photos, sel); };
   const show=()=>{ const c=cand(), ap=m.querySelector('#capply'); m.querySelector('#cprev').disabled=!c.length; m.querySelector('#cres').innerHTML = c.length?`Sẽ loại <span class="warn">${c.length}</span> / ${S.photos.filter(p=>p.rating===0).length} ảnh chưa chấm`:'Không có ảnh nào cần loại với mức lọc này.'; ap.disabled=!c.length; };
   const upd=()=>{ ids.forEach(i=>{ const e=m.querySelector('#'+i); m.querySelector('#'+i+'v').textContent = (+e.value%1?(+e.value).toFixed(2):e.value); });
     clearTimeout(tmr); tmr=setTimeout(async()=>{ const b={}; ids.forEach(i=>b[i]=+m.querySelector('#'+i).value);

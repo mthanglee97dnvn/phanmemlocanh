@@ -1580,6 +1580,11 @@ class Library:
         return f"File: {p}\n(Không phải RAW — hướng xoay lấy từ EXIF, OpenCV tự xử lý)"
 
     # ------------------------------------------------------------------ chấm điểm
+    def photos_ver(self):
+        """Số đổi khi dữ liệu ảnh đổi — điện thoại hỏi nhẹ trước khi tải lại cả danh sách."""
+        n = self.db.one("SELECT COUNT(*) n FROM cur")["n"]
+        return dict(ver=int(self.db.con.total_changes) * 100003 + int(n))
+
     def set_rating(self, ids, rating: int):
         rating = max(-1, min(5, int(rating)))
         self.db.many("UPDATE photos SET rating=?, rsrc=0 WHERE id=?", [(rating, int(i)) for i in ids])

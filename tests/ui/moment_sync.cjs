@@ -11,7 +11,7 @@ const calls=[];
 const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==','base64');
 (async()=>{const b=await chromium.launch();const pg=await b.newPage({viewport:{width:1300,height:900},deviceScaleFactor:2});
 const errs=[];pg.on('pageerror',e=>errs.push(e.message));
-await pg.route('**/*',async r=>{const u=new URL(r.request().url()), q=u.searchParams, J=o=>r.fulfill({body:JSON.stringify(o),contentType:'application/json'});
+await pg.route('**/*',async r=>{if(r.request().url().split('?')[0].endsWith('/cull.js'))return r.fulfill({body:require('fs').readFileSync(require('path').join(__dirname,'../../app/photosift/web/cull.js')),contentType:'application/javascript'});const u=new URL(r.request().url()), q=u.searchParams, J=o=>r.fulfill({body:JSON.stringify(o),contentType:'application/json'});
   if(u.pathname==='/')return r.fulfill({body:html,contentType:'text/html'});
   if(u.pathname==='/api/preview')return r.fulfill({body:png,contentType:'image/png'});
   if(u.pathname==='/api/cameras/list')return J({cams:[{key:A,n:5,offset:0,first:1},{key:B,n:6,offset:0,first:20},{key:C,n:2,offset:0,first:40},{key:D,n:1,offset:0,first:50}]});   // máy chủ đã xếp theo số ảnh

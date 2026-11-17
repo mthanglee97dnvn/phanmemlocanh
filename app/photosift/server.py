@@ -612,6 +612,8 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                     if not data:
                         return self._send(404, b"", "text/plain")
                     return self._send(200, data, "image/jpeg", {"Cache-Control": "max-age=3600"})
+                if u.path == "/cull.js":   # hàm Tự động lọc dùng chung máy tính + điện thoại
+                    return self._send(200, _web("cull.js"), "application/javascript; charset=utf-8", {"Cache-Control": "no-cache"})
                 if u.path in ("/logo.png", "/favicon.png", "/apple-touch-icon.png", "/m-icon-512.png"):
                     return self._send(200, _web(u.path[1:]), "image/png", {"Cache-Control": "max-age=86400"})
                 if u.path == "/api/status":
@@ -653,6 +655,8 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                     return self._json(lib.cam_photos(str(q.get("cam", ""))))
                 if u.path == "/api/cameras/estimate":   # lệch đề xuất cho máy cần chỉnh
                     return self._json(lib.cam_estimate(str(q.get("ref", "")), str(q.get("cam", ""))))
+                if u.path == "/api/photos/ver":   # điện thoại: có gì mới không (nhẹ hơn tải cả danh sách)
+                    return self._json(lib.photos_ver())
                 if u.path == "/api/photos":
                     return self._json(lib.photos())
                 if u.path == "/api/people":

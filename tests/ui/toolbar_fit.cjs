@@ -8,7 +8,7 @@ const mk=(id,busy)=>({id,name:`MT_${String(id).padStart(4,'0')}.JPG`,dir:'/s',ca
 (async()=>{const b=await chromium.launch();const errs=[];
 for(const w of [1280,1366,1440,1536,1600,1920])for(const busy of [false,true]){
   const pg=await b.newPage({viewport:{width:w,height:800},deviceScaleFactor:1});pg.on('pageerror',e=>errs.push(e.message));
-  await pg.route('**/*',r=>{const p=new URL(r.request().url()).pathname,J=o=>r.fulfill({body:JSON.stringify(o),contentType:'application/json'});
+  await pg.route('**/*',r=>{if(r.request().url().split('?')[0].endsWith('/cull.js'))return r.fulfill({body:require('fs').readFileSync(require('path').join(__dirname,'../../app/photosift/web/cull.js')),contentType:'application/javascript'});const p=new URL(r.request().url()).pathname,J=o=>r.fulfill({body:JSON.stringify(o),contentType:'application/json'});
     if(p==='/')return r.fulfill({body:html,contentType:'text/html'});
     if(p.startsWith('/thumb/'))return r.fulfill({body:png,contentType:'image/png'});
     if(p==='/api/photos')return J(Array.from({length:20},(_,i)=>mk(i+1,busy)));

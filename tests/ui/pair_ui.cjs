@@ -3,7 +3,7 @@ const {chromium}=require('playwright'),fs=require('fs'),path=require('path'),ass
 const html=fs.readFileSync(path.join(__dirname,'../../app/photosift/web/index.html'),'utf8');
 (async()=>{const b=await chromium.launch();const pg=await b.newPage({viewport:{width:1500,height:800}});
 const errs=[];pg.on('pageerror',e=>errs.push(e.message));
-await pg.route('**/*',r=>{const u=r.request().url();
+await pg.route('**/*',r=>{if(r.request().url().split('?')[0].endsWith('/cull.js'))return r.fulfill({body:require('fs').readFileSync(require('path').join(__dirname,'../../app/photosift/web/cull.js')),contentType:'application/javascript'});const u=r.request().url();
   if(u.endsWith('/'))return r.fulfill({body:html,contentType:'text/html'});
   if(u.includes('/api/'))return r.fulfill({body:'{}',contentType:'application/json'});
   return r.fulfill({body:'',status:404})});

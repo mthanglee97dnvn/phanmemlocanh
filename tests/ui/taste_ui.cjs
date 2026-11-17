@@ -13,7 +13,7 @@ let SUGG={ids:[1,2,3],note:'Bạn đã chọn 5 tấm, nhiều hơn 400'};
 const calls=[];
 (async()=>{const b=await chromium.launch();const pg=await b.newPage({viewport:{width:1920,height:1000},deviceScaleFactor:1});
 const errs=[];pg.on('pageerror',e=>errs.push(e.message));
-await pg.route('**/*',async r=>{const u=new URL(r.request().url()), J=o=>r.fulfill({body:JSON.stringify(o),contentType:'application/json'});
+await pg.route('**/*',async r=>{if(r.request().url().split('?')[0].endsWith('/cull.js'))return r.fulfill({body:require('fs').readFileSync(require('path').join(__dirname,'../../app/photosift/web/cull.js')),contentType:'application/javascript'});const u=new URL(r.request().url()), J=o=>r.fulfill({body:JSON.stringify(o),contentType:'application/json'});
   const bd=r.request().method()==='POST'?JSON.parse(r.request().postData()||'null'):undefined, p=u.pathname;
   if(p==='/')return r.fulfill({body:html,contentType:'text/html'});
   if(p.startsWith('/thumb/')||p==='/api/preview')return r.fulfill({body:png,contentType:'image/png'});
