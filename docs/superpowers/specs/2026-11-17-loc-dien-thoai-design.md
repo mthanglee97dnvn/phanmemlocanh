@@ -70,6 +70,12 @@ Mục tiêu bán hàng chung: điện thoại phải là lý do để mua bản 
 - Thanh dưới giữ như hiện nay: sao 1–5, ✕ Loại, ✓ Giữ, ‹ ›. Thêm nút ↶ Hoàn tác.
 - Giữ chỗ khi chuyển chế độ: đóng Xem thì lưới cuộn tới đúng ô vừa xem.
 
+### iPad / màn rộng (thêm sau khi anh Thắng xem demo và duyệt)
+- Cùng trang. Khi bề ngang ≥ 900px, Lưới và Xem hiện cạnh nhau: lưới 5 cột bên trái (khoảng 44% bề ngang), ảnh lớn bên phải.
+- Chạm ô nào trên lưới thì ảnh lớn đổi sang ô đó, không mở màn hình riêng.
+- Tự động lọc và ✦ Chọn ảnh đẹp có nút riêng trên thanh trên.
+- Demo tham khảo: canvas "Demo lọc ảnh trên điện thoại & iPad".
+
 ### Bảng công cụ (⋯)
 - **Tự động lọc:** chọn mức Nhẹ / Vừa / Mạnh và các ô cảnh báo, xem trước số ảnh sẽ loại, nút "Đánh dấu loại". Gọi cùng API với máy tính (`/api/cull/apply`, `/api/cull/undo`).
 - **✦ Chọn ảnh đẹp:** ô "Chọn khoảng N tấm" (số hoặc %), nút Đề xuất, dòng "Đang dùng: …". Gọi `/api/suggest`. Khi có đề xuất thì hiện thêm "Chấm 1 sao cho tất cả đề xuất" và "Bỏ đề xuất".
