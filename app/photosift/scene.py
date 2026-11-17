@@ -123,6 +123,13 @@ def embed(bgr: np.ndarray):
 def classify(bgr: np.ndarray):
     """Trả (nhãn, độ_tin_cậy 0..1) hoặc None nếu không dùng được / lỗi.
     nhãn ∈ CATEGORIES. độ_tin_cậy = softmax trên các nhãn (đã gộp max theo câu mô tả)."""
+    r = classify_full(bgr)
+    return None if r is None or r[0] is None else (r[0], r[1])
+
+
+def classify_full(bgr: np.ndarray):
+    """Như classify nhưng trả kèm vector nội dung ảnh: (nhãn, độ_tin_cậy, vector) hoặc None nếu không tính được vector.
+    Phân loại lỗi mà vector vẫn có → (None, None, vector), để khỏi phải tính vector lần nữa."""
     st = _get()
     if not st.get("ok"):
         return None
@@ -136,6 +143,6 @@ def classify(bgr: np.ndarray):
         logits = st["scale"] * per
         p = np.exp(logits - logits.max()); p /= p.sum()
         k = int(p.argmax())
-        return labels[k], float(p[k])
+        return labels[k], float(p[k]), feat
     except Exception:  # noqa: BLE001
-        return None
+        return None, None, feat

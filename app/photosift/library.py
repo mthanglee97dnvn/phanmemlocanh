@@ -611,8 +611,14 @@ class Library:
         self.status.update(total=len(ids), done=len(ids) - len(todo), thumbs=len(ids) - len(todo),
                            message=f"Đang đọc {len(todo)} ảnh mới…" if todo else "Đã có trong bộ nhớ đệm")
 
-        if fresh:   # nền: không làm chậm tiến độ quét
-            threading.Thread(target=self._import_xmp_ratings, args=(fresh,), daemon=True).start()
+        # nền: không làm chậm tiến độ quét. Lần đầu quét thư mục từ bản có đọc .xmp: đọc cho mọi ảnh còn 0 sao
+        # (đám cũ đã chấm bằng Photo Mechanic/Lightroom trước bản này); sau đó chỉ ảnh mới/đổi.
+        xkey = "xmp_done:" + root
+        first = not db.one("SELECT 1 FROM meta WHERE k=?", (xkey,))
+        if first or fresh:
+            self._xmp_thread = threading.Thread(target=self._xmp_pass, args=(ids if first else fresh, xkey if first else None),
+                                                daemon=True)
+            self._xmp_thread.start()
         t0 = time.time()
         perf = dict(t=round(t0), root=root, total=len(ids), todo=len(todo), cached=sum(1 for t in todo if t[2]),
                     cpu=os.cpu_count(), net=None, samples=[])
@@ -720,7 +726,6 @@ class Library:
         self._smile_backfill(cancel)
         self._focus_backfill(cancel)
         self._scene_backfill(cancel)
-        self._clip_backfill(cancel)
         try:
             self._catalog_update(root)
             self.trim_cache()
@@ -728,9 +733,19 @@ class Library:
             print("catalog:", e, file=sys.stderr)
         self.status.update(state="done", message="Hoàn tất")
         self.view_all()
+        # khâu nền sau cùng (vector nội dung ảnh cho gu chọn ảnh): không giữ trạng thái "Hoàn tất" hay việc dựng ảnh nét;
+        # vẫn chạy trong luồng quét nên mở thư mục khác sẽ huỷ (cancel) như các khâu bổ sung khác
+        if not cancel.is_set():
+            self._clip_backfill(cancel)
+
+    def _xmp_pass(self, ids, done_key=None):
+        """Nhập sao .xmp (nền); done_key: ghi vào meta khi xong để lượt đọc cả thư mục chỉ chạy một lần."""
+        if self._import_xmp_ratings(ids) and done_key:
+            self.db.x("INSERT OR REPLACE INTO meta(k,v) VALUES(?,'1')", (done_key,))
 
     def _import_xmp_ratings(self, ids):
-        """Nhập sao Photo Mechanic/Lightroom từ .xmp cho ảnh còn 0 sao trong app. rsrc giữ 0. Lỗi không làm hỏng lần quét."""
+        """Nhập sao Photo Mechanic/Lightroom từ .xmp cho ảnh còn 0 sao trong app. rsrc giữ 0. Lỗi không làm hỏng lần quét.
+        Trả True khi đã đọc xong (kể cả không có gì để nhập), False khi gặp lỗi."""
         try:
             todo = []
             for k in range(0, len(ids), 500):
@@ -738,14 +753,16 @@ class Library:
                 todo += [(r["id"], r["path"]) for r in
                          self.db.q(f"SELECT id,path FROM photos WHERE rating=0 AND id IN ({','.join('?' * len(part))})", part)]
             if not todo:
-                return
+                return True
             with ThreadPoolExecutor(max_workers=IO_WORKERS) as ex:
                 got = list(ex.map(lambda t: read_xmp_rating(t[1]), todo))
             upd = [(g, t[0]) for t, g in zip(todo, got) if g]
             if upd:
                 self.db.many("UPDATE photos SET rating=? WHERE id=? AND rating=0", upd)
+            return True
         except Exception as e:  # noqa: BLE001
             print("xmp:", e, file=sys.stderr)
+            return False
 
     def _smile_backfill(self, cancel):
         """Ảnh đã phân tích từ bản cũ chưa có điểm nụ cười: đo bổ sung từ ảnh cache (không đọc lại file RAW)."""
@@ -837,18 +854,22 @@ class Library:
             ui_yield()
             img = cv2.imread(str(PREVIEWS / f"{pid}.jpg"), cv2.IMREAD_COLOR)
             if img is None:
-                return pid, ("", None)
-            r = _scene.classify(img)
-            return pid, ((r[0], r[1]) if r else ("", None))
+                return pid, ("", None, None)
+            r = _scene.classify_full(img)   # kèm vector nội dung ảnh: khâu CLIP nền khỏi tính lại
+            if not r:
+                return pid, ("", None, None)
+            return pid, (r[0] or "", r[1], np.asarray(r[2], np.float32).astype(np.float16).tobytes())
+        mid = _scene.MODEL_ID
+        sql = "UPDATE photos SET scene=?,scene_c=?,clip=COALESCE(?,clip),clipv=CASE WHEN ? IS NULL THEN clipv ELSE ? END WHERE id=?"
         done = []
         with ThreadPoolExecutor(max_workers=2, initializer=_low_prio) as ex:   # CLIP nặng -> ít luồng
             for pid, res in ex.map(one, todo):
                 if res is not None:
-                    done.append((res[0] or None, res[1], pid))
+                    done.append((res[0] or None, res[1], res[2], res[2], mid, pid))
                 if len(done) >= 100:
-                    self.db.many("UPDATE photos SET scene=?,scene_c=? WHERE id=?", done); done = []
+                    self.db.many(sql, done); done = []
         if done:
-            self.db.many("UPDATE photos SET scene=?,scene_c=? WHERE id=?", done)
+            self.db.many(sql, done)
 
     def _clip_backfill(self, cancel):
         """Vector nội dung ảnh (CLIP) cho ảnh thư mục đang mở: thiếu hoặc khác phiên bản model -> tính từ ảnh cache."""
@@ -859,9 +880,8 @@ class Library:
         rows = self.db.q("SELECT p.id FROM photos p JOIN cur ON cur.id=p.id "
                          "WHERE p.analyzed=1 AND p.err IS NULL AND (p.clip IS NULL OR p.clipv IS NULL OR p.clipv!=?)", (mid,))
         todo = [r["id"] for r in rows if (PREVIEWS / f"{r['id']}.jpg").exists()]
-        if not todo:
+        if not todo:   # chạy sau "Hoàn tất" như một khâu nền: không đổi dòng trạng thái
             return
-        self.status.update(message=f"Đang tính vector nội dung ảnh ({len(todo)} ảnh)…")
 
         def one(pid):
             if cancel.is_set():
@@ -938,10 +958,12 @@ class Library:
             self.db.con.execute("DELETE FROM faces WHERE photo_id=?", (pid,))
             self.db.con.execute(
                 """UPDATE photos SET sharp=?,fsharp=?,lum=?,lo=?,hi=?,dhash=?,
-                   nfaces=?,ear_min=?,smile=?,focus_x=?,focus_y=?,focus_c=?,scene=?,scene_c=?,analyzed=1,err=NULL WHERE id=?""",
+                   nfaces=?,ear_min=?,smile=?,focus_x=?,focus_y=?,focus_c=?,scene=?,scene_c=?,
+                   clip=COALESCE(?,clip),clipv=COALESCE(?,clipv),analyzed=1,err=NULL WHERE id=?""",
                 (r["sharp"], r["fsharp"], r["lum"], r["lo"], r["hi"], r["dhash"], r["nfaces"], r["ear_min"],
                  float(r.get("smile", -1.0)) if self.an.has_smile else None,
-                 r.get("focus_x"), r.get("focus_y"), r.get("focus_c"), r.get("scene"), r.get("scene_c"), pid))
+                 r.get("focus_x"), r.get("focus_y"), r.get("focus_c"), r.get("scene"), r.get("scene_c"),
+                 r.get("clip") if r.get("clipv") else None, r.get("clipv") if r.get("clip") else None, pid))
             for fc in r["faces"]:
                 cur = self.db.con.execute(
                     "INSERT INTO faces(photo_id,fx,fy,fw,fh,det,px,ear,emb,yaw,vert,smile) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
@@ -1583,39 +1605,69 @@ class Library:
                     break
         return out
 
+    def _memo(self, key, build):
+        """Kết quả build() giữ tới khi CSDL có ghi mới. Mọi ghi đi qua một kết nối duy nhất (self.db.con),
+        nên total_changes của kết nối tăng mỗi lần đổi sao, quét, phân tích, sửa catalog/cull_log…"""
+        with self.db.lock:
+            ver = self.db.con.total_changes
+        memo = self.__dict__.setdefault("_memo_d", {})
+        hit = memo.get(key)
+        if hit is not None and hit[0] == ver:
+            return hit[1]
+        val = build()
+        memo[key] = (ver, val)   # ver đọc TRƯỚC khi tính: có ghi chen vào lúc tính thì lần sau tính lại
+        return val
+
+    def _roll_stats(self):
+        """Gom ảnh đã phân tích theo dir trong SQL, rồi gán mỗi dir cho root catalog dài nhất chứa nó.
+        → dict(dirs={dir: root}, n={root: số ảnh}, kept={root: số ảnh ≥ 1 sao})."""
+        def build():
+            roots = sorted(((self._norm_root(r["root"]), r["root"]) for r in self.db.q("SELECT root FROM catalog")),
+                           key=lambda t: -len(t[0]))
+            stats = self.db.q("SELECT dir, COUNT(*) n, SUM(rating>=1) k FROM photos "
+                              "WHERE analyzed=1 AND err IS NULL AND dir IS NOT NULL GROUP BY dir")
+            dirs, n, kept = {}, {}, {}
+            for s in stats:
+                nd = self._norm_root(s["dir"])   # ảnh dir/x.jpg nằm trong root ⇔ "dir/" bắt đầu bằng "root/"
+                for pre, root in roots:
+                    if nd.startswith(pre):
+                        dirs[s["dir"]] = root
+                        n[root] = n.get(root, 0) + s["n"]
+                        kept[root] = kept.get(root, 0) + (s["k"] or 0)
+                        break
+            return dict(dirs=dirs, n=n, kept=kept)
+        return self._memo("roll_stats", build)
+
     def _finished_rolls(self):
-        rows = self.db.q("SELECT path, rating FROM photos WHERE analyzed=1 AND err IS NULL")
-        of = self._roll_of([r["path"] for r in rows])
-        n, kept = {}, {}
-        for r in rows:
-            root = of.get(r["path"])
-            if root is None:
-                continue
-            n[root] = n.get(root, 0) + 1
-            if (r["rating"] or 0) >= 1:
-                kept[root] = kept.get(root, 0) + 1
+        st = self._roll_stats()
         out = []
         for c in self.db.q("SELECT root, opened FROM catalog ORDER BY opened DESC"):
-            k, m = n.get(c["root"], 0), kept.get(c["root"], 0)
+            k, m = st["n"].get(c["root"], 0), st["kept"].get(c["root"], 0)
             if k >= 200 and m >= 0.03 * k:
                 out.append(dict(root=c["root"], n=k, kept=m, opened=c["opened"]))
         return out
 
-    def _roll_rows(self, root: str):
-        pre = root.rstrip("\\/") + os.sep
-        rows = self.db.q("""SELECT * FROM photos WHERE analyzed=1 AND err IS NULL AND substr(path,1,?)=?
-                            ORDER BY taken, path""", (len(pre), pre))
-        of = self._roll_of([r["path"] for r in rows])
-        rows = [r for r in rows if of.get(r["path"]) == root]
-        nr = self._norm_root(root)
-        logged = set()
-        for row in self.db.q("SELECT root, ids FROM cull_log"):
-            if self._norm_root(row["root"] or "") == nr:
+    def _cull_paths(self):
+        """Mọi đường dẫn từng bị ✕ bởi Tự động lọc, bất kể lô đó chạy ở thư mục nào (cha hay con của đám)."""
+        def build():
+            out = set()
+            for row in self.db.q("SELECT ids FROM cull_log"):
                 try:
-                    logged.update(self._log_paths(row["ids"]))
+                    out.update(self._log_paths(row["ids"]))
                 except Exception:  # noqa: BLE001
                     pass
-        return self._feat_rows(rows, logged)
+            return frozenset(out)
+        return self._memo("cull_paths", build)
+
+    def _roll_rows(self, root: str):
+        dirs = [d for d, r in self._roll_stats()["dirs"].items() if r == root]
+        rows = []
+        for k in range(0, len(dirs), 500):
+            part = dirs[k:k + 500]
+            rows += self.db.q(f"SELECT * FROM photos WHERE analyzed=1 AND err IS NULL AND dir IN ({','.join('?' * len(part))})",
+                              part)
+        rows.sort(key=lambda r: (r["taken"] is not None, r["taken"] or 0, r["path"]))   # như ORDER BY taken, path
+        return self._feat_rows(rows, self._cull_paths())
 
     def _feat_rows(self, rows, logged=frozenset()):
         """Hàng ảnh (sqlite Row) → dict đủ cột cho taste.features (+ id, rating, rsrc, score, clip).
@@ -1700,6 +1752,10 @@ class Library:
         lab = [self._taste_label(r) for r in rows]
         y = np.array([a for a, _ in lab], np.int8)
         w = np.array([b for _, b in lab], np.float32)
+        kept = [r for r in rows if (r.get("rating") or 0) >= 1]
+        if kept and sum(1 for r in kept if r.get("rsrc") == 1) > 0.5 * len(kept):
+            # đám chủ yếu chấm hàng loạt từ đề xuất: ảnh 0 sao có thể chỉ là chưa xem tới → nhãn bỏ yếu hơn
+            w[np.array([(r.get("rating") or 0) == 0 for r in rows])] *= np.float32(0.3)
         return rows, X, y, w
 
     @staticmethod
@@ -1752,13 +1808,25 @@ class Library:
         mid = _scene.MODEL_ID
         every = self._taste_rolls()
         rolls = [r for r in every if r["on"]][:TASTE_ROLLS]
+        if not rolls and every and not auto:
+            # bấm Học lại khi đã bỏ tick mọi đám: như Dùng lại gu mặc định (gu riêng học từ các đám đã bỏ không còn đúng),
+            # nhưng không tạm dừng vì người dùng vừa yêu cầu học
+            try:
+                Path(TASTE_FILE).unlink()
+            except FileNotFoundError:
+                pass
+            return dict(self.taste_info(every), note="Chưa có đám nào được chọn — đang dùng gu mặc định")
         parts, newest = [], None
         for k, r in enumerate(rolls):
             rows, X, y, w = self._taste_roll(r["root"])
             if not rows:
                 continue
             if k == 0 and len(rolls) > 1:   # đám mới nhất: giữ đủ để đo độ trùng khớp
-                newest = (rows, X, self._clip_mat(rows, mid), y)
+                # chỉ tính ảnh người dùng tự chấm (rsrc=0): ảnh chấm hàng loạt từ đề xuất là lựa chọn của mô hình cũ
+                hand = np.array([y[i] == 1 and rows[i].get("rsrc") != 1 for i in range(len(rows))], bool)
+                nk = int((y == 1).sum())
+                if int(hand.sum()) >= 20 and int(hand.sum()) >= 0.5 * nk:
+                    newest = (rows, X, self._clip_mat(rows, mid), hand.astype(np.int8))
             ix = self._taste_sample(y)
             parts.append((X[ix], self._clip_mat([rows[i] for i in ix], mid), y[ix], w[ix]))
         if not parts:
@@ -1771,9 +1839,7 @@ class Library:
             m = taste.fit(np.vstack([p[0] for p in ps]), np.vstack([p[1] for p in ps]),
                           np.concatenate([p[2] for p in ps]).astype(np.float32),
                           np.concatenate([p[3] for p in ps]), prior=prior, lam=lam)
-            if m["full"] is None and prior and prior.get("full"):   # chưa có CLIP để học: giữ bản đầy đủ của gu mặc định
-                m["full"] = prior["full"]
-            return m
+            return m   # chưa có CLIP để học thì full=None: chấm mọi ảnh bằng bản cơ bản của chính gu riêng
         model = fit(parts)
         agree = None
         if newest is not None and len(parts) > 1:
@@ -1807,6 +1873,10 @@ class Library:
         else:               # model CLIP đổi so với lúc học → chỉ dùng bản cơ bản của mô hình
             s = taste.score(model, taste.features(rows), C if (meta or {}).get("clipv") in (None, mid) else None)
         res = taste.pick(n, s, rows, C)
+        if len(res["ids"]) < n:
+            c = self.db.one("SELECT COUNT(*) y, SUM(p.analyzed=1) x FROM photos p JOIN cur ON cur.id=p.id")
+            if (c["x"] or 0) < c["y"]:   # thư mục đang mở chưa phân tích xong: thiếu ảnh là do chưa phân tích tới
+                res["note"] = f"Mới phân tích xong {c['x'] or 0}/{c['y']} ảnh — đợi phân tích xong rồi đề xuất lại"
         self.db.x("UPDATE photos SET sugg=0 WHERE id IN (SELECT id FROM cur)")
         self.db.many("UPDATE photos SET sugg=1 WHERE id=?", [(int(i),) for i in res["ids"]])
         self.db.x("INSERT OR REPLACE INTO meta(k,v) VALUES('sugg_n',?)", (str(n),))
