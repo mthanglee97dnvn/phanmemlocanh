@@ -567,6 +567,7 @@ class Library:
             self.status.update(state="error", message=friendly(e))
             return
         db = self.db
+        fresh = []   # ảnh mới/đổi trong lần quét này: chỉ những ảnh này được đọc sao .xmp
         todo, ids = [], []   # todo: (id, path, đã có ảnh cache?)
         with db.lock:
             for p, mt, sz in files:
@@ -575,6 +576,7 @@ class Library:
                     cur = db.con.execute("INSERT INTO photos(path,dir,mtime,size) VALUES(?,?,?,?)",
                                          (p, os.path.dirname(p), mt, sz))
                     pid = cur.lastrowid
+                    fresh.append(pid)
                     todo.append((pid, p, False))
                 else:
                     pid = row["id"]
@@ -582,6 +584,7 @@ class Library:
                     if changed:
                         db.con.execute("UPDATE photos SET mtime=?,size=?,analyzed=0,ready=0,err=NULL WHERE id=?",
                                        (mt, sz, pid))
+                        fresh.append(pid)
                         todo.append((pid, p, False))
                     elif row["analyzed"] and not (THUMBS / f"{pid}.jpg").exists():  # cache đã bị dọn: đọc lại
                         db.con.execute("UPDATE photos SET analyzed=0,ready=0,err=NULL WHERE id=?", (pid,))
@@ -592,10 +595,11 @@ class Library:
             db.con.execute("DELETE FROM cur")
             db.con.executemany("INSERT INTO cur(id) VALUES(?)", [(i,) for i in ids])
             db.con.commit()
-        self._import_xmp_ratings(ids)
         self.status.update(total=len(ids), done=len(ids) - len(todo), thumbs=len(ids) - len(todo),
                            message=f"Đang đọc {len(todo)} ảnh mới…" if todo else "Đã có trong bộ nhớ đệm")
 
+        if fresh:   # nền: không làm chậm tiến độ quét
+            threading.Thread(target=self._import_xmp_ratings, args=(fresh,), daemon=True).start()
         t0 = time.time()
         perf = dict(t=round(t0), root=root, total=len(ids), todo=len(todo), cached=sum(1 for t in todo if t[2]),
                     cpu=os.cpu_count(), net=None, samples=[])

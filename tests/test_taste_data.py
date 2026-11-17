@@ -79,3 +79,20 @@ def test_roll_rows(lib_with):
     assert out[0]["taken"] == 102.0 and all(r["couple"] for r in out)
     assert [r["in_cull_log"] for r in out] == [False, True, False]
     assert {"clip", "clipv", "rsrc", "rating", "ear_min", "scene"} <= set(out[0])
+
+
+def test_xmp_import_only_given_ids(lib_with, monkeypatch, tmp_path):
+    import photosift.library as lib
+    L, ids = lib_with([dict(path=str(tmp_path / f"{i}.ARW"), rating=0) for i in range(4)])
+    seen = []
+    monkeypatch.setattr(lib, "read_xmp_rating", lambda p: seen.append(os.path.basename(p)) or 3)
+    L._import_xmp_ratings(ids[:2])   # chỉ 2 ảnh mới/đổi
+    assert sorted(seen) == ["0.ARW", "1.ARW"]
+    assert [r["rating"] for r in L.db.q("SELECT rating FROM photos ORDER BY id")] == [3, 3, 0, 0]
+
+
+def test_scan_imports_xmp_for_fresh_only():
+    import inspect
+    from photosift.library import Library
+    src = inspect.getsource(Library._scan)
+    assert src.count("fresh.append") == 2 and "_import_xmp_ratings, args=(fresh,)" in src
