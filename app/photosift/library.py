@@ -1093,6 +1093,88 @@ class Library:
         except Exception as e:  # noqa: BLE001
             self.cam = dict(state="error", done=0, total=0, message=friendly(e), cams=[])
 
+    # ---- chỉnh theo ẢNH MỐC (kiểu "Adjust Absolute" của Photo Mechanic):
+    #      mỗi máy chụp một đồng hồ có giây → mở ảnh đó → gõ giờ thấy trên đồng hồ → cả máy được chỉnh lệch.
+    def _fill_cams(self):
+        """Đọc danh tính máy cho mọi ảnh đang mở còn thiếu (để chỉnh lệch áp được cho cả máy)."""
+        todo = self.db.q("SELECT p.id, p.path FROM photos p JOIN cur ON cur.id=p.id WHERE p.cam IS NULL OR p.cam=''")
+        if not todo:
+            return 0
+        with ThreadPoolExecutor(max_workers=8) as ex:
+            got = list(ex.map(lambda r: (self._cam_key(r["path"]), r["id"]), todo))
+        self.db.many("UPDATE photos SET cam=? WHERE id=?", got)
+        return len(got)
+
+    @staticmethod
+    def _fmt_t(ts):
+        d = datetime.fromtimestamp(ts)
+        return dict(date=d.strftime("%Y-%m-%d"), time=d.strftime("%H:%M:%S"))
+
+    def cam_ref(self, pid: int):
+        """Thông tin để đặt giờ thật cho một ảnh mốc: máy, giờ gốc, giờ đang dùng, số ảnh cùng máy."""
+        self._fill_cams()
+        r = self.db.one("SELECT id, path, taken, toff, cam FROM photos WHERE id=?", (int(pid),))
+        if not r:
+            return dict(error="Không tìm thấy ảnh")
+        if not r["taken"]:
+            return dict(error="Ảnh này không có giờ chụp (EXIF) — hãy chọn ảnh khác của máy đó")
+        cam = r["cam"] or "?"
+        n = self.db.one("SELECT COUNT(*) n FROM photos p JOIN cur ON cur.id=p.id WHERE p.cam=?", (cam,))["n"]
+        off = float(r["toff"] or 0)
+        return dict(id=r["id"], name=os.path.basename(r["path"]), cam=cam, n=n, offset=round(off),
+                    orig=self._fmt_t(r["taken"]), eff=self._fmt_t(r["taken"] + off))
+
+    def cam_list(self):
+        """Các máy trong thư mục đang mở: số ảnh, độ lệch đang dùng, ảnh đầu tiên (theo giờ chụp)."""
+        self._fill_cams()
+        out = []
+        for c in self.db.q("SELECT p.cam k, COUNT(*) n, MAX(COALESCE(p.toff,0)) off FROM photos p JOIN cur ON cur.id=p.id "
+                           "WHERE p.taken IS NOT NULL AND p.taken>0 GROUP BY p.cam ORDER BY n DESC"):
+            f = self.db.one("SELECT p.id FROM photos p JOIN cur ON cur.id=p.id WHERE p.cam=? AND p.taken>0 "
+                            "ORDER BY p.taken, p.id LIMIT 1", (c["k"],))
+            out.append(dict(key=c["k"] or "?", n=c["n"], offset=round(c["off"] or 0), first=f["id"] if f else None))
+        return dict(cams=out)
+
+    def cam_step(self, pid: int, step: int):
+        """Chuyển sang ảnh khác CÙNG MÁY theo giờ chụp: step = -2 đầu, -1 trước, 1 sau, 2 cuối."""
+        r = self.db.one("SELECT taken, cam, id FROM photos WHERE id=?", (int(pid),))
+        if not r or not r["cam"]:
+            return dict(id=pid)
+        base = "SELECT p.id FROM photos p JOIN cur ON cur.id=p.id WHERE p.cam=? AND p.taken IS NOT NULL AND p.taken>0 "
+        if step <= -2:
+            x = self.db.one(base + "ORDER BY p.taken, p.id LIMIT 1", (r["cam"],))
+        elif step >= 2:
+            x = self.db.one(base + "ORDER BY p.taken DESC, p.id DESC LIMIT 1", (r["cam"],))
+        elif step < 0:
+            x = self.db.one(base + "AND (p.taken<? OR (p.taken=? AND p.id<?)) ORDER BY p.taken DESC, p.id DESC LIMIT 1",
+                            (r["cam"], r["taken"], r["taken"], r["id"]))
+        else:
+            x = self.db.one(base + "AND (p.taken>? OR (p.taken=? AND p.id>?)) ORDER BY p.taken, p.id LIMIT 1",
+                            (r["cam"], r["taken"], r["taken"], r["id"]))
+        return dict(id=x["id"] if x else pid)
+
+    def cam_settime(self, pid: int, date: str, tm: str):
+        """Giờ thật của ảnh mốc (đọc trên đồng hồ trong ảnh) → độ lệch cho CẢ MÁY chụp ảnh đó."""
+        r = self.db.one("SELECT taken, cam FROM photos WHERE id=?", (int(pid),))
+        if not r or not r["taken"]:
+            return dict(error="Ảnh này không có giờ chụp")
+        if not r["cam"] or r["cam"] == "?":
+            return dict(error="Không đọc được máy ảnh của file này nên không biết áp cho ảnh nào")
+        tm = (tm or "").strip()
+        if tm.count(":") == 1:
+            tm += ":00"
+        try:
+            real = datetime.strptime(f"{(date or '').strip()} {tm}", "%Y-%m-%d %H:%M:%S").timestamp()
+        except ValueError:
+            return dict(error="Ngày/giờ chưa đúng dạng (vd 2026-11-17 và 06:35:15)")
+        off = round(real - r["taken"])
+        self.cameras_apply({r["cam"]: off})
+        for c in (self.cam or {}).get("cams", []):   # cập nhật bảng kết quả dò cho khớp
+            if c.get("key") == r["cam"]:
+                c.update(offset=off, conf=1.0, manual=True)
+        n = self.db.one("SELECT COUNT(*) n FROM photos p JOIN cur ON cur.id=p.id WHERE p.cam=?", (r["cam"],))["n"]
+        return dict(ok=True, cam=r["cam"], offset=off, n=n)
+
     def cameras_apply(self, offsets: dict):
         """offsets: {danh_tính_máy: số_giây_cộng_vào}. Ghi toff cho từng máy rồi gom nhóm lại."""
         pairs = []
@@ -1489,16 +1571,32 @@ class Library:
         return r["path"] if r else None
 
     # ------------------------------------------------------------------ xuất
-    def _xmp(self, rating: int, label: str, keywords: list[str]) -> str:
+    def _xmp(self, rating: int, label: str, keywords: list[str], when: float | None = None) -> str:
+        """when: giờ chụp ĐÃ đồng bộ (giờ gốc + lệch máy). Chỉ ghi khi máy có chỉnh lệch, để Lightroom nhận đúng giờ
+        khi nhập ảnh (ảnh gốc không bị sửa)."""
         kw = ""
         if keywords:
             kw = "<dc:subject><rdf:Bag>" + "".join(f"<rdf:li>{escape(k)}</rdf:li>" for k in keywords) + "</rdf:Bag></dc:subject>"
         lab = f' xmp:Label="{XMP_LABEL[label]}"' if label in XMP_LABEL else ""
+        tm = ""
+        if when:
+            s = datetime.fromtimestamp(when).strftime("%Y-%m-%dT%H:%M:%S")
+            tm = f' exif:DateTimeOriginal="{s}" photoshop:DateCreated="{s}" xmp:CreateDate="{s}"'
         return ('<?xpacket begin="﻿" id="W5M0MpCehiHzreSzNTczkc9d"?>\n'
                 '<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">'
                 '<rdf:Description rdf:about="" xmlns:xmp="http://ns.adobe.com/xap/1.0/" '
-                f'xmlns:dc="http://purl.org/dc/elements/1.1/" xmp:Rating="{rating}"{lab}>{kw}'
+                'xmlns:exif="http://ns.adobe.com/exif/1.0/" xmlns:photoshop="http://ns.adobe.com/photoshop/1.0/" '
+                f'xmlns:dc="http://purl.org/dc/elements/1.1/" xmp:Rating="{rating}"{lab}{tm}>{kw}'
                 '</rdf:Description></rdf:RDF></x:xmpmeta>\n<?xpacket end="w"?>')
+
+    @staticmethod
+    def _synced(r):
+        """Giờ chụp đã đồng bộ nếu máy có chỉnh lệch, ngược lại None (không ghi giờ vào XMP)."""
+        try:
+            off = r["toff"] or 0
+        except (IndexError, KeyError):
+            return None
+        return (r["taken"] + off) if (off and r["taken"]) else None
 
     def _names(self):
         return {r["id"]: r["name"] for r in self.db.q("SELECT id,name FROM people")}
@@ -1512,7 +1610,7 @@ class Library:
             people = [x["person_id"] for x in self.db.q(
                 "SELECT DISTINCT person_id FROM faces WHERE photo_id=? AND person_id IS NOT NULL", (r["id"],))]
             kws = [self.person_label(p, names) for p in people]
-            Path(r["path"]).with_suffix(".xmp").write_text(self._xmp(r["rating"], r["label"], kws), encoding="utf-8")
+            Path(r["path"]).with_suffix(".xmp").write_text(self._xmp(r["rating"], r["label"], kws, self._synced(r)), encoding="utf-8")
             n += 1
         return n
 
@@ -1707,7 +1805,7 @@ class Library:
                         if made is not None and not x.exists():
                             with lock:
                                 made.append(x)
-                        x.write_text(self._xmp(r["rating"], r["label"], labels), encoding="utf-8")
+                        x.write_text(self._xmp(r["rating"], r["label"], labels, self._synced(r)), encoding="utf-8")
                     with lock:
                         state["copied"] += 1
                 except Exception as e:  # noqa: BLE001

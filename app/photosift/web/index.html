@@ -140,6 +140,26 @@ body.cat #catalog{display:flex}
 #empty h2{color:var(--tx);margin:0;font-size:22px}
 .back{position:fixed;inset:0;background:rgba(2,10,24,.55);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:50}
 .modal{background:var(--modal);-webkit-backdrop-filter:blur(26px) saturate(150%);backdrop-filter:blur(26px) saturate(150%);border:1px solid var(--line);border-radius:26px;padding:22px;width:min(580px,94vw);max-height:90vh;overflow:auto;box-shadow:0 24px 70px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.25)}
+/* chỉnh giờ theo ảnh chụp đồng hồ (kiểu Adjust Capture Time của Photo Mechanic) */
+.modal.wide{width:min(900px,96vw)}
+.ck-top{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:6px 0}
+.ck-top select{flex:1;min-width:240px}
+.ck-view{background:#000;border-radius:10px;height:min(50vh,520px);display:flex;align-items:center;justify-content:center;overflow:hidden;margin:6px 0;cursor:zoom-in;position:relative}
+.ck-view img{max-width:100%;max-height:100%;object-fit:contain;display:block}
+.ck-view.z{display:block;overflow:auto;cursor:zoom-out}
+.ck-view.z img{max-width:none;max-height:none}
+.ck-view .ck-tip{position:absolute;right:8px;bottom:8px;font-size:11px;color:#ddd;background:rgba(0,0,0,.55);padding:3px 8px;border-radius:8px;pointer-events:none}
+.ck-nav{display:flex;align-items:center;gap:6px;justify-content:center}
+.ck-nav button{min-width:40px;padding:6px 10px}
+.ck-nav span{min-width:220px;text-align:center;color:var(--mut);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ck-times{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;align-items:center;margin-top:10px;font-size:13.5px}
+.ck-times input{font-size:15px;padding:5px 8px;background:var(--field);color:var(--tx);border:1px solid var(--line);border-radius:8px;color-scheme:dark}
+.ck-times input:focus{outline:2px solid var(--acc);outline-offset:1px}
+.ck-times input[type=time]{font-variant-numeric:tabular-nums;width:9.5em}
+.ck-res{grid-column:1/-1;padding:8px 10px;border-radius:10px;background:rgba(232,163,61,.10);border:1px solid rgba(232,163,61,.28)}
+.ck-res.ok{background:rgba(123,216,143,.10);border-color:rgba(123,216,143,.35)}
+.dur{display:inline-flex;gap:3px;align-items:center;flex-wrap:wrap}
+.dur input{width:48px;padding:3px 5px}.dur select{padding:3px 4px}
 .modal h3{margin:0 0 14px;font-size:17px}.row{display:flex;gap:10px;align-items:center;margin:9px 0}.row label{flex:0 0 150px;color:var(--mut)}.row input[type=range]{flex:1}.row .v{width:46px;text-align:right;font-variant-numeric:tabular-nums}
 .modal .btns{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
 .hint{color:var(--mut);font-size:12px}.ok{color:#8be3a0}.warn{color:#ffc15e}
@@ -1484,10 +1504,15 @@ $('#bCull').onclick=()=>{
 $('#bCamSync').onclick=async()=>{
   const fmtDur=s=>{ s=Math.round(Math.abs(s)); const h=Math.floor(s/3600),mi=Math.floor(s%3600/60),x=s%60;
     return [h?h+' giờ':'',mi?mi+' phút':'',(x||(!h&&!mi))?x+' giây':''].filter(Boolean).join(' '); };
+  const durHtml=(i,sec)=>{ const neg=sec<0; let x=Math.abs(Math.round(sec||0)); const d=Math.floor(x/86400),h=Math.floor(x%86400/3600),mi=Math.floor(x%3600/60),se=x%60;
+    return `<span class="dur" data-i="${i}"><select class="dsg" aria-label="Cộng hay trừ"><option value="1"${neg?'':' selected'}>+</option><option value="-1"${neg?' selected':''}>−</option></select>`+
+      [['dd',d,'ngày'],['dh',h,'giờ'],['dm',mi,'phút'],['ds',se,'giây']].map(([c,v,l])=>`<input type="number" class="${c}" min="0" value="${v}" aria-label="${l}"> ${l}`).join(' ')+'</span>'; };
+  const readDur=i=>{ const w=body.querySelector('.dur[data-i="'+i+'"]'); if(!w) return 0; const n=c=>Math.max(0,Number(w.querySelector('.'+c).value)||0);
+    return Number(w.querySelector('.dsg').value)*(n('dd')*86400+n('dh')*3600+n('dm')*60+n('ds')); };
   const m=modal(`<h3>Đồng bộ thời gian nhiều máy</h3>
     <div class="hint" style="margin-bottom:8px">Khi ekip dùng nhiều máy mà đồng hồ mỗi máy đặt lệch nhau, ảnh trộn vào sẽ sai thứ tự thời gian. App so các khoảnh khắc cả ekip cùng bấm máy để tính độ lệch và đưa mọi ảnh về một dòng thời gian chung. Giờ chụp trong file gốc <b>không</b> bị sửa; có thể bỏ đồng bộ bất cứ lúc nào.</div>
     <div id="camBody" aria-live="polite"></div>
-    <div class="btns"><button onclick="this.closest('.back').remove()">Đóng</button><button id="camReset" hidden>Bỏ đồng bộ</button><button id="camRedo" hidden>Dò lại</button><button class="pri" id="camGo">Dò các máy</button></div>`);
+    <div class="btns"><button onclick="this.closest('.back').remove()">Đóng</button><button id="camReset" hidden>Bỏ đồng bộ</button><button id="camClock" title="Chụp đồng hồ bằng mỗi máy → gõ giờ thấy trên đồng hồ (chính xác tới từng giây)">Chỉnh theo ảnh đồng hồ…</button><button id="camRedo" hidden>Dò lại</button><button class="pri" id="camGo">Dò các máy</button></div>`);
   const body=m.querySelector('#camBody'), go=m.querySelector('#camGo'), reset=m.querySelector('#camReset'), redo=m.querySelector('#camRedo');
   let cur=[];
   const render=(st)=>{
@@ -1504,10 +1529,10 @@ $('#bCamSync').onclick=async()=>{
       const cell = `<td style="padding:5px 4px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${nm}">${nm}</td><td style="text-align:center">${fmt(c.n)}</td>`;
       if(c.ref){ h+=`<tr>${cell}<td><span style="padding:1px 7px;border-radius:10px;background:rgba(232,163,61,.18);color:#E8A33D">Mốc thời gian</span></td><td style="text-align:center">—</td></tr>`; return; }
       const dir = c.offset>0?'đồng hồ chạy chậm':(c.offset<0?'đồng hồ chạy nhanh':'khớp sẵn');
-      const good = c.conf>=0.3;
+      const good = c.conf>=0.3||c.manual;
       h+=`<tr>${cell}<td style="padding:5px 4px">
         <div>${c.offset===0?'khớp sẵn':dir+' '+fmtDur(c.offset)}</div>
-        <div class="hint" style="font-size:12px;margin-top:2px">chỉnh (giây): <input type="number" class="camoff" data-i="${i}" value="${c.offset}" style="width:80px"> ${good?'<span style="color:#7bd88f">khớp tốt</span>':'<span class="warn">chưa chắc</span>'}</div>
+        <div class="hint" style="font-size:12px;margin-top:3px">chỉnh: ${durHtml(i,c.offset)} ${c.manual?'<span style="color:#7bd88f">đặt theo ảnh đồng hồ</span>':good?'<span style="color:#7bd88f">khớp tốt</span>':'<span class="warn">chưa chắc</span>'}</div>
       </td><td style="text-align:center"><input type="checkbox" class="camon" data-i="${i}" ${good?'checked':''}></td></tr>`;
     });
     h+='</table>';
@@ -1520,14 +1545,78 @@ $('#bCamSync').onclick=async()=>{
   go.onclick=async()=>{
     if(go.dataset.mode!=='apply'){ await detect(); return; }
     const offs={}; cur.forEach((c,i)=>{ if(c.ref){ offs[c.key]=0; return; }
-      const cb=body.querySelector('.camon[data-i="'+i+'"]'), inp=body.querySelector('.camoff[data-i="'+i+'"]');
-      offs[c.key] = (cb&&cb.checked) ? (Number(inp.value)||0) : 0; });
+      const cb=body.querySelector('.camon[data-i="'+i+'"]');
+      offs[c.key] = (cb&&cb.checked) ? readDur(i) : 0; });
     go.disabled=true; try{ const r=await api('/api/cameras/apply',{offsets:offs}); await loadPhotos(); toast(`Đã đưa ${fmt(r.applied)} máy về một dòng thời gian`,3200); m.close(); } finally { go.disabled=false; }
   };
   redo.onclick=detect;
+  m.querySelector('#camClock').onclick=()=>{ m.close(); openClockSync(S.cur); };
   reset.onclick=async()=>{ const offs={}; cur.forEach(c=>offs[c.key]=0); await api('/api/cameras/apply',{offsets:offs}); await loadPhotos(); toast('Đã bỏ đồng bộ — mọi máy về giờ gốc'); m.close(); };
   const init=await api('/api/cameras'); if(init.state==='running'){ await poll(); } else render(init);
 };
+
+/* ---------- chỉnh giờ theo ẢNH CHỤP ĐỒNG HỒ (giống "Adjust Absolute" của Photo Mechanic) ----------
+   Mỗi máy chụp một tấm vào đồng hồ có giây → mở đúng tấm đó → gõ giờ thấy trên đồng hồ → app tính độ lệch
+   và áp cho MỌI ảnh của máy đó. Không sửa file gốc (chỉ lưu độ lệch; ghi giờ đã chỉnh vào .xmp khi xuất). */
+async function openClockSync(startId){
+  let L; try{ L=await api('/api/cameras/list'); }catch(e){ toast(e.message,4000); return; }
+  const cams=(L.cams||[]).filter(c=>c.first!=null);
+  if(!cams.length){ toast('Không có ảnh nào có giờ chụp để chỉnh.',3500); return; }
+  const sgn=s=>{ s=Math.round(s); const a=Math.abs(s),h=Math.floor(a/3600),mi=Math.floor(a%3600/60),x=a%60;
+    return (s<0?'−':'+')+[h?h+' giờ':'',mi?mi+' phút':'',(x||(!h&&!mi))?x+' giây':''].filter(Boolean).join(' '); };
+  const camName=k=>k==='?'?'(không đọc được máy)':k;
+  const opt=c=>`<option value="${esc(c.key)}">${esc(camName(c.key))} — ${fmt(c.n)} ảnh${c.offset?' · đang lệch '+sgn(c.offset):''}</option>`;
+  const m=modal(`<h3>Chỉnh giờ theo ảnh chụp đồng hồ</h3>
+    <div class="hint">Cho mỗi máy chụp một tấm vào đồng hồ <b>có giây</b> (vd điện thoại mở time.is). Mở đúng tấm đó của từng máy, gõ giờ đang hiện trên đồng hồ — app tính độ lệch và áp cho <b>mọi ảnh của máy đó</b>. Ảnh gốc không bị sửa.</div>
+    <div class="ck-top"><label for="ckCam">Máy</label><select id="ckCam">${cams.map(opt).join('')}</select></div>
+    <div class="ck-view" id="ckView" title="Bấm để phóng to xem rõ đồng hồ"><img id="ckImg" alt="Ảnh mốc"><span class="ck-tip">Bấm để phóng to</span></div>
+    <div class="ck-nav"><button id="ckFirst" title="Ảnh đầu của máy (Home)">|‹</button><button id="ckPrev" title="Ảnh trước (←)">‹</button><span id="ckName"></span><button id="ckNext" title="Ảnh sau (→)">›</button><button id="ckLast" title="Ảnh cuối của máy (End)">›|</button></div>
+    <div class="ck-times">
+      <span>Giờ trong file</span><b id="ckOrig"></b>
+      <label for="ckTime">Giờ thật trên đồng hồ</label><span><input type="date" id="ckDate"> <input type="time" id="ckTime" step="1"></span>
+      <div class="ck-res" id="ckRes"></div>
+    </div>
+    <div class="btns"><button onclick="this.closest('.back').remove()">Đóng</button><button class="pri" id="ckGo">Áp cho cả máy</button></div>`);
+  m.firstChild.classList.add('wide');
+  const $m=x=>m.querySelector(x), view=$m('#ckView'), img=$m('#ckImg'), sel=$m('#ckCam'), dI=$m('#ckDate'), tI=$m('#ckTime'), res=$m('#ckRes'), go=$m('#ckGo');
+  let info=null, busy=false, touched=false;
+  const show=d=>d?`${d.date.split('-').reverse().join('/')} ${d.time}`:'—';
+  const secs=(d,t)=>{ if(!d||!t) return NaN; if(t.length===5) t+=':00'; return new Date(`${d}T${t}`).getTime()/1000; };
+  const preview=()=>{ if(!info) return;
+    if(!touched){ res.className='ck-res'; res.innerHTML=`Tìm tấm chụp đồng hồ của máy này (← → để lật), rồi gõ <b>giờ đang hiện trên đồng hồ</b> vào ô bên trên.`+(info.offset?` Máy đang lệch ${sgn(info.offset)}.`:''); go.disabled=true; return; }
+    const diff=secs(dI.value,tI.value)-secs(info.orig.date,info.orig.time);
+    if(!isFinite(diff)){ res.className='ck-res'; res.textContent='Gõ ngày và giờ (có giây) đang hiện trên đồng hồ trong ảnh.'; go.disabled=true; return; }
+    go.disabled=false; res.className='ck-res'+(Math.round(diff)===info.offset?' ok':'');
+    const d=Math.round(diff);
+    res.innerHTML = d===0 ? `Đồng hồ máy <b>đúng giờ</b> — không cần chỉnh. Áp sẽ đặt lệch về 0 cho <b>${fmt(info.n)}</b> ảnh của máy này.`
+      : `Độ lệch: <b>${sgn(d)}</b> (đồng hồ máy chạy ${d>0?'chậm':'nhanh'}) · sẽ áp cho <b>${fmt(info.n)}</b> ảnh của <b>${esc(camName(info.cam))}</b>${Math.round(diff)===info.offset?' — <span style="color:#7bd88f">đang dùng đúng độ lệch này</span>':''}`; };
+  const load=async id=>{ if(id==null||busy) return; busy=true;
+    try{ const r=await api('/api/cameras/ref?id='+id); if(r.error){ toast(r.error,3500); return; }
+      info=r; sel.value=r.cam; view.classList.remove('z'); img.src=`/api/preview?id=${r.id}&s=2000`;
+      $m('#ckName').textContent=r.name; $m('#ckOrig').textContent=show(r.orig)+(r.offset?`  (đang dùng ${show(r.eff)})`:'');
+      dI.value=r.eff.date; tI.value=r.eff.time; touched=false; preview(); }
+    catch(e){ toast(e.message,3500); } finally{ busy=false; } };
+  const step=async d=>{ if(!info) return; try{ const r=await api(`/api/cameras/step?id=${info.id}&d=${d}`); if(r.id!==info.id) load(r.id); }catch(e){} };
+  $m('#ckFirst').onclick=()=>step(-2); $m('#ckPrev').onclick=()=>step(-1); $m('#ckNext').onclick=()=>step(1); $m('#ckLast').onclick=()=>step(2);
+  sel.onchange=()=>{ const c=cams.find(x=>x.key===sel.value); if(c) load(c.first); };
+  view.onclick=()=>{ if(!info) return; const z=view.classList.toggle('z'); img.src=`/api/preview?id=${info.id}&s=${z?0:2000}`; $m('.ck-tip').textContent=z?'Bấm để thu nhỏ':'Bấm để phóng to'; };
+  dI.oninput=tI.oninput=()=>{ touched=true; preview(); };
+  m.addEventListener('keydown',e=>{ const typing=['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName);
+    if(e.key==='Enter'&&e.target===tI&&!go.disabled){ e.preventDefault(); go.click(); return; }
+    if(typing) return;
+    const k={ArrowLeft:-1,ArrowRight:1,Home:-2,End:2}[e.key]; if(k){ e.preventDefault(); step(k); } });
+  go.onclick=async()=>{ if(!info) return; go.disabled=true;
+    try{ const r=await api('/api/cameras/settime',{id:info.id,date:dI.value,time:tI.value});
+      if(r.error){ toast(r.error,4000); return; }
+      const c=cams.find(x=>x.key===r.cam); if(c){ c.offset=r.offset; sel.querySelector(`option[value="${CSS.escape(r.cam)}"]`).outerHTML=opt(c); sel.value=r.cam; }
+      info.offset=r.offset; preview();
+      await loadPhotos();
+      toast(r.offset?`Đã chỉnh ${fmt(r.n)} ảnh của máy ${camName(r.cam)} lệch ${sgn(r.offset)}. Chọn máy khác để chỉnh tiếp.`:`Máy ${camName(r.cam)} đúng giờ — đã đặt lệch về 0.`,4200); }
+    catch(e){ toast(e.message,4000); } finally{ go.disabled=false; } };
+  let first=cams[0].first;
+  if(startId!=null){ try{ const r=await api('/api/cameras/ref?id='+startId); if(!r.error&&r.cam&&cams.some(c=>c.key===r.cam)) first=startId; }catch(e){} }
+  load(first);
+}
 
 /* ---------- xuất ---------- */
 function paintStack(){ const b=$('#sStack'); if(b){ b.innerHTML='<span class="lbl">Xếp chồng ảnh trùng</span><kbd aria-hidden="true">D</kbd><span class="sw" aria-hidden="true"></span>'; b.setAttribute('aria-pressed',String(S.stack)); b.title='Gộp mỗi nhóm ảnh trùng thành một ô — phím tắt D'; } }
