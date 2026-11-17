@@ -12,7 +12,7 @@
 
 ## Global Constraints
 - Mỗi bản tối đa 4 dòng; tối đa 6 bản, phần thừa thành dòng `…và N bản trước nữa`.
-- Dòng chung (mở đầu "Sửa lỗi" hoặc "Cải thiện", sau khi bỏ biểu tượng) gộp thành **một** dòng cuối `Sửa lỗi và chạy ổn định hơn.`; bản chỉ có dòng chung không có tiêu đề riêng.
+- Dòng chung = dòng **không** có biểu tượng đầu và mở đầu "Sửa lỗi" hoặc "Cải thiện" (dòng có biểu tượng như `🔄 Sửa lỗi ảnh dọc…` là tính năng đáng chú ý, giữ nguyên) gộp thành **một** dòng cuối `Sửa lỗi và chạy ổn định hơn.`; bản chỉ có dòng chung không có tiêu đề riêng.
 - Bỏ: comment HTML, dòng trống, dòng mở đầu `•`, dòng mở đầu "Cảm ơn", dòng mở đầu "©".
 - Giữ: dòng mà ký tự đầu không phải chữ/số (biểu tượng), hoặc dòng chung.
 - Không chèn HTML từ GitHub vào DOM; giữ trường `notes`.
@@ -66,7 +66,7 @@ def test_up_to_date_is_empty():
     assert _changes([R("v1.2.2", "✨ x")], "1.2.2", "1.2.2") == []
 ```
 - [ ] **Step 2: Chạy** `python -m pytest tests/test_update_changes.py -q` → FAIL (ImportError `_changes`). Nếu import gói `app.photosift` lỗi do thiếu `__init__`/đường dẫn, thêm `tests/conftest.py` chèn repo root vào `sys.path`.
-- [ ] **Step 3: Cài `_changes`** theo Global Constraints; lọc `_key(cur) < _key(tag) <= _key(latest)`, sắp giảm dần theo `_key`; "biểu tượng" = `not line[0].isalnum()`; dòng chung nhận diện sau khi bỏ biểu tượng và khoảng trắng đầu.
+- [ ] **Step 3: Cài `_changes`** theo Global Constraints; lọc `_key(cur) < _key(tag) <= _key(latest)`, sắp giảm dần theo `_key`; "biểu tượng" = `not line[0].isalnum()`; dòng chung = không có biểu tượng đầu và mở đầu "Sửa lỗi"/"Cải thiện". Thêm vào test 2 một dòng `🔄 Sửa lỗi ảnh dọc` trong bản 1.2.1 và assert nó nằm trong `c[1]["lines"]`.
 - [ ] **Step 4: Chạy** → 4 passed.
 - [ ] **Step 5: Nối `check()`**: `out = dict(base, ..., changes=_changes(rels, cur, tag or cur))`; thêm `"changes"` vào bộ khoá trả về ở dòng lọc `k in (...)` (khoảng dòng 102); `base` có `changes=[]`.
 - [ ] **Step 6: Commit** `Cập nhật: gom ghi chú gọn của mọi bản mới hơn máy khách`
