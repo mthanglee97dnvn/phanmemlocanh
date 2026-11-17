@@ -707,6 +707,7 @@ class Library:
         self._smile_backfill(cancel)
         self._focus_backfill(cancel)
         self._scene_backfill(cancel)
+        self._clip_backfill(cancel)
         try:
             self._catalog_update(root)
             self.trim_cache()
@@ -835,6 +836,53 @@ class Library:
                     self.db.many("UPDATE photos SET scene=?,scene_c=? WHERE id=?", done); done = []
         if done:
             self.db.many("UPDATE photos SET scene=?,scene_c=? WHERE id=?", done)
+
+    def _clip_backfill(self, cancel):
+        """Vector nội dung ảnh (CLIP) cho ảnh thư mục đang mở: thiếu hoặc khác phiên bản model -> tính từ ảnh cache."""
+        from . import scene as _scene
+        if not _scene.available():
+            return
+        mid = _scene.MODEL_ID
+        rows = self.db.q("SELECT p.id FROM photos p JOIN cur ON cur.id=p.id "
+                         "WHERE p.analyzed=1 AND p.err IS NULL AND (p.clip IS NULL OR p.clipv IS NULL OR p.clipv!=?)", (mid,))
+        todo = [r["id"] for r in rows if (PREVIEWS / f"{r['id']}.jpg").exists()]
+        if not todo:
+            return
+        self.status.update(message=f"Đang tính vector nội dung ảnh ({len(todo)} ảnh)…")
+
+        def one(pid):
+            if cancel.is_set():
+                return pid, None
+            ui_yield()
+            img = cv2.imread(str(PREVIEWS / f"{pid}.jpg"), cv2.IMREAD_COLOR)
+            if img is None:
+                return pid, None
+            v = _scene.embed(img)
+            return pid, (None if v is None else np.asarray(v, np.float32).astype(np.float16).tobytes())
+        sql = "UPDATE photos SET clip=?,clipv=? WHERE id=?"
+        done = []
+        with ThreadPoolExecutor(max_workers=2, initializer=_low_prio) as ex:
+            for pid, blob in ex.map(one, todo):
+                if blob is not None:
+                    done.append((blob, mid, pid))
+                if len(done) >= 100:
+                    self.db.many(sql, done); done = []
+        if done:
+            self.db.many(sql, done)
+
+    @staticmethod
+    def _clip_vec(row):
+        """Vector CLIP đã giải mã (float32, chuẩn hoá L2) hoặc None nếu thiếu / khác phiên bản model / sai độ dài."""
+        from . import scene as _scene
+        try:
+            blob, ver = row["clip"], row["clipv"]
+        except (KeyError, IndexError):
+            return None
+        if not blob or ver != _scene.MODEL_ID or len(blob) != 1024:
+            return None
+        v = np.frombuffer(blob, np.float16).astype(np.float32)
+        n = float(np.linalg.norm(v))
+        return v / n if n > 1e-9 else None
 
     def _prepare_one(self, pid: int, path: str):
         """Pha 1: đọc ảnh xem trước, ghi thumbnail + ảnh cache, đánh dấu ready (hiện được ngay trên lưới)."""

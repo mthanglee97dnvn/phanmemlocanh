@@ -96,9 +96,18 @@ def _preprocess(bgr: np.ndarray, size: int, mean: np.ndarray, std: np.ndarray) -
     return img[None].astype(np.float32)         # (1,3,size,size)
 
 
-def classify(bgr: np.ndarray):
-    """Trả (nhãn, độ_tin_cậy 0..1) hoặc None nếu không dùng được / lỗi.
-    nhãn ∈ CATEGORIES. độ_tin_cậy = softmax trên các nhãn (đã gộp max theo câu mô tả)."""
+def __getattr__(name):
+    """MODEL_ID tính lười (rẻ, ổn định): tên file vision + kích thước byte; thiếu file -> chỉ tên file."""
+    if name == "MODEL_ID":
+        try:
+            return f"{_VISION}:{model_path(_VISION).stat().st_size}"
+        except OSError:
+            return _VISION
+    raise AttributeError(name)
+
+
+def embed(bgr: np.ndarray):
+    """Vector nội dung ảnh (float32, chuẩn hoá L2, chiều D của model) hoặc None nếu model không có / lỗi."""
     st = _get()
     if not st.get("ok") or bgr is None or getattr(bgr, "size", 0) == 0:
         return None
@@ -106,6 +115,21 @@ def classify(bgr: np.ndarray):
         x = _preprocess(bgr, st["size"], st["mean"], st["std"])
         feat = st["sess"].run(None, {st["inp"]: x})[0][0].astype(np.float32)   # (D,)
         feat /= (np.linalg.norm(feat) + 1e-9)
+        return feat
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def classify(bgr: np.ndarray):
+    """Trả (nhãn, độ_tin_cậy 0..1) hoặc None nếu không dùng được / lỗi.
+    nhãn ∈ CATEGORIES. độ_tin_cậy = softmax trên các nhãn (đã gộp max theo câu mô tả)."""
+    st = _get()
+    if not st.get("ok"):
+        return None
+    feat = embed(bgr)
+    if feat is None:
+        return None
+    try:
         cos = st["emb"] @ feat                                                   # (N,)
         labels = list(st["cat_idx"].keys())
         per = np.array([cos[st["cat_idx"][c]].max() for c in labels], np.float32)  # max theo nhãn

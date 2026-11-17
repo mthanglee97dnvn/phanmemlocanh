@@ -1,5 +1,7 @@
 import os
 
+import cv2
+import numpy as np
 import pytest
 
 from photosift.library import read_xmp_rating
@@ -96,3 +98,69 @@ def test_scan_imports_xmp_for_fresh_only():
     from photosift.library import Library
     src = inspect.getsource(Library._scan)
     assert src.count("fresh.append") == 2 and "_import_xmp_ratings, args=(fresh,)" in src
+
+
+def _clip_setup(lib_with, monkeypatch, tmp_path, n=3, with_prev=(0, 1)):
+    import photosift.library as lib
+    from photosift import scene
+    prev = tmp_path / "prev"
+    prev.mkdir()
+    monkeypatch.setattr(lib, "PREVIEWS", prev)
+    L, ids = lib_with([dict(path=f"/r/{i}.jpg", analyzed=1) for i in range(n)])
+    for k in with_prev:
+        cv2.imwrite(str(prev / f"{ids[k]}.jpg"), np.full((16, 16, 3), 90, np.uint8))
+    vec = np.random.RandomState(0).randn(512).astype(np.float32)
+    vec /= np.linalg.norm(vec)
+    monkeypatch.setattr(scene, "available", lambda: True)
+    monkeypatch.setattr(scene, "embed", lambda bgr: vec)
+    monkeypatch.setattr(scene, "MODEL_ID", "m1")
+    L.status = type("S", (), {"update": lambda self, **k: None})()
+    return L, ids, vec
+
+
+def test_clip_backfill_fills_and_versions(lib_with, monkeypatch, tmp_path):
+    import threading
+    from photosift import scene
+    L, ids, vec = _clip_setup(lib_with, monkeypatch, tmp_path)
+    L._clip_backfill(threading.Event())
+    rows = {r["id"]: r for r in L.db.q("SELECT id,clip,clipv FROM photos")}
+    for i in ids[:2]:
+        assert len(rows[i]["clip"]) == 1024 and rows[i]["clipv"] == "m1"
+        v = L._clip_vec(rows[i])
+        assert v.dtype == np.float32 and abs(np.linalg.norm(v) - 1) < 1e-4
+        assert float(v @ vec) > 0.999
+    assert rows[ids[2]]["clip"] is None   # không có cache -> bỏ qua
+    monkeypatch.setattr(scene, "MODEL_ID", "m2")
+    assert L._clip_vec(rows[ids[0]]) is None
+    assert L._clip_vec({"clip": None, "clipv": None}) is None
+    monkeypatch.setattr(scene, "MODEL_ID", "m1")
+    assert L._clip_vec({"clip": b"abc", "clipv": "m1"}) is None
+
+
+def test_clip_backfill_redoes_stale_version(lib_with, monkeypatch, tmp_path):
+    import threading
+    from photosift import scene
+    L, ids, _ = _clip_setup(lib_with, monkeypatch, tmp_path)
+    L._clip_backfill(threading.Event())
+    monkeypatch.setattr(scene, "MODEL_ID", "m2")
+    L._clip_backfill(threading.Event())
+    assert {r["clipv"] for r in L.db.q("SELECT clipv FROM photos WHERE clip IS NOT NULL")} == {"m2"}
+
+
+def test_clip_backfill_noop_without_model(lib_with, monkeypatch, tmp_path):
+    import threading
+    from photosift import scene
+    L, ids, _ = _clip_setup(lib_with, monkeypatch, tmp_path)
+    monkeypatch.setattr(scene, "available", lambda: False)
+    L._clip_backfill(threading.Event())
+    assert L.db.q("SELECT COUNT(*) n FROM photos WHERE clip IS NOT NULL")[0]["n"] == 0
+
+
+def test_classify_reuses_embed(monkeypatch):
+    from photosift import scene
+    monkeypatch.setattr(scene, "_get", lambda: dict(
+        ok=True, emb=np.eye(3, 4, dtype=np.float32), cat_idx={"decor": [0], "detail": [1], "object": [2]}, scale=100.0))
+    monkeypatch.setattr(scene, "embed", lambda bgr: np.array([0, 1, 0, 0], np.float32))
+    assert scene.classify(np.zeros((4, 4, 3), np.uint8))[0] == "detail"
+    monkeypatch.setattr(scene, "embed", lambda bgr: None)
+    assert scene.classify(np.zeros((4, 4, 3), np.uint8)) is None
