@@ -1016,7 +1016,10 @@ class Library:
         a -= a.mean(); b -= b.mean()
         if a.std() < 1e-9 or b.std() < 1e-9:
             return 0.0, 0.0
-        corr = np.correlate(a, b, "full")
+        # tương quan chéo bằng FFT (np.correlate "full" là O(n²): lệch cả ngày mất hàng chục giây)
+        m = 1 << int(2 * n - 1).bit_length()
+        c = np.fft.irfft(np.fft.rfft(a, m) * np.conj(np.fft.rfft(b, m)), m)
+        corr = np.concatenate((c[m - (n - 1):], c[:n]))   # cùng thứ tự với np.correlate(a, b, "full")
         lag = int(corr.argmax()) - (len(b) - 1)
         off = lag * binw
         peak = float(corr.max() / (len(a) * a.std() * b.std()))
@@ -1174,6 +1177,49 @@ class Library:
                 c.update(offset=off, conf=1.0, manual=True)
         n = self.db.one("SELECT COUNT(*) n FROM photos p JOIN cur ON cur.id=p.id WHERE p.cam=?", (r["cam"],))["n"]
         return dict(ok=True, cam=r["cam"], offset=off, n=n)
+
+    # ---- ghép cặp KHOẢNH KHẮC CHUNG: một tấm máy mốc + một tấm cùng lúc của máy cần chỉnh
+    def cam_photos(self, cam: str):
+        """Ảnh của một máy (đang mở, có giờ chụp) theo giờ gốc: [[id, taken], ...]."""
+        self._fill_cams()
+        rows = self.db.q("SELECT p.id, p.taken FROM photos p JOIN cur ON cur.id=p.id WHERE p.cam=? "
+                         "AND p.taken IS NOT NULL AND p.taken>0 ORDER BY p.taken, p.id", (cam,))
+        return dict(photos=[[r["id"], r["taken"]] for r in rows])
+
+    def cam_estimate(self, ref_cam: str, cam: str):
+        """Lệch đề xuất cho 'cam' so với 'ref_cam': lệch đang dùng nếu có, không thì dò tự động."""
+        cur = self.db.one("SELECT MAX(ABS(COALESCE(p.toff,0))) a, MAX(COALESCE(p.toff,0)) mx, MIN(COALESCE(p.toff,0)) mn "
+                          "FROM photos p JOIN cur ON cur.id=p.id WHERE p.cam=?", (cam,))
+        if cur and cur["a"]:
+            off = cur["mx"] if abs(cur["mx"] or 0) >= abs(cur["mn"] or 0) else cur["mn"]
+            return dict(offset=int(round(off)), conf=1.0, source="existing")
+        q = ("SELECT p.taken + COALESCE(p.toff,0) t FROM photos p JOIN cur ON cur.id=p.id "
+             "WHERE p.cam=? AND p.taken IS NOT NULL AND p.taken>0")
+        ref = [r["t"] for r in self.db.q(q, (ref_cam,))]
+        mine = [r["taken"] for r in self.db.q(q.replace("p.taken + COALESCE(p.toff,0) t", "p.taken"), (cam,))]
+        off, conf = self._estimate_offset(ref, mine)
+        if conf <= 0:
+            return dict(offset=0, conf=0.0, source="none")
+        return dict(offset=int(round(off)), conf=round(float(conf), 2), source="auto")
+
+    def cam_pair(self, ref_id: int, pid: int):
+        """Hai tấm cùng khoảnh khắc → lệch = giờ hiệu dụng tấm mốc − giờ gốc tấm kia, áp cho cả máy tấm kia."""
+        self._fill_cams()
+        a = self.db.one("SELECT taken, toff, cam FROM photos WHERE id=?", (int(ref_id),))
+        b = self.db.one("SELECT taken, cam FROM photos WHERE id=?", (int(pid),))
+        if not a or not b or not a["taken"] or not b["taken"]:
+            return dict(error="Không tìm thấy ảnh hoặc ảnh không có giờ chụp")
+        if not b["cam"] or b["cam"] == "?" or not a["cam"] or a["cam"] == "?":
+            return dict(error="Không đọc được máy ảnh của tấm này")
+        if a["cam"] == b["cam"]:
+            return dict(error="Hai tấm cùng một máy — hãy chọn tấm của máy khác")
+        off = int(round(a["taken"] + float(a["toff"] or 0) - b["taken"]))
+        self.cameras_apply({b["cam"]: off})
+        for c in (self.cam or {}).get("cams", []):
+            if c.get("key") == b["cam"]:
+                c.update(offset=off, conf=1.0, manual=True)
+        n = self.db.one("SELECT COUNT(*) n FROM photos p JOIN cur ON cur.id=p.id WHERE p.cam=?", (b["cam"],))["n"]
+        return dict(ok=True, cam=b["cam"], offset=off, n=n)
 
     def cameras_apply(self, offsets: dict):
         """offsets: {danh_tính_máy: số_giây_cộng_vào}. Ghi toff cho từng máy rồi gom nhóm lại."""
