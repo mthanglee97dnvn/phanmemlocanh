@@ -38,6 +38,7 @@ html,body{height:100%;margin:0;background:#14161A;color:#ECEEF2;font:13px/1.4 "S
 #mode #tUpd:hover{color:#1A1405;background:#F7C757}
 #mode #tUpd svg{width:15px;height:15px;flex:none}
 #uNotes{white-space:pre-wrap;max-height:220px;overflow:auto;font-size:13px;line-height:1.5;margin:0 0 10px;color:#d5e2f0}
+#uNotes.list{white-space:normal}#uNotes .uv{font-size:11px;color:#8ea3b8;margin:10px 0 2px}#uNotes .uv:first-child{margin-top:0}#uNotes .ul{margin:2px 0}#uNotes .uf{margin-top:10px;color:#8ea3b8}
 #uBar{height:6px;border-radius:3px;background:#2A2E36;overflow:hidden;margin:6px 0}#uBar i{display:block;height:100%;width:0;background:#F2B01E}
 #uMsg{color:#A1A8B4;font-size:12.5px;min-height:18px}
 dialog{background:#1E2127;color:#ECEEF2;border:1px solid #383D47;border-radius:10px;padding:18px;width:min(480px,calc(100vw - 24px))}
@@ -109,7 +110,7 @@ dialog button:focus-visible,#mode button:focus-visible{outline:2px solid #F2B01E
 </dialog>
 <dialog id="updDlg">
   <h2 id="uHead"></h2>
-  <p id="uNotes"></p>
+  <div id="uNotes"></div>
   <div id="uBar" hidden><i></i></div>
   <div id="uMsg" role="status"></div>
   <div class="btns"><button id="uClose">Để sau</button><button id="uAgain">Kiểm tra lại</button><button class="pri" id="uGo">Cập nhật ngay</button></div>
@@ -176,8 +177,12 @@ $('tFont').onclick=async()=>{$('fQ').value='';$('fontDlg').showModal();drawFonts
   try{FCUR=(await fetch('/api/ui').then(r=>r.json())).font;FL=await fetch('/api/fonts').then(r=>r.json())}catch(e){$('fMsg').textContent='Chưa đọc được phông trên máy. Hãy thử lại.';return}drawFonts();$('fQ').focus()};
 $('fQ').oninput=drawFonts;$('fClose').onclick=()=>$('fontDlg').close();
 let U=null,busy=false;
+function showNotes(r,av){const box=$('uNotes'),ch=av&&Array.isArray(r.changes)?r.changes:[];box.textContent='';box.classList.toggle('list',ch.length>0);
+  if(!ch.length){box.textContent=av?r.notes:(r.error||'Bạn đang dùng bản mới nhất.');return}
+  for(const c of ch){if(c.ver){const h=document.createElement('div');h.className='uv';h.textContent='Bản '+c.ver;box.append(h)}
+    for(const l of c.lines||[]){const d=document.createElement('div');d.className=c.ver?'ul':'ul uf';d.textContent=l;box.append(d)}}}
 const showU=(r,msg)=>{U=r;const av=r.available;$('tVer').querySelector('.t').textContent='Bản '+r.current;$('tVer').hidden=av;$('tUpd').hidden=!av;$('tUpd').querySelector('.t').textContent='Cập nhật '+r.latest;
-  $('uHead').textContent=av?'Có bản mới '+r.latest:'Bản '+r.current;$('uNotes').textContent=av?r.notes:(r.error||'Bạn đang dùng bản mới nhất.');$('uGo').hidden=!av;$('uAgain').hidden=av;$('uMsg').textContent=msg||''};
+  $('uHead').textContent=av?'Có bản mới '+r.latest:'Bản '+r.current;showNotes(r,av);$('uGo').hidden=!av;$('uAgain').hidden=av;$('uMsg').textContent=msg||''};
 async function checkUpd(force){try{showU(await fetch('/api/update/check'+(force?'?force=1':'')).then(r=>r.json()));return true}catch(e){return false}}
 setTimeout(()=>checkUpd(),3000);setInterval(()=>checkUpd(),21600000);
 $('tVer').onclick=$('tUpd').onclick=()=>{if(U)$('updDlg').showModal()};$('uClose').onclick=()=>{if(!busy)$('updDlg').close()};
