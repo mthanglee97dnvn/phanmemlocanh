@@ -113,6 +113,44 @@
   #vbtns .nav{width:52px;height:50px;border-radius:14px;background:var(--panel);border:1px solid var(--line);font-size:22px;cursor:pointer}
   #vbtns .big{flex:1;height:50px;border-radius:14px;font-weight:700;font-size:15px;cursor:pointer}
   #vRej{background:#2A1D20;border:1px solid #6B3238;color:var(--redtx)} #vKeep{background:rgba(232,163,61,.14);border:1px solid #8A6326;color:var(--acc)}
+
+  /* chọn nhiều */
+  #selBar{flex:0 0 auto;border-top:1px solid #8A6326;background:var(--acc-ink);padding:10px 12px calc(10px + var(--safe-b));display:flex;flex-direction:column;gap:8px}
+  #selHead{display:flex;align-items:center;gap:10px}
+  #selTitle{flex:1;font-weight:700;color:var(--acc)}
+  #selBtns{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+  #selBtns button,#selHead button{min-height:48px;border-radius:14px;font-weight:700;cursor:pointer;background:rgba(232,163,61,.14);border:1px solid #8A6326;color:var(--acc)}
+  #selHead button{min-height:40px;padding:0 14px;background:transparent}
+  #selBtns [data-r="-1"]{background:#2A1D20;border-color:#6B3238;color:var(--redtx)}
+  #selBtns [data-r="0"]{background:var(--panel);border-color:var(--line);color:var(--tx);font-weight:600}
+  body.selmode #bar{display:none} body:not(.selmode) #selBar{display:none}
+  /* bảng công cụ */
+  #sheetWrap{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column}
+  #sheetBack{flex:1;border:none;background:rgba(0,0,0,.55);padding:0;cursor:pointer}
+  #sheet{background:var(--panel);border-top:1px solid var(--line);border-radius:22px 22px 0 0;padding:10px 18px calc(18px + var(--safe-b));display:flex;flex-direction:column;gap:14px;max-height:86vh;overflow:auto}
+  #sheet .grab{align-self:center;width:40px;height:5px;border-radius:99px;background:var(--line2)}
+  #sheet h3{margin:0;font-size:17px}
+  #sheet .sec{display:flex;flex-direction:column;gap:10px}
+  #sheet hr{border:none;height:1px;background:var(--line);margin:0}
+  .kchips{display:flex;flex-wrap:wrap;gap:6px}
+  .kchips label{display:inline-flex;align-items:center;gap:6px;min-height:38px;padding:0 12px;border-radius:999px;background:var(--panel2);border:1px solid var(--line2);font-size:13px;font-weight:600;cursor:pointer}
+  .kchips label:has(input:checked){background:rgba(232,163,61,.14);border-color:#8A6326;color:var(--acc)}
+  .kchips label:has(input:disabled){opacity:.45}
+  .kchips input{accent-color:var(--acc)}
+  .lv{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+  .lv button{min-height:44px;border-radius:12px;background:var(--panel2);border:1px solid var(--line);font-weight:600;cursor:pointer}
+  .lv button[aria-pressed="true"]{border:2px solid var(--acc);color:var(--acc)}
+  .act{min-height:50px;border-radius:14px;font-weight:700;cursor:pointer}
+  #cullGo{background:#2A1D20;border:1px solid #6B3238;color:var(--redtx)}
+  #tGo{background:var(--acc);border:none;color:var(--acc-ink);font-weight:800}
+  #tRow{display:flex;align-items:center;gap:10px}
+  #tRow label{color:var(--mut)}
+  #tN{width:90px;min-height:44px;border-radius:10px;background:var(--bg);border:1px solid var(--line2);color:var(--tx);font:inherit;font-weight:700;text-align:right;padding:0 12px}
+  #tInfo{font-size:13px;color:var(--mut)}
+  #tMore{display:flex;gap:8px} #tMore button{flex:1;min-height:44px;border-radius:12px;background:var(--panel2);border:1px solid var(--line2);font-weight:600;cursor:pointer;font-size:13px}
+  #sortRow{display:flex;align-items:center;gap:10px}
+  #sortRow select{flex:1;min-height:44px;border-radius:10px;background:var(--bg);border:1px solid var(--line2);color:var(--tx);font:inherit;padding:0 10px}
+  #sortRow label{display:flex;align-items:center;gap:6px;color:var(--mut)}
 </style>
 </head>
 <body>
@@ -137,6 +175,35 @@
     </div>
   </div>
 
+
+  <div id="selBar">
+    <div id="selHead"><button id="selCancel">Huỷ</button><div id="selTitle">Đã chọn 0 tấm</div></div>
+    <div id="selBtns"><button data-r="1">★1</button><button data-r="2">★★2</button><button data-r="-1">✕ Loại</button><button data-r="0">Bỏ chấm</button></div>
+  </div>
+  <div id="sheetWrap" class="hide">
+    <button id="sheetBack" aria-label="Đóng bảng công cụ"></button>
+    <div id="sheet" role="dialog" aria-label="Công cụ">
+      <div class="grab"></div>
+      <div class="sec">
+        <h3>Tự động lọc</h3>
+        <div class="kchips" id="kchips"></div>
+        <div class="lv" id="lv"><button data-l="nhe">Nhẹ</button><button data-l="vua">Vừa</button><button data-l="manh">Mạnh</button></div>
+        <button class="act" id="cullGo">Đánh dấu loại</button>
+      </div>
+      <hr>
+      <div class="sec">
+        <h3>✦ Chọn ảnh đẹp</h3>
+        <div id="tRow"><label for="tN">Chọn khoảng</label><input id="tN" inputmode="numeric" autocomplete="off"><span style="color:var(--mut)">tấm</span></div>
+        <div id="tInfo"></div>
+        <button class="act" id="tGo">✦ Đề xuất</button>
+        <div id="tMore"><button id="tRate">Chấm 1 sao cho tất cả đề xuất</button><button id="tClear">Bỏ đề xuất</button></div>
+      </div>
+      <hr>
+      <div id="sortRow"><span style="font-weight:600">Sắp xếp</span>
+        <select id="sSort" aria-label="Sắp xếp"><option value="time">Giờ chụp</option><option value="name">Tên file</option><option value="score">Điểm chất lượng</option><option value="type">Loại file (RAW trước)</option></select>
+        <label><input type="checkbox" id="sRev"> Đảo</label></div>
+    </div>
+  </div>
   <!-- Xem từng tấm -->
   <div id="view" class="hide">
     <div id="vtop">
@@ -506,6 +573,119 @@ $('vUndo').addEventListener('click',undoLast);
 })();
 /* chạm ô lưới → Xem */
 $('gsp').addEventListener('click',function(e){ var t=e.target.closest('.tile'); if(!t||M.selmode) return; openView(+t.dataset.id); });
+
+/* ---------- hoàn tác ---------- */
+var UNDO=[];
+function undoPush(entry,label){
+  UNDO.push(entry); if(UNDO.length>50) UNDO.shift();
+  var n=entry.ops?entry.ops.length:(entry.ids||[]).length;
+  if(label) toast(label+(n>1?' · '+fmt(n)+' ảnh':''),undoPop);
+}
+function undoPop(){
+  var e=UNDO[UNDO.length-1]; if(!e){ toast('Không còn gì để hoàn tác'); return Promise.resolve(); }
+  var done=function(msg){ UNDO.pop(); toast(msg); };
+  if(e.t==='rate'){
+    var back=[], skip=0;
+    e.ops.forEach(function(o){ var p=M.by[o.id]; if(p&&(p.rating||0)===o.to) back.push(o); else skip++; });
+    var by={}; back.forEach(function(o){ (by[o.from]=by[o.from]||[]).push(o.id); });
+    return Promise.all(Object.keys(by).map(function(r){ return post('/api/rate',{ids:by[r],rating:+r}); })).then(function(){
+      back.forEach(function(o){ var p=M.by[o.id]; if(p) p.rating=o.from; }); afterRate();
+      done('Đã hoàn tác'+(skip?' · bỏ qua '+skip+' ảnh đã sửa trên máy tính':''));
+    },function(){ toast('Không hoàn tác được'); });
+  }
+  var url=e.t==='cull'?'/api/cull/undo':'/api/suggest/rate/undo';
+  return post(url,{batch:e.batch}).then(function(){
+    (e.ids||[]).forEach(function(id){ var p=M.by[id]; if(p&&(e.t==='cull'?p.rating===-1:p.rating===1)) p.rating=0; });
+    afterRate(); done('Đã hoàn tác'); mSync(true);
+  },function(){ toast('Không hoàn tác được'); });
+}
+
+/* ---------- chọn nhiều (chạm giữ) ---------- */
+function selCount(){ return Object.keys(M.sel).length; }
+function selPaint(){ document.body.classList.toggle('selmode',M.selmode); $('selTitle').textContent='Đã chọn '+fmt(selCount())+' tấm'; repaintTiles(); }
+function selToggleTile(id){ var i=tileIndexOf(id); if(i<0) return; var t=M.tiles[i], on=isSel(t);
+  t.ids.forEach(function(x){ if(on) delete M.sel[x]; else M.sel[x]=1; }); selPaint(); }
+function selExit(){ M.selmode=false; M.sel={}; selPaint(); }
+(function(){
+  var lp=null, sx=0, sy=0, fired=false;
+  $('gsp').addEventListener('pointerdown',function(e){ var t=e.target.closest('.tile'); if(!t) return; sx=e.clientX; sy=e.clientY; fired=false;
+    clearTimeout(lp); lp=setTimeout(function(){ fired=true; if(!M.selmode){ M.selmode=true; M.sel={}; } selToggleTile(+t.dataset.id); if(navigator.vibrate) navigator.vibrate(15); },500); });
+  $('gsp').addEventListener('pointermove',function(e){ if(Math.hypot(e.clientX-sx,e.clientY-sy)>10) clearTimeout(lp); });
+  ['pointerup','pointercancel','pointerleave'].forEach(function(ev){ $('gsp').addEventListener(ev,function(){ clearTimeout(lp); }); });
+  $('gsp').addEventListener('click',function(e){ var t=e.target.closest('.tile'); if(!t) return;
+    if(fired){ fired=false; e.stopImmediatePropagation(); return; }
+    if(M.selmode){ e.stopImmediatePropagation(); selToggleTile(+t.dataset.id); } },true);
+  $('gsp').addEventListener('contextmenu',function(e){ if(e.target.closest('.tile')) e.preventDefault(); });
+})();
+$('selCancel').addEventListener('click',selExit);
+$('selBtns').addEventListener('click',function(e){ var b=e.target.closest('button'); if(!b) return;
+  var ids=Object.keys(M.sel).map(Number); if(!ids.length){ toast('Chưa chọn tấm nào'); return; }
+  var r=+b.dataset.r; selExit(); rateIds(ids,r,r>0?'★'+r:(r<0?'Loại':'Bỏ chấm')).catch(function(){}); });
+
+/* ---------- bảng công cụ ⋯ ---------- */
+var PRE={nhe:{blur_ratio:.35,dark:.14,bright:.88,ear:.15,dup_hamming:6,dup_seconds:10},vua:{blur_ratio:.45,dark:.2,bright:.8,ear:.19,dup_hamming:10,dup_seconds:20},manh:{blur_ratio:.6,dark:.26,bright:.74,ear:.22,dup_hamming:14,dup_seconds:40}};
+var SH={online:true,settings:{},level:null};
+var KL=[['blur','Ảnh mờ',0],['dark','Ảnh tối',1],['bright','Cháy sáng',1],['eyes','Nhắm mắt',1],['dup','Ảnh trùng',0]];
+function sheetOpen(){
+  $('sheetWrap').classList.remove('hide');
+  api('/api/status').then(function(st){ SH.online=st.online!==false; SH.settings=st.settings||{}; paintSheet(); }).catch(function(){ paintSheet(); });
+  var last=lsGet('m.suggN',''); $('tN').value=last||(Math.max(1,Math.round(M.all.length*0.12))+'');
+  api('/api/taste').then(paintTaste).catch(function(){ $('tInfo').textContent=''; });
+  $('sSort').value=M.sort; $('sRev').checked=M.rev;
+  paintSheet();
+}
+function sheetClose(){ $('sheetWrap').classList.add('hide'); }
+function levelOf(st){ for(var k in PRE){ var ok=true; for(var f in PRE[k]) if(st[f]==null||Math.abs(st[f]-PRE[k][f])>1e-6) ok=false; if(ok) return k; } return null; }
+function cullSel(){ return KL.filter(function(k){ var c=document.getElementById('k_'+k[0]); return c&&c.checked&&!c.disabled; }).map(function(k){return k[0];}); }
+function paintSheet(){
+  if(!$('kchips').children.length) $('kchips').innerHTML=KL.map(function(k){ return '<label><input type="checkbox" id="k_'+k[0]+'" checked> '+k[1]+'</label>'; }).join('');
+  KL.forEach(function(k){ var c=$('k_'+k[0]); c.disabled=!!(k[2]&&!SH.online); });
+  var lv=levelOf(SH.settings)||SH.level||'vua';
+  document.querySelectorAll('#lv button').forEach(function(b){ b.setAttribute('aria-pressed',String(b.dataset.l===lv)); });
+  var c=cullCandidates(M.all,cullSel()).length, todo=M.all.filter(function(p){return (p.rating||0)===0;}).length;
+  $('cullGo').textContent='Đánh dấu loại '+fmt(c)+' / '+fmt(todo)+' ảnh chưa chấm'; $('cullGo').disabled=!c;
+  var hasS=M.all.some(function(p){return p.sugg===1;}); $('tMore').classList.toggle('hide',!hasS);
+}
+function paintTaste(t){
+  t=t||{}; var s='Đang dùng: ';
+  if(t.source==='personal') s+='gu của bạn (học từ '+fmt(t.n_rolls)+' đám'+(t.agree!=null?', trùng khớp '+Math.round(t.agree*100)+'%':'')+')';
+  else if(t.source==='default') s+='gu mặc định'; else s+='gu cơ bản (chưa học)';
+  $('tInfo').textContent=s;
+}
+$('btnTools').addEventListener('click',sheetOpen);
+$('sheetBack').addEventListener('click',sheetClose);
+$('kchips').addEventListener('change',paintSheet);
+$('lv').addEventListener('click',function(e){ var b=e.target.closest('button'); if(!b) return; SH.level=b.dataset.l;
+  post('/api/settings',PRE[b.dataset.l]).then(function(r){ SH.settings=(r&&r.settings)||PRE[b.dataset.l]; return mSync(true); }).then(paintSheet).catch(function(){ toast('Không đổi được mức lọc'); }); paintSheet(); });
+$('cullGo').addEventListener('click',function(){
+  var ids=cullCandidates(M.all,cullSel()).map(function(p){return p.id;}); if(!ids.length) return;
+  $('cullGo').disabled=true;
+  post('/api/cull/apply',{ids:ids}).then(function(r){
+    ids.forEach(function(id){ var p=M.by[id]; if(p&&(p.rating||0)===0) p.rating=-1; }); afterRate(); sheetClose();
+    undoPush({t:'cull',batch:r.batch,ids:ids},'Đã đánh dấu loại'); mSync(true);
+  },function(){ toast('Không lọc được'); paintSheet(); });
+});
+function parseN(v){ v=String(v||'').trim().replace(/\./g,'').replace(',','.');
+  var m=v.match(/^(\d+(?:\.\d+)?)\s*%$/); if(m) return Math.max(1,Math.round(M.all.length*(+m[1])/100));
+  var n=parseInt(v,10); return n>0?n:0; }
+$('tGo').addEventListener('click',function(){
+  var n=parseN($('tN').value); if(!n){ toast('Gõ số tấm, ví dụ 400 hoặc 15%'); return; }
+  lsSet('m.suggN',$('tN').value.trim()); $('tGo').disabled=true;
+  post('/api/suggest',{n:n}).then(function(r){
+    if(r&&r.error){ toast(r.error); return; }
+    sheetClose(); M.filter='sugg';
+    return mSync(true).then(function(){ M.filter='sugg'; $('grid').scrollTop=0; mRender();
+      toast(r.note&&/nhiều hơn/.test(r.note)?r.note:('Đã đề xuất '+fmt(r.n)+' tấm'+(r.note?' — '+r.note:'')),null,3000); });
+  },function(){ toast('Không đề xuất được'); }).then(function(){ $('tGo').disabled=false; });
+});
+$('tRate').addEventListener('click',function(){
+  post('/api/suggest/rate',{}).then(function(r){ (r.ids||[]).forEach(function(id){ var p=M.by[id]; if(p&&(p.rating||0)===0) p.rating=1; });
+    afterRate(); sheetClose(); if(r.n) undoPush({t:'suggrate',batch:r.batch,ids:r.ids||[]},'Đã chấm 1 sao cho đề xuất'); else toast('Các ảnh đề xuất đều đã có sao'); },
+    function(){ toast('Không chấm được'); });
+});
+$('tClear').addEventListener('click',function(){ post('/api/suggest/clear',{}).then(function(){ M.all.forEach(function(p){p.sugg=0;}); sheetClose(); if(M.filter==='sugg') M.filter='all'; mRender(); },function(){ toast('Không bỏ được đề xuất'); }); });
+$('sSort').addEventListener('change',function(){ M.sort=$('sSort').value; lsSet('m.sort',M.sort); mRender(); });
+$('sRev').addEventListener('change',function(){ M.rev=$('sRev').checked; lsSet('m.rev',M.rev?'1':'0'); mRender(); });
 /* ---------- đồng bộ với máy tính ---------- */
 var syncing=false;
 function mSync(force){
