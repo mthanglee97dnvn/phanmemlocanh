@@ -15,13 +15,21 @@ def lib_with(tmp_path):
     from photosift.db import DB
     from photosift.library import Library
 
-    def make(rows):
+    def make(rows, catalog=()):
         db = DB(tmp_path / "t.db")
         ids = []
-        for i, (cam, taken) in enumerate(rows):
-            c = db.x("INSERT INTO photos(path,dir,taken,ready,cam,toff) VALUES(?,?,?,1,?,0)",
-                     (str(tmp_path / f"IMG_{i:04d}.JPG"), str(tmp_path), taken, cam))
+        for i, row in enumerate(rows):
+            if isinstance(row, dict):   # dict: mọi cột của photos (path, rating, analyzed, ...); mặc định như dạng tuple
+                d = {**dict(path=str(tmp_path / f"IMG_{i:04d}.JPG"), taken=None, ready=1, cam=None, toff=0), **row}
+                d.setdefault("dir", os.path.dirname(d["path"]))
+            else:
+                cam, taken = row
+                d = dict(path=str(tmp_path / f"IMG_{i:04d}.JPG"), dir=str(tmp_path), taken=taken, ready=1, cam=cam, toff=0)
+            c = db.x(f"INSERT INTO photos({','.join(d)}) VALUES({','.join('?' * len(d))})", list(d.values()))
             ids.append(c.lastrowid)
+        for k, root in enumerate(catalog):   # root hoặc (root, opened)
+            root, opened = root if isinstance(root, tuple) else (root, float(k))
+            db.x("INSERT INTO catalog(root,opened) VALUES(?,?)", (root, opened))
         db.many("INSERT INTO cur(id) VALUES(?)", [(i,) for i in ids])
         L = Library.__new__(Library)
         L.db, L.cam = db, {}

@@ -107,6 +107,39 @@ def _low_prio():
 
 
 
+_XMP_ATTR = re.compile(rb"""xmp:Rating\s*=\s*["']\s*(-?\d+(?:\.\d+)?)""")
+_XMP_ELEM = re.compile(rb"<xmp:Rating>\s*(-?\d+(?:\.\d+)?)\s*</xmp:Rating>")
+
+
+def _xmp_parse(data: bytes):
+    m = _XMP_ATTR.search(data) or _XMP_ELEM.search(data)
+    if not m:
+        return None
+    v = float(m.group(1))
+    return -1 if v < 0 else min(5, int(round(v)))
+
+
+def read_xmp_rating(path: str):
+    """Sao từ .xmp (Photo Mechanic/Lightroom): sidecar rồi XMP nhúng trong JPEG. -1..5 hoặc None. Không bao giờ raise."""
+    try:
+        base, name = os.path.splitext(path)[0], path
+        for cand in (base + ".xmp", base + ".XMP", name + ".xmp", name + ".XMP"):
+            if os.path.isfile(cand):
+                with open(cand, "rb") as f:
+                    r = _xmp_parse(f.read(1 << 20))
+                if r is not None:
+                    return r
+        if os.path.splitext(path)[1].lower() in (".jpg", ".jpeg"):
+            with open(path, "rb") as f:
+                head = f.read(256 * 1024)
+            i = head.find(b"<x:xmpmeta")
+            if i >= 0:
+                return _xmp_parse(head[i:])
+    except Exception:  # noqa: BLE001
+        pass
+    return None
+
+
 def _num(v, miss=-1.0):
     """Giá trị số đọc từ DB; bản 1.1.46 lỡ lưu điểm cười dạng bytes (float32) → đọc lại thành số."""
     if v is None:
@@ -559,6 +592,7 @@ class Library:
             db.con.execute("DELETE FROM cur")
             db.con.executemany("INSERT INTO cur(id) VALUES(?)", [(i,) for i in ids])
             db.con.commit()
+        self._import_xmp_ratings(ids)
         self.status.update(total=len(ids), done=len(ids) - len(todo), thumbs=len(ids) - len(todo),
                            message=f"Đang đọc {len(todo)} ảnh mới…" if todo else "Đã có trong bộ nhớ đệm")
 
@@ -676,6 +710,24 @@ class Library:
             print("catalog:", e, file=sys.stderr)
         self.status.update(state="done", message="Hoàn tất")
         self.view_all()
+
+    def _import_xmp_ratings(self, ids):
+        """Nhập sao Photo Mechanic/Lightroom từ .xmp cho ảnh còn 0 sao trong app. rsrc giữ 0. Lỗi không làm hỏng lần quét."""
+        try:
+            todo = []
+            for k in range(0, len(ids), 500):
+                part = ids[k:k + 500]
+                todo += [(r["id"], r["path"]) for r in
+                         self.db.q(f"SELECT id,path FROM photos WHERE rating=0 AND id IN ({','.join('?' * len(part))})", part)]
+            if not todo:
+                return
+            with ThreadPoolExecutor(max_workers=IO_WORKERS) as ex:
+                got = list(ex.map(lambda t: read_xmp_rating(t[1]), todo))
+            upd = [(g, t[0]) for t, g in zip(todo, got) if g]
+            if upd:
+                self.db.many("UPDATE photos SET rating=? WHERE id=? AND rating=0", upd)
+        except Exception as e:  # noqa: BLE001
+            print("xmp:", e, file=sys.stderr)
 
     def _smile_backfill(self, cancel):
         """Ảnh đã phân tích từ bản cũ chưa có điểm nụ cười: đo bổ sung từ ảnh cache (không đọc lại file RAW)."""
@@ -1440,10 +1492,81 @@ class Library:
     # ------------------------------------------------------------------ chấm điểm
     def set_rating(self, ids, rating: int):
         rating = max(-1, min(5, int(rating)))
-        self.db.many("UPDATE photos SET rating=? WHERE id=?", [(rating, int(i)) for i in ids])
+        self.db.many("UPDATE photos SET rating=?, rsrc=0 WHERE id=?", [(rating, int(i)) for i in ids])
 
     def set_ratings(self, pairs):
-        self.db.many("UPDATE photos SET rating=? WHERE id=?", [(int(r), int(i)) for i, r in pairs])
+        self.db.many("UPDATE photos SET rating=?, rsrc=0 WHERE id=?", [(int(r), int(i)) for i, r in pairs])
+
+    # ------------------------------------------------------------------ đám (roll) cho học gu chọn ảnh
+    @staticmethod
+    def _norm_root(p: str) -> str:
+        return os.path.normcase(os.path.normpath(p)).rstrip("\\/") + os.sep
+
+    def _roll_of(self, paths):
+        """path -> root catalog dài nhất là tiền tố của path (ảnh không thuộc root nào thì bỏ)."""
+        roots = sorted(((self._norm_root(r["root"]), r["root"]) for r in self.db.q("SELECT root FROM catalog")),
+                       key=lambda t: -len(t[0]))
+        out = {}
+        for p in paths:
+            np_ = os.path.normcase(os.path.normpath(p))
+            for pre, root in roots:
+                if np_.startswith(pre):
+                    out[p] = root
+                    break
+        return out
+
+    def _finished_rolls(self):
+        rows = self.db.q("SELECT path, rating FROM photos WHERE analyzed=1 AND err IS NULL")
+        of = self._roll_of([r["path"] for r in rows])
+        n, kept = {}, {}
+        for r in rows:
+            root = of.get(r["path"])
+            if root is None:
+                continue
+            n[root] = n.get(root, 0) + 1
+            if (r["rating"] or 0) >= 1:
+                kept[root] = kept.get(root, 0) + 1
+        out = []
+        for c in self.db.q("SELECT root, opened FROM catalog ORDER BY opened DESC"):
+            k, m = n.get(c["root"], 0), kept.get(c["root"], 0)
+            if k >= 200 and m >= 0.03 * k:
+                out.append(dict(root=c["root"], n=k, kept=m, opened=c["opened"]))
+        return out
+
+    def _roll_rows(self, root: str):
+        pre = root.rstrip("\\/") + os.sep
+        rows = self.db.q("""SELECT * FROM photos WHERE analyzed=1 AND err IS NULL AND substr(path,1,?)=?
+                            ORDER BY taken, path""", (len(pre), pre))
+        of = self._roll_of([r["path"] for r in rows])
+        rows = [r for r in rows if of.get(r["path"]) == root]
+        ids = {r["id"] for r in rows}
+        cnt, pmap = {}, {}
+        for f in self.db.q("""SELECT f.photo_id, f.person_id, f.px FROM faces f JOIN photos p ON p.id=f.photo_id
+                              WHERE f.person_id IS NOT NULL AND substr(p.path,1,?)=?""", (len(pre), pre)):
+            if f["photo_id"] not in ids:
+                continue
+            pmap.setdefault(f["photo_id"], set()).add(f["person_id"])
+            if (f["px"] or 0) >= 90:
+                cnt.setdefault(f["person_id"], set()).add(f["photo_id"])
+        top = sorted(cnt.items(), key=lambda kv: -len(kv[1]))[:2]
+        couple = {pid for pid, s in top if len(s) >= 2}
+        nr = self._norm_root(root)
+        logged = set()
+        for row in self.db.q("SELECT root, ids FROM cull_log"):
+            if self._norm_root(row["root"] or "") == nr:
+                try:
+                    logged.update(self._log_paths(row["ids"]))
+                except Exception:  # noqa: BLE001
+                    pass
+        out = []
+        for r in rows:
+            d = {k: r[k] for k in ("id", "path", "sharp", "fsharp", "nfaces", "lum", "lo", "hi", "ear_min", "smile",
+                                   "away", "focus_c", "scene", "grp", "best", "rating", "rsrc", "clip", "clipv")}
+            d["taken"] = float(r["taken"] or 0) + float(r["toff"] or 0)
+            d["couple"] = bool(couple & pmap.get(r["id"], set()))
+            d["in_cull_log"] = r["path"] in logged
+            out.append(d)
+        return out
 
     # ------------------------------------------------------------------ nhật ký tự động lọc
     # Lưu trong CSDL nên vẫn hoàn tác được sau khi tắt app. Tự động lọc chỉ chạm ảnh chưa chấm sao,
