@@ -1516,7 +1516,7 @@ $('#bCamSync').onclick=async()=>{
   };
   const poll=async()=>{ let st=await api('/api/cameras'); render(st);
     while(st.state==='running'){ await new Promise(r=>setTimeout(r,600)); st=await api('/api/cameras'); render(st); } return st; };
-  const detect=async()=>{ go.disabled=true; go.textContent='Đang dò…'; redo.disabled=true; try{ await api('/api/cameras/detect'); await poll(); } finally { go.disabled=false; redo.disabled=false; } };
+  const detect=async()=>{ go.disabled=true; go.textContent='Đang dò…'; redo.disabled=true; try{ await api('/api/cameras/detect',{}); await poll(); } catch(e){ toast('Chưa dò được máy: '+e.message,4000); go.textContent='Dò các máy'; } finally { go.disabled=false; redo.disabled=false; } };
   go.onclick=async()=>{
     if(go.dataset.mode!=='apply'){ await detect(); return; }
     const offs={}; cur.forEach((c,i)=>{ if(c.ref){ offs[c.key]=0; return; }
