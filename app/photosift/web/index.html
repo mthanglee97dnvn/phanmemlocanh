@@ -225,6 +225,10 @@ body.cat #catalog{display:flex}
 .sec .sh{display:flex;align-items:center;gap:8px;padding:7px 12px;cursor:pointer;font-weight:600;font-size:12px;letter-spacing:.4px;background:rgba(255,255,255,.10);user-select:none}
 .sec .sh:before{content:'▾';opacity:.8}.sec.col .sh:before{content:'▸'}.sec.col .sb{display:none}
 .sec .sb{padding:10px 12px}
+.qs{display:flex;align-items:baseline;gap:8px;margin:2px 0 8px}.qs b{font-size:30px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}.qs span{font-size:12px;color:var(--mut)}
+.qbar{height:6px;border-radius:3px;background:var(--panel2);overflow:hidden;margin-bottom:12px}.qbar i{display:block;height:100%;background:var(--acc)}
+.qg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.qt{background:var(--inset);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0}
+.qt span{display:block;font-size:12px;color:var(--mut)}.qt b{display:block;font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.qt.bad b{color:#FF9A9E;font-size:13px;white-space:normal}
 .ex{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-size:12px;margin:0}.ex dt{color:var(--mut)}.ex dd{margin:0;text-align:right;word-break:break-word;min-height:1em}
 canvas.hist{width:100%;height:120px;display:block;border-radius:10px;background:rgba(4,14,30,.62)}
 .hstat{display:flex;justify-content:space-between;font-size:12px;color:var(--mut);margin-top:6px}
@@ -438,6 +442,10 @@ html[data-theme=neutral] .chip.bright{background:#B0923C;color:#1A1304}
 html[data-theme=neutral] .chip.eyes{background:#75597E}
 html[data-theme=neutral] .chip.away{background:#855F84}
 html[data-theme=neutral] .chip.dup{background:#4A7D6E}
+/* Nhãn trạng thái: 3 nhóm màu — vàng = tốt nhất, đỏ dịu = lỗi ảnh, xám = thông tin */
+html[data-theme=neutral] .chip.blur,html[data-theme=neutral] .chip.dark,html[data-theme=neutral] .chip.bright,html[data-theme=neutral] .chip.eyes{background:#3A1D1F;color:#FFB3B5;box-shadow:inset 0 0 0 1px rgba(255,154,158,.35)}
+html[data-theme=neutral] .chip.away,html[data-theme=neutral] .chip.dup,html[data-theme=neutral] #vbadge .chip.dup{background:rgba(16,18,22,.86);color:#ECEEF2;box-shadow:inset 0 0 0 1px #4A505C}
+html[data-theme=neutral] .chip.topdup,html[data-theme=neutral] #vbadge .chip.topdup{background:#F2B01E;color:#1A1405;box-shadow:none}
 /* ô đang chọn: viền vàng */
 html[data-theme=neutral] .cell.sel,html[data-theme=neutral] .cell[aria-selected=true]{outline:2px solid var(--acc);outline-offset:-2px}
 html[data-theme=neutral] .hrow.on{border-color:var(--acc);background:var(--sel)}
@@ -460,6 +468,7 @@ html[data-theme=neutral] #xjcard{border-radius:18px}
  <symbol id="i-lib" viewBox="0 0 24 24"><path d="M4 5h4v14H4zM10 5h4v14h-4zM16.2 5.6l3.8 1-3.4 12.8-3.8-1"/></symbol>
  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
  <symbol id="i-funnel" viewBox="0 0 24 24"><path d="M3.5 5h17l-6.7 8v5.5l-3.6 1.8V13z"/></symbol>
+ <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M8.5 5 4 9.5 8.5 14"/><path d="M4 9.5h10.5a5.5 5.5 0 0 1 0 11H10"/></symbol>
  <symbol id="i-restore" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.6-5.9L4 8.5"/><path d="M4 3.8v4.7h4.7"/></symbol>
  <symbol id="i-export" viewBox="0 0 24 24"><path d="M12 15V4M7.5 8.5 12 4l4.5 4.5"/><path d="M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></symbol>
@@ -521,7 +530,7 @@ html[data-theme=neutral] #xjcard{border-radius:18px}
       <option value="score">Điểm chất lượng (cao trước)</option><option value="sharp">Độ nét (cao trước)</option><option value="smile">Nụ cười (tươi nhất trước)</option>
     </select><select id="fPair" title="Khi một ảnh có cả RAW và JPEG thì hiện bản nào" aria-label="Ưu tiên RAW hay JPEG">
       <option value="both">RAW + JPEG</option><option value="raw">Ưu tiên RAW</option><option value="jpeg">Ưu tiên JPEG</option>
-    </select><button id="bCamSync" title="Đồng bộ thời gian giữa nhiều máy ảnh của ekip (đồng hồ mỗi máy lệch nhau) để các ảnh về đúng một dòng thời gian">🕑 Đồng bộ máy</button></div>
+    </select><button id="bCamSync" title="Đồng bộ thời gian giữa nhiều máy ảnh của ekip (đồng hồ mỗi máy lệch nhau) để các ảnh về đúng một dòng thời gian"><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg><span class="lbl">Đồng bộ máy</span></button></div>
     <div class="grp"><div class="qbox"><input id="qPhoto" type="search" inputmode="numeric" autocomplete="off" placeholder="Tìm mã ảnh… vd 3928" aria-label="Tìm ảnh theo mã số" title="Gõ mã số ảnh khách gửi (nhiều số cách nhau bởi dấu cách hoặc phẩy) để lọc nhanh ra đúng ảnh đó — rồi chọn và Xuất ảnh. Phím tắt: /"><svg class="ic qic" aria-hidden="true"><use href="#i-search"/></svg><button id="qClear" class="qclr" type="button" aria-label="Xoá ô tìm" tabindex="-1">✕</button></div><span id="qCount" class="hint" aria-live="polite" style="min-width:0;white-space:nowrap"></span></div>
     <span class="sp"></span>
     <div class="grp"><button id="bCull" aria-label="Tự động lọc"><svg class="ic" aria-hidden="true"><use href="#i-funnel"/></svg><span class="lbl">Tự động lọc</span></button><button id="bUndo" aria-label="Hoàn tác" disabled><svg class="ic" aria-hidden="true"><use href="#i-undo"/></svg><span class="lbl">Hoàn tác</span></button><button id="bUnrej" title="Khôi phục ảnh đã bị đánh dấu loại" hidden></button><button id="bExport" class="pri" aria-label="Xuất ảnh" aria-keyshortcuts="Control+Y" title="Xuất ảnh (Ctrl+Y)"><svg class="ic" aria-hidden="true"><use href="#i-export"/></svg><span class="lbl">Xuất ảnh</span></button><button id="bLayout" aria-label="Gửi ảnh sang Dàn trang" title="Gửi ảnh đã lọc sang Dàn trang" hidden><svg class="ic" aria-hidden="true"><use href="#i-layout"/></svg><span class="lbl">Dàn trang</span></button></div>
@@ -726,6 +735,12 @@ function rebest(ids){
          best.score>=top?'nét và đủ sáng nhất':'', defects(best)<Math.min(...m.filter(p=>p!==best).map(defects))?'ít lỗi nhất':''].filter(Boolean).join(', ')||'tổng thể tốt nhất';
   }
   return changed; }
+function qualHTML(q){
+  const sc=+q.score||0, pct=Math.max(0,Math.min(100,sc)), bad=q.flags.filter(f=>f!=='dup'), warn=bad.map(f=>FLAG[f]).join(', ');
+  const tile=(k,v,cls='')=>`<div class="qt ${cls}"><span>${k}</span><b>${v}</b></div>`;
+  return `<div class="qs"><b>${sc}</b><span>/ 100 điểm</span></div><div class="qbar"><i style="width:${pct}%"></i></div>
+    <div class="qg">${tile('Độ nét'+(q.nf?' (mặt)':''),q.nf?q.fsharp:q.sharp)}${tile('Độ sáng TB',Math.round(q.lum*100)+'%')}${tile('Khuôn mặt',q.nf)}${tile('Cảnh báo',warn||'Không',warn?'bad':'')}</div>`;
+}
 function bestWhy(p){ return p.why ? p.why.charAt(0).toUpperCase()+p.why.slice(1) : 'Ảnh tốt nhất trong nhóm'; }
 function cellHTML(p){
   const flags = p.err ? '<span class="chip" style="background:#5a1d1a;color:#ffd9d6">⚠ Lỗi đọc</span>'
@@ -1187,7 +1202,7 @@ async function fillSections(sel,id,kind){
     const E=secHTML('exif','Thông số ảnh',exifHTML(r&&r.exif)), Hh=secHTML('hist','Histogram',histHTML(r&&r.hist));
     el.innerHTML = kind==='v'
       ? Hh + secHTML('hs','Vùng cháy sáng / mất chi tiết',`<div class="hs">${hsHTML()}</div><div class="hint" style="margin-top:6px">Phím <span class="kbd">V</span> để đổi nhanh</div>`) + E
-      : ((q&&q.an)?secHTML('q','Chất lượng tự động',`<dl class="ex"><dt>Điểm</dt><dd>${q.score}</dd><dt>Độ nét</dt><dd>${q.nf?q.fsharp+' (mặt)':q.sharp}</dd><dt>Độ sáng TB</dt><dd>${Math.round(q.lum*100)}%</dd><dt>Khuôn mặt</dt><dd>${q.nf}</dd><dt>Cảnh báo</dt><dd>${q.flags.map(f=>FLAG[f]).join(', ')||'—'}</dd></dl>`):'') + Hh + E;
+      : ((q&&q.an)?secHTML('q','Chất lượng tự động',qualHTML(q)):'') + Hh + E;
     const cv=el.querySelector('canvas.hist'); if(cv) drawHistogram(cv,r&&r.hist);
     el.querySelectorAll('input[name=hs]').forEach(i=>i.onchange=()=>setHS(i.value));
   };

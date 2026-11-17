@@ -113,7 +113,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .hud .btn{min-height:26px;min-width:26px;padding:1px 6px;border-color:transparent;background:none}
 .hud .btn.on{background:color-mix(in srgb,var(--accent) 22%,var(--panel-2));color:var(--fg)}
 .hud [hidden]{display:none!important}
-#zoomPct{font:12px var(--mono);min-width:44px;text-align:center;font-variant-numeric:tabular-nums}
+#zoomPct{font:12px var(--ui);min-width:44px;text-align:center;font-variant-numeric:tabular-nums}
 #cropBar{position:absolute;left:50%;top:10px;transform:translateX(-50%);display:flex;gap:8px;align-items:center;background:var(--panel);border:1px solid var(--accent);border-radius:4px;padding:5px 6px 5px 12px;font-size:13px;max-width:calc(100% - 20px)}
 
 /* rail */
@@ -158,7 +158,7 @@ body.dragging .gap.over{width:44px;background:var(--accent)}
 #props h3{font:600 13px var(--ui);color:var(--fg);margin:18px 0 8px;padding-top:12px;border-top:1px solid var(--line)}
 .f{display:grid;grid-template-columns:82px minmax(0,1fr) 42px;gap:8px;align-items:center;margin-bottom:6px;font-size:13px}
 .f label{color:var(--muted)}
-.f output{font:12px var(--mono);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.f output{font:12px var(--ui);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 .f input[type=range]{width:100%;accent-color:var(--accent);margin:0}
 @media (max-width:1600px){ .f:has(>input[type=range]){grid-template-columns:minmax(0,1fr) 46px;row-gap:2px} .f:has(>input[type=range])>label{grid-column:1/-1} }
 .f.two{grid-template-columns:82px minmax(0,1fr)}
@@ -1571,9 +1571,10 @@ function drawTemplateThumb(c,t){const unit=48,H=unit*5/4,list=t.grid?gridItems(t
   x.fillStyle=t.bg.a;x.fillRect(0,0,c.width,c.height);const dk=t.bg.a==='#16181d';
   for(const s of list){const px=s.x*k,py=s.y*c.height,pw=s.w*k,ph=s.sq?pw:s.h*c.height;
     x.save();x.translate(px+pw/2,(s.sq?py:py+ph/2));x.rotate(rad(s.rot||0));
-    if(s.t==='p'){const g=x.createLinearGradient(-pw/2,-ph/2,pw/2,ph/2);g.addColorStop(0,'#8c9db3');g.addColorStop(1,'#c9a27c');x.fillStyle=g;x.beginPath();
+    if(s.t==='p'){x.fillStyle=dk?'#5A6270':'#A9B3C1';x.beginPath();
       if(s.mask==='circle')x.arc(0,0,pw/2,0,7);else if(s.mask==='arch')x.roundRect(-pw/2,-ph/2,pw,ph,[pw/2,pw/2,0,0]);else x.rect(-pw/2,-ph/2,pw,ph);x.fill();
-      if(s.bw){x.strokeStyle=s.bc==='#ffffff'&&t.bg.a==='#ffffff'?'#c8ccd3':s.bc;x.lineWidth=2;x.stroke()}}
+      if(s.bw){x.strokeStyle=s.bc==='#ffffff'&&t.bg.a==='#ffffff'?'#c8ccd3':s.bc;x.lineWidth=2;x.stroke()}
+      else{x.strokeStyle=dk?'rgba(255,255,255,.55)':'rgba(30,34,42,.6)';x.lineWidth=2;x.stroke()}}
     else if(s.t==='t'){x.fillStyle=s.color&&s.color!=='#16181d'?s.color:(dk?'#fff':'#333');x.fillRect(-pw/2,-5,pw*.8,(s.size||60)/16)}
     else{x.fillStyle=s.fill;x.globalAlpha=s.opacity||1;x.fillRect(-pw/2,-ph/2,pw,ph)}
     x.restore()}
