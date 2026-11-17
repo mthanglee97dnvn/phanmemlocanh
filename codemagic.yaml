@@ -47,7 +47,7 @@ definitions:
     - name: Cài Python 3.12 (python.org, universal2)
       script: |
         set -e
-        curl -fL --retry 3 -o py.pkg https://www.python.org/ftp/python/3.12.10/python-3.12.10-macos11.pkg
+        curl -fL --http1.1 --retry 6 --retry-all-errors --retry-delay 10 --connect-timeout 30 -o py.pkg https://www.python.org/ftp/python/3.12.10/python-3.12.10-macos11.pkg
         sudo installer -pkg py.pkg -target /
     - name: Cài thư viện (đúng chip $LABEL)
       script: |
@@ -70,15 +70,15 @@ definitions:
       script: |
         set -e
         mkdir -p app/models
-        curl -fL --retry 3 -o app/models/yunet.onnx   https://media.githubusercontent.com/media/opencv/opencv_zoo/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx
-        curl -fL --retry 3 -o app/models/sface.onnx   https://media.githubusercontent.com/media/opencv/opencv_zoo/main/models/face_recognition_sface/face_recognition_sface_2021dec.onnx
-        curl -fL --retry 3 -o app/models/lbfmodel.yaml https://raw.githubusercontent.com/kurnianggoro/GSOC2017/master/data/lbfmodel.yaml
-        curl -fL --retry 3 -o app/models/ferplus.onnx https://media.githubusercontent.com/media/onnx/models/main/validated/vision/body_analysis/emotion_ferplus/model/emotion-ferplus-8.onnx
+        curl -fL --http1.1 --retry 6 --retry-all-errors --retry-delay 10 --connect-timeout 30 -o app/models/yunet.onnx   https://media.githubusercontent.com/media/opencv/opencv_zoo/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx
+        curl -fL --http1.1 --retry 6 --retry-all-errors --retry-delay 10 --connect-timeout 30 -o app/models/sface.onnx   https://media.githubusercontent.com/media/opencv/opencv_zoo/main/models/face_recognition_sface/face_recognition_sface_2021dec.onnx
+        curl -fL --http1.1 --retry 6 --retry-all-errors --retry-delay 10 --connect-timeout 30 -o app/models/lbfmodel.yaml https://raw.githubusercontent.com/kurnianggoro/GSOC2017/master/data/lbfmodel.yaml
+        curl -fL --http1.1 --retry 6 --retry-all-errors --retry-delay 10 --connect-timeout 30 -o app/models/ferplus.onnx https://media.githubusercontent.com/media/onnx/models/main/validated/vision/body_analysis/emotion_ferplus/model/emotion-ferplus-8.onnx
         test $(wc -c < app/models/sface.onnx) -gt 1000000
         test $(wc -c < app/models/ferplus.onnx) -gt 1000000
         # Phân loại cảnh (CLIP) — tuỳ chọn: tải nếu đã host, không có thì bỏ qua (tính năng tự tắt)
-        curl -fL --retry 3 -o app/models/clip_vision.onnx https://github.com/mthanglee97dnvn/cullcollage-releases/releases/download/models/clip_vision.onnx || echo "(chưa có clip_vision.onnx - bỏ qua)"
-        curl -fL --retry 3 -o app/models/clip_text.npz   https://github.com/mthanglee97dnvn/cullcollage-releases/releases/download/models/clip_text.npz   || echo "(chưa có clip_text.npz - bỏ qua)"
+        curl -fL --http1.1 --retry 6 --retry-all-errors --retry-delay 10 --connect-timeout 30 -o app/models/clip_vision.onnx https://github.com/mthanglee97dnvn/cullcollage-releases/releases/download/models/clip_vision.onnx || echo "(chưa có clip_vision.onnx - bỏ qua)"
+        curl -fL --http1.1 --retry 6 --retry-all-errors --retry-delay 10 --connect-timeout 30 -o app/models/clip_text.npz   https://github.com/mthanglee97dnvn/cullcollage-releases/releases/download/models/clip_text.npz   || echo "(chưa có clip_text.npz - bỏ qua)"
     - name: Đóng gói .app (ký ad-hoc, bắt buộc với chip Apple)
       script: |
         set -e
