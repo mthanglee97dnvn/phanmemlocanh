@@ -114,6 +114,14 @@ Thêm mới:
 - Lệnh đọc dùng GET; lệnh ghi dùng POST và luôn gửi kèm thân (bài học từ lỗi "Not Found" ở 1.2.2).
 - Tác giả commit: MThanglee.
 
+## Đọc sao từ Photo Mechanic / Lightroom (theo câu trả lời của anh Thắng)
+Anh Thắng chấm sao các đám cũ trong Photo Mechanic, các đám gần đây trong Cull & Collage. Để học được cả các đám cũ (và để người mua chuyển từ Photo Mechanic sang mà vẫn giữ sao cũ), app **đọc sao có sẵn** khi quét thư mục:
+- Đọc `xmp:Rating` từ file `.xmp` đi kèm (cùng tên, đuôi `.xmp`/`.XMP`, kể cả kiểu `ảnh.ARW.xmp`) hoặc XMP nhúng trong JPEG.
+- Chỉ đặt sao cho ảnh đang 0 sao trong app; không ghi đè sao đã chấm trong app. Rating âm (Lightroom "rejected") → ✕.
+- Sao đọc vào được coi là người chấm (`rsrc=0`).
+- Muốn có dữ liệu học, mỗi đám cũ cần được **mở trong app một lần** để app đo ảnh (và tính luôn vector CLIP lúc ảnh cache còn đó). Hộp "Gu chọn ảnh" ghi rõ điều này.
+- Nếu một đám chấm sao ở cả hai nơi, giữ sao trong app.
+
 ## Quyết định của Claude sau vòng đọc soát (anh Thắng xem lại)
 - **CLIP cho các đám cũ:** chỉ tính khi còn ảnh cache, hoặc khi đám đó được mở lại. Không đọc lại ảnh gốc của mọi đám cũ, vì ảnh có thể nằm trên ổ đã rút. Vì vậy mô hình gồm **hai bản trong cùng một file**:
   - bản "đầy đủ" (các số đo + CLIP), dùng khi ảnh có CLIP;
