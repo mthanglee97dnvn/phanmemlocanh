@@ -82,7 +82,7 @@ assert.deepEqual([...L].sort(sortCmp('type',true)).map(p=>p.id),[1,2,3]);
 assert.deepEqual([...L].sort(sortCmp('time',true)).map(p=>p.id),[2,3,1]);
 ```
 - [ ] **Step 2: Chạy** → FAIL (`sortCmp` chưa có).
-- [ ] **Step 3: Cài `sortCmp`**: chuyển các comparator hiện có vào; `type` = RAW trước, rồi `taken`, rồi tên (numeric); `rev` đảo dấu toàn bộ kết quả. `applyView` dùng `sortCmp(S.filter==='odd'?'oddcam':S.sort, S.rev)` (đưa comparator của Task 1 vào khoá `oddcam`, không đảo khi `odd`… vẫn theo `S.rev` cho nhất quán).
+- [ ] **Step 3: Cài `sortCmp`**: chuyển các comparator hiện có vào; `type` = RAW trước, rồi `taken`, rồi tên (numeric); `rev` đảo dấu toàn bộ kết quả. `applyView` dùng `sortCmp(S.filter==='odd'?'oddcam':S.sort, S.rev)` (comparator của Task 1 thành khoá `oddcam`; `S.rev` áp cho mọi khoá, kể cả `oddcam`).
 - [ ] **Step 4: Chạy** → `ok`.
 - [ ] **Step 5: Giao diện**: `<option value="type">Loại file (RAW trước)</option>`; `<label class="rev" title="Đảo chiều sắp xếp"><input type="checkbox" id="fRev"> Đảo</label>` sau `#fSort`; `S.rev=lsGet('ps.sortRev','0')==='1'`; onchange lưu `lsSet` + `applyView()`. Kiểm tra thanh công cụ không tràn ở ngưỡng `@container bar (max-width:1200px)` (ẩn chữ "Đảo", giữ ô tick, như `.lbl`).
 - [ ] **Step 6: Playwright**: chọn "Loại file", tick Đảo → JPEG lên trước; tải lại trang → ô Đảo vẫn tick.
