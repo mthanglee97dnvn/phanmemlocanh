@@ -22,6 +22,12 @@ from .errors import friendly
 from .db import DB, HOME
 from .online import Online
 
+# thư mục hệ thống/phần mềm: bỏ qua khi dò tìm thư mục ảnh được kéo thả (đỡ tốn thời gian, không bao giờ chứa ảnh khách)
+_LOCATE_SKIP = {"windows", "program files", "program files (x86)", "programdata", "appdata", "application data",
+                "system volume information", "recovery", "perflogs", "msocache", "intel", "drivers", "node_modules",
+                "library", "system", "applications", "private", "usr", "bin", "sbin", "cores", "dev", "opt",
+                "cache", "caches", "temp", "tmp"}
+
 THUMBS = HOME / "thumbs"
 COVERS = HOME / "covers"   # ảnh bìa catalog: giữ qua các lần mở app, khác với THUMBS
 FACES = HOME / "faces"
@@ -348,7 +354,33 @@ class Library:
                             missing=not root.startswith("\\\\") and not os.path.isdir(root)))  # không dò ổ mạng: có thể treo lâu
         return out
 
-    def locate(self, name: str, samples: list, budget: float = 10.0):
+    @staticmethod
+    def _explorer_paths():
+        """Windows: hỏi các cửa sổ File Explorer đang mở → (thư mục đang mở, mục đang chọn).
+        Người dùng kéo thả từ Explorer nên mục vừa kéo đang được chọn ở đó — đây là đường dẫn thật."""
+        if sys.platform != "win32":
+            return [], []
+        ps = ("[Console]::OutputEncoding=[Text.Encoding]::UTF8;"
+              "$s=New-Object -ComObject Shell.Application;"
+              "foreach($w in $s.Windows()){try{$f=$w.Document.Folder.Self.Path;if($f){'D|'+$f};"
+              "foreach($i in $w.Document.SelectedItems()){'S|'+$i.Path}}catch{}}")
+        try:
+            import subprocess
+            r = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", ps],
+                               capture_output=True, timeout=8, creationflags=0x08000000)   # CREATE_NO_WINDOW
+            txt = r.stdout.decode("utf-8", "replace")
+        except Exception:  # noqa: BLE001
+            return [], []
+        dirs, sel = [], []
+        for ln in txt.splitlines():
+            ln = ln.strip().lstrip("﻿")
+            if ln.startswith("D|"):
+                dirs.append(ln[2:])
+            elif ln.startswith("S|"):
+                sel.append(ln[2:])
+        return dirs, sel
+
+    def locate(self, name: str, samples: list, budget: float = 12.0):
         """Kéo thả thư mục từ Windows vào app: trình duyệt không cho biết đường dẫn thật, chỉ có tên thư mục và vài file bên trong.
         Tìm thư mục cùng tên quanh các thư mục đã có trong Catalog (cùng ổ / cùng NAS, thường là anh em hoặc họ hàng gần),
         rồi xác nhận bằng tên + dung lượng file mẫu. Trả về đường dẫn hoặc None."""
@@ -371,7 +403,25 @@ class Library:
                     hit += 1
             return hit >= min(2, len(smp[:6]))
 
-        roots = [r["root"] for r in self.db.q("SELECT root FROM catalog ORDER BY opened DESC")]
+        # 1) Hỏi thẳng File Explorer (Windows): mục đang chọn / thư mục đang mở — nhanh và chính xác nhất
+        ex_dirs, ex_sel = self._explorer_paths()
+        for p in ex_sel:
+            try:
+                if os.path.isdir(p) and ok(p):
+                    return p
+                if not name and os.path.isfile(p) and ok(os.path.dirname(p)):   # thả file ảnh → thư mục chứa
+                    return os.path.dirname(p)
+            except OSError:
+                pass
+        for d in ex_dirs:
+            try:
+                c = os.path.join(d, name) if name else d
+                if os.path.isdir(c) and ok(c):
+                    return c
+            except OSError:
+                pass
+
+        roots = ex_dirs + [r["root"] for r in self.db.q("SELECT root FROM catalog ORDER BY opened DESC")]
         if self.status.get("root"):
             roots.insert(0, self.status["root"])
         bases, seen = [], set()
@@ -381,6 +431,8 @@ class Library:
             if p and k not in seen:
                 seen.add(k)
                 bases.append((p, depth))
+        for d in ex_dirs:   # bên trong các cửa sổ Explorer đang mở
+            add(d, 2)
         for lvl in range(1, 4):   # anh em trước, rồi họ hàng xa dần
             for r in roots:
                 p = r.rstrip("\\/")
@@ -399,21 +451,26 @@ class Library:
             try:
                 for e in os.scandir("/Volumes"):
                     if e.is_dir():
-                        add(e.path, 2)
+                        add(e.path, 2 if os.path.realpath(e.path) == "/" else 6)   # ổ hệ thống: dò nông
             except OSError:
                 pass
         if sys.platform == "win32":
             import string
-            for c in string.ascii_uppercase[2:]:
+            for c in string.ascii_uppercase[3:]:   # ổ dữ liệu (D:, E:…): ảnh thường nằm sâu theo năm/tháng/khách
                 d = f"{c}:\\"
                 if os.path.isdir(d):
-                    add(d, 2)
+                    add(d, 6)
+            add("C:\\", 2)   # ổ hệ thống: chỉ dò nông
+        # tìm theo chiều rộng, XEN KẼ từng tầng giữa mọi điểm dò (để một ổ lớn không ăn hết thời gian),
+        # giới hạn thời gian để ổ mạng chậm không làm treo
         visited = set()
-        for base, depth in bases:   # tìm theo chiều rộng, giới hạn thời gian để ổ mạng chậm không làm treo
-            level = [base]
-            for _ in range(depth + 1):
+        front = [[b] for b, _ in bases]
+        for lv in range(max((dp for _, dp in bases), default=0) + 1):
+            for bi, (base, depth) in enumerate(bases):
+                if lv > depth or not front[bi]:
+                    continue
                 nxt = []
-                for d in level:
+                for d in front[bi]:
                     if time.time() > end:
                         return None
                     k = os.path.normcase(d)
@@ -425,13 +482,14 @@ class Library:
                     try:
                         with os.scandir(d) as it:
                             for e in it:
-                                if not e.name.startswith((".", "$")) and e.is_dir(follow_symlinks=False):
+                                if not e.name.startswith((".", "$")) and e.name.lower() not in _LOCATE_SKIP \
+                                        and e.is_dir(follow_symlinks=False):
                                     if name and e.name.lower() == name.lower() and ok(e.path):
                                         return e.path
                                     nxt.append(e.path)
                     except OSError:
                         pass
-                level = nxt
+                front[bi] = nxt
         return None
 
     def catalog_remove(self, root: str):
