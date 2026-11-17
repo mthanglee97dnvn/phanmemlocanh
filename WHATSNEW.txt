@@ -1,33 +1,29 @@
 Cảm ơn bạn đã sử dụng MThanglee Cull & Collage.
 
-🖼️ Chèn logo thương hiệu vào Dàn trang (PNG & PSD)
-Thêm tab "Logo" trong Dàn trang: tải file PNG (nền trong suốt) hoặc PSD rồi bấm để chèn thẳng vào slide. File PSD được tự gộp phẳng, giữ phần nền trong suốt. Logo giữ nguyên tỉ lệ, không bị kéo méo, và được lưu kèm trong dự án nên xuất ra đúng chất lượng.
-• Vào Dàn trang → tab "Logo" → "Tải logo (PNG / PSD)" → bấm logo để chèn. Kéo góc để chỉnh cỡ, dùng "Khớp khung với logo" để bỏ viền thừa.
+✨ Giao diện gọn và dễ nhìn hơn
+Toàn bộ app được chỉnh lại cho đồng bộ: chữ to và rõ hơn, nhãn trên ảnh gọn lại, các nút được sắp xếp mạch lạc hơn để bạn tập trung vào ảnh.
+• Nhãn trên ảnh chia 3 màu dễ nhận: vàng = ảnh tốt nhất, đỏ = ảnh có lỗi (mờ, tối, cháy sáng, nhắm mắt), xám = thông tin (trùng, quay mặt).
+• Bỏ nhãn "1 mặt" lặp lại trên mọi ảnh — chỉ hiện khi ảnh có từ 2 người trở lên.
+• Khung "Chất lượng tự động" hiện điểm lớn kèm thanh điểm và các chỉ số trong từng ô, liếc là nắm được ngay.
 
-🎀 Tự phân loại ảnh không có người: Decor / Chi tiết / Vật phẩm
-Những ảnh không có nhân vật nào trong khung giờ được app tự nhận dạng và tách thành 3 nhóm — trang trí (phông, sân khấu, bàn tiệc), cận cảnh chi tiết (nhẫn, giày, thiệp, hoa cầm tay), và vật phẩm — để lọc ra thật nhanh.
-• Chọn tab "🎀 Decor", "💍 Cận cảnh chi tiết" hoặc "🎁 Vật phẩm" trong ô Lọc.
+👥 Thu gọn danh sách Người
+Kéo đường ranh giữa cột Người và lưới ảnh để thu gọn: cột chỉ còn ảnh đại diện kèm số ảnh của từng người, nhường thêm chỗ cho lưới ảnh.
+• Kéo sang trái để thu gọn, kéo sang phải để mở lại — hoặc nhấp đúp vào đường ranh để chuyển nhanh.
+• Rê chuột lên ảnh đại diện để xem tên. App nhớ cách bạn để cho lần mở sau.
 
-⭐ Tự chọn ảnh highlight của cô dâu & chú rể
-App tự nhận ra cô dâu–chú rể (hai người xuất hiện nhiều nhất) và lọc ra những ảnh đẹp nhất của họ — nét, có cảm xúc, không nhắm mắt/quay mặt — để đưa nhanh sang Dàn trang.
-• Chọn tab "⭐ Ảnh highlight" trong ô Lọc.
+🕑 Đồng bộ máy bằng ảnh chụp đồng hồ
+Ngoài cách tự dò, nay có thể chỉnh giờ từng máy bằng một tấm chụp vào đồng hồ có giây — giống Photo Mechanic.
+• Bấm "Đồng bộ máy" → mở tấm ảnh đồng hồ của máy đó → gõ giờ thấy trên đồng hồ → app tự tính độ lệch và áp cho mọi ảnh của máy.
+• Chỉnh tay theo ngày / giờ / phút / giây. Giờ chụp trong file gốc không bị sửa; file .xmp xuất ra ghi đúng giờ đã đồng bộ để Lightroom xếp đúng thứ tự.
 
-🎯 Hiện điểm lấy nét trên ảnh (phím F)
-Trong trình xem ảnh lớn, bấm F để hiện một ô vuông đỏ ngay chỗ ống kính bắt nét — liếc là biết ảnh có nét đúng chủ thể hay lấy nét trượt ra hậu cảnh, cull nhanh hơn hẳn.
-• Phím tắt mới: F = điểm nét, H = khung tên người, V = vùng cháy/tối.
+📁 Catalog & Lightroom
+• Danh sách "Lịch sử xuất ảnh đã lọc" có tiêu đề cột rõ ràng, dễ dò hơn.
+• Nút đổi tên thành "Thêm vào Lightroom".
 
-🕑 Đồng bộ thời gian nhiều máy (ekip nhiều máy ảnh)
-Khi ekip dùng nhiều máy mà đồng hồ mỗi máy đặt lệch nhau, ảnh trộn vào bị sai thứ tự. App tự so các khoảnh khắc cả ekip cùng bấm máy để tính độ lệch của từng máy và đưa mọi ảnh về một dòng thời gian chung — xếp đúng thứ tự, gom đúng loạt ảnh trùng giữa các máy.
-• Bấm "🕑 Đồng bộ máy" trên thanh công cụ → "Dò các máy" → xem độ lệch đề xuất → Áp dụng.
-• Giờ chụp trong file gốc không bị sửa; có thể "Bỏ đồng bộ" bất cứ lúc nào.
-
-😊 Ưu tiên ảnh có cảm xúc khi gom nhóm ảnh trùng
-Trong một loạt ảnh chụp liên tiếp gần giống nhau, app không chỉ giữ lại ảnh nét nhất nữa, mà ưu tiên ảnh bắt được cảm xúc — nụ cười tươi — đúng tinh thần ảnh cưới. Vẫn đảm bảo ảnh giữ lại đủ nét và ít người quay mặt.
-• Bật/tắt trong Tự động lọc ảnh → Tùy chỉnh nâng cao → "Ưu tiên ảnh có cảm xúc (nụ cười)".
-• Mặc định BẬT. Thư viện mới áp dụng ngay; thư viện cũ chỉ cần mở công tắc một lần là gom lại tức thì.
-
-🔄 Sửa lỗi ảnh dọc bị xem thành ngang
-Một số ảnh RAW (Canon .CR3) chụp dọc trước đây hiển thị nằm ngang trong app — nay đã đọc đúng chiều xoay như Lightroom.
+🧩 Dàn trang
+• Mẫu bố cục hiện rõ từng khung ảnh, nhìn là phân biệt được.
+• Bảng phím tắt thu gọn vào mục "Phím tắt", bấm để mở khi cần.
+• Nút "Xóa slide" tách riêng để tránh bấm nhầm.
 
 Cải thiện độ ổn định và sửa một số lỗi nhỏ.
 
