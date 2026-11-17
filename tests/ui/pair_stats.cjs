@@ -11,7 +11,7 @@ assert.deepEqual([...r.odd].sort(),[3,4]);
 assert.equal(r.byCam.get('A'),1); assert.equal(r.byCam.get('B'),1);
 r=pairStats([P(1,'a','A.JPG'),P(2,'a','B.JPG')]); assert.equal(r.raw,0); assert.equal(r.odd.size,0);
 r=pairStats([P(1,'a','A.ARW'),P(2,'a','A.HEIC'),P(3,'a','B.ARW')]); assert.deepEqual([...r.odd],[3]); assert.equal(r.byCam.get('Chưa dò máy'),1);
-if(src.includes('function sortCmp(')){
+{
   eval(grab(/^function sortCmp\(key,rev\)\{[\s\S]*?^\}/m).replace(/^function sortCmp/,'globalThis.sortCmp=function'));
   const L=[P(1,'a','B.JPG'),P(2,'a','A.ARW'),P(3,'a','C.ARW')]; L[0].taken=1;L[1].taken=3;L[2].taken=2;
   assert.deepEqual([...L].sort(sortCmp('type',false)).map(p=>p.id),[3,2,1]);
@@ -20,4 +20,4 @@ if(src.includes('function sortCmp(')){
   const O=[P(1,'a','Z.ARW','B'),P(2,'a','Y.ARW','A'),P(3,'a','X.JPG','A')]; O[0].taken=1;O[1].taken=5;O[2].taken=2;
   assert.deepEqual([...O].sort(sortCmp('oddcam',false)).map(p=>p.id),[3,2,1]);
   console.log('ok (pairStats + sortCmp)');
-} else console.log('ok (pairStats)');
+}

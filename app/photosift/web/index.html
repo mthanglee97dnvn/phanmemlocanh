@@ -319,6 +319,7 @@ details.adv{margin:6px 0;border-top:1px solid var(--line);padding-top:6px}detail
 .bar .grp label.hint{white-space:nowrap;margin-left:var(--s1)}
 .bar button{white-space:nowrap}
 @container bar (max-width:1440px){ .bar #bCull .lbl,.bar #bUndo .lbl,.bar #bUnrej .lbl{display:none} }
+.bar label.rev{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--mut);cursor:pointer;white-space:nowrap}.bar label.rev input{margin:0}
 .paircnt{white-space:nowrap;font-variant-numeric:tabular-nums;border:1px solid var(--line);background:var(--field);border-radius:6px;padding:4px 9px;font-size:12px;cursor:pointer}
 .paircnt.ok{color:#7cc57f;border-color:rgba(67,160,71,.45);cursor:default}.paircnt.warn{color:#f0a24a;border-color:rgba(240,162,74,.55)}
 .paircnt.on{background:rgba(240,162,74,.16)}.paircnt:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
@@ -530,8 +531,8 @@ html[data-theme=neutral] #xjcard{border-radius:18px}
     <div class="grp"><button id="bCat" aria-label="Catalog" title="Xem các thư mục đã lọc"><svg class="ic" aria-hidden="true"><use href="#i-lib"/></svg><span class="lbl">Catalog</span></button><button id="bOpen" aria-label="Mở thư mục"><svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg><span class="lbl">Mở thư mục</span></button><label class="hint"><input type="checkbox" id="cRec" checked> gồm thư mục con</label></div>
     <div class="grp"><select id="fFilter" title="Lọc ảnh — phím tắt S: nhảy nhanh giữa Tất cả và tab lọc gần nhất" aria-label="Lọc ảnh"></select><select id="fSort" title="Sắp xếp" aria-label="Sắp xếp">
       <option value="name">Tên file</option><option value="time">Thời gian chụp</option>
-      <option value="score">Điểm chất lượng (cao trước)</option><option value="sharp">Độ nét (cao trước)</option><option value="smile">Nụ cười (tươi nhất trước)</option>
-    </select><select id="fPair" title="Khi một ảnh có cả RAW và JPEG thì hiện bản nào" aria-label="Ưu tiên RAW hay JPEG">
+      <option value="score">Điểm chất lượng (cao trước)</option><option value="sharp">Độ nét (cao trước)</option><option value="smile">Nụ cười (tươi nhất trước)</option><option value="type">Loại file (RAW trước)</option>
+    </select><label class="rev" title="Đảo chiều sắp xếp"><input type="checkbox" id="fRev"><span class="lbl">Đảo</span></label><select id="fPair" title="Khi một ảnh có cả RAW và JPEG thì hiện bản nào" aria-label="Ưu tiên RAW hay JPEG">
       <option value="both">RAW + JPEG</option><option value="raw">Ưu tiên RAW</option><option value="jpeg">Ưu tiên JPEG</option>
     </select><button id="pairCnt" class="paircnt" type="button" hidden></button><button id="bCamSync" title="Đồng bộ thời gian giữa nhiều máy ảnh của ekip (đồng hồ mỗi máy lệch nhau) để các ảnh về đúng một dòng thời gian"><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg><span class="lbl">Đồng bộ máy</span></button></div>
     <div class="grp"><div class="qbox"><input id="qPhoto" type="search" inputmode="numeric" autocomplete="off" placeholder="Tìm mã ảnh… vd 3928" aria-label="Tìm ảnh theo mã số" title="Gõ mã số ảnh khách gửi (nhiều số cách nhau bởi dấu cách hoặc phẩy) để lọc nhanh ra đúng ảnh đó — rồi chọn và Xuất ảnh. Phím tắt: /"><svg class="ic qic" aria-hidden="true"><use href="#i-search"/></svg><button id="qClear" class="qclr" type="button" aria-label="Xoá ô tìm" tabindex="-1">✕</button></div><span id="qCount" class="hint" aria-live="polite" style="min-width:0;white-space:nowrap"></span></div>
@@ -685,9 +686,7 @@ function applyView(){
   updatePairCnt();
   const hp=pairHidden();
   let v = S.photos.filter(p=>!(hp&&hp.has(p.id)) && (S.keep.has(p.id)||matchFilter(p)) && (S.person===null || p.people.includes(S.person)) && matchQuery(p));
-  const cmp = S.filter==='odd' ? (a,b)=>(a.cam||'').localeCompare(b.cam||'')||(a.taken||0)-(b.taken||0)||a.name.localeCompare(b.name) : {name:(a,b)=>a.dir.localeCompare(b.dir)||a.name.localeCompare(b.name,undefined,{numeric:true}),
-               time:(a,b)=>(a.taken||0)-(b.taken||0)||a.name.localeCompare(b.name),
-               score:(a,b)=>b.score-a.score, sharp:(a,b)=>(b.nf?b.fsharp:b.sharp)-(a.nf?a.fsharp:a.sharp), smile:(a,b)=>((b.smile??-1)-(a.smile??-1))||(b.score-a.score)}[S.sort];
+  const cmp = sortCmp(S.filter==='odd'?'oddcam':S.sort, S.rev);
   v.sort(cmp); S.viewFull=v; S.view=stackView(v);   // viewFull: mọi ảnh khớp bộ lọc, kể cả ảnh nằm trong chồng
   const qc=document.getElementById('qCount'); if(qc) qc.textContent=(S.query||'').trim()?(v.length?fmt(v.length)+' ảnh khớp':'không khớp'):'';
   if(S.cur===null || !v.some(p=>p.id===S.cur)) S.cur = v.length ? v[0].id : null;
@@ -1853,6 +1852,16 @@ $('#bTheme').onclick=()=>{ const n=document.documentElement.dataset.theme==='neu
 /* ---------- điều khiển thanh trên ---------- */
 $('#fFilter').innerHTML = FILTERS.map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
 $('#fFilter').onchange=e=>{ S.filter=e.target.value; S.keep.clear(); if(S.filter!=='pv'){ const o=e.target.querySelector('option[value=pv]'); if(o) o.remove(); } if(S.filter!=='all'&&S.filter!=='pv') S.lastFilter=S.filter; applyView(); e.target.blur(); };
+/* So sánh để sắp xếp lưới; rev = đảo chiều (nút Đảo). oddcam: danh sách file lẻ cặp, theo máy rồi giờ. */
+function sortCmp(key,rev){
+  const name=(a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true});
+  const f={name:(a,b)=>a.dir.localeCompare(b.dir)||name(a,b),
+           time:(a,b)=>(a.taken||0)-(b.taken||0)||a.name.localeCompare(b.name),
+           type:(a,b)=>(RAWRE.test(b.name)-RAWRE.test(a.name))||(a.taken||0)-(b.taken||0)||name(a,b),
+           oddcam:(a,b)=>(a.cam||'').localeCompare(b.cam||'')||(a.taken||0)-(b.taken||0)||a.name.localeCompare(b.name),
+           score:(a,b)=>b.score-a.score, sharp:(a,b)=>(b.nf?b.fsharp:b.sharp)-(a.nf?a.fsharp:a.sharp), smile:(a,b)=>((b.smile??-1)-(a.smile??-1))||(b.score-a.score)}[key]||((a,b)=>0);
+  return rev?(a,b)=>f(b,a):f;
+}
 function updatePairCnt(){
   const ps=pairStats(S.photos), b=document.getElementById('pairCnt'); S.oddSet=ps.odd;
   if(S.filter==='odd'&&!ps.odd.size){ S.filter=S.prevFilter&&S.prevFilter!=='odd'?S.prevFilter:'all'; const sel=$('#fFilter'); if(sel) sel.value=S.filter; if(S.photos.length) toast('Đã đủ cặp RAW–JPEG'); }
@@ -1882,6 +1891,8 @@ function toggleFilter(){
 }
 { const w=$('#gridwrap'); w.setAttribute('role','listbox'); w.setAttribute('aria-multiselectable','true'); w.setAttribute('aria-label','Ảnh trong thư mục — dùng phím mũi tên để chọn, 0–5 chấm sao, X loại, Enter mở ảnh'); if(!w.hasAttribute('tabindex')) w.tabIndex=0; $('#grid')&&$('#grid').setAttribute('role','presentation'); }
 $('#fSort').onchange=e=>{ S.sort=e.target.value; applyView(); e.target.blur(); };
+S.rev=lsGet('ps.sortRev','0')==='1'; $('#fRev').checked=S.rev;
+$('#fRev').onchange=e=>{ S.rev=e.target.checked; lsSet('ps.sortRev',S.rev?'1':'0'); applyView(); e.target.blur(); };
 try{ S.pair=localStorage.getItem('ps_pair')||'both'; }catch(e){ S.pair='both'; } $('#fPair').value=S.pair;
 $('#fPair').onchange=e=>{ S.pair=e.target.value; try{ localStorage.setItem('ps_pair',S.pair); }catch(e){} applyView(); e.target.blur(); };
 /* ô tìm theo mã số ảnh */
