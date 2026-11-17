@@ -1,3 +1,5 @@
+✦ Chọn ảnh đẹp: gõ số ảnh cần giao, app đề xuất theo gu của bạn và ngày càng giống gu bạn
+⭐ Đọc sao cũ từ Photo Mechanic/Lightroom (.xmp)
 🗂 Đếm cặp RAW–JPEG ngay trên thanh công cụ, bấm để lọc ra file bị lẻ cặp
 🔀 Sắp xếp theo loại file (RAW trước) và nút Đảo chiều
 🕑 Đồng bộ giờ nhiều máy bằng khoảnh khắc chung: chọn hai tấm chụp cùng lúc là xong
