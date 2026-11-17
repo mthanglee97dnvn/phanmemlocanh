@@ -1,0 +1,34 @@
+Cảm ơn bạn đã sử dụng MThanglee Cull & Collage.
+
+🖼️ Chèn logo thương hiệu vào Dàn trang (PNG & PSD)
+Thêm tab "Logo" trong Dàn trang: tải file PNG (nền trong suốt) hoặc PSD rồi bấm để chèn thẳng vào slide. File PSD được tự gộp phẳng, giữ phần nền trong suốt. Logo giữ nguyên tỉ lệ, không bị kéo méo, và được lưu kèm trong dự án nên xuất ra đúng chất lượng.
+• Vào Dàn trang → tab "Logo" → "Tải logo (PNG / PSD)" → bấm logo để chèn. Kéo góc để chỉnh cỡ, dùng "Khớp khung với logo" để bỏ viền thừa.
+
+🎀 Tự phân loại ảnh không có người: Decor / Chi tiết / Vật phẩm
+Những ảnh không có nhân vật nào trong khung giờ được app tự nhận dạng và tách thành 3 nhóm — trang trí (phông, sân khấu, bàn tiệc), cận cảnh chi tiết (nhẫn, giày, thiệp, hoa cầm tay), và vật phẩm — để lọc ra thật nhanh.
+• Chọn tab "🎀 Decor", "💍 Cận cảnh chi tiết" hoặc "🎁 Vật phẩm" trong ô Lọc.
+
+⭐ Tự chọn ảnh highlight của cô dâu & chú rể
+App tự nhận ra cô dâu–chú rể (hai người xuất hiện nhiều nhất) và lọc ra những ảnh đẹp nhất của họ — nét, có cảm xúc, không nhắm mắt/quay mặt — để đưa nhanh sang Dàn trang.
+• Chọn tab "⭐ Ảnh highlight" trong ô Lọc.
+
+🎯 Hiện điểm lấy nét trên ảnh (phím F)
+Trong trình xem ảnh lớn, bấm F để hiện một ô vuông đỏ ngay chỗ ống kính bắt nét — liếc là biết ảnh có nét đúng chủ thể hay lấy nét trượt ra hậu cảnh, cull nhanh hơn hẳn.
+• Phím tắt mới: F = điểm nét, H = khung tên người, V = vùng cháy/tối.
+
+🕑 Đồng bộ thời gian nhiều máy (ekip nhiều máy ảnh)
+Khi ekip dùng nhiều máy mà đồng hồ mỗi máy đặt lệch nhau, ảnh trộn vào bị sai thứ tự. App tự so các khoảnh khắc cả ekip cùng bấm máy để tính độ lệch của từng máy và đưa mọi ảnh về một dòng thời gian chung — xếp đúng thứ tự, gom đúng loạt ảnh trùng giữa các máy.
+• Bấm "🕑 Đồng bộ máy" trên thanh công cụ → "Dò các máy" → xem độ lệch đề xuất → Áp dụng.
+• Giờ chụp trong file gốc không bị sửa; có thể "Bỏ đồng bộ" bất cứ lúc nào.
+
+😊 Ưu tiên ảnh có cảm xúc khi gom nhóm ảnh trùng
+Trong một loạt ảnh chụp liên tiếp gần giống nhau, app không chỉ giữ lại ảnh nét nhất nữa, mà ưu tiên ảnh bắt được cảm xúc — nụ cười tươi — đúng tinh thần ảnh cưới. Vẫn đảm bảo ảnh giữ lại đủ nét và ít người quay mặt.
+• Bật/tắt trong Tự động lọc ảnh → Tùy chỉnh nâng cao → "Ưu tiên ảnh có cảm xúc (nụ cười)".
+• Mặc định BẬT. Thư viện mới áp dụng ngay; thư viện cũ chỉ cần mở công tắc một lần là gom lại tức thì.
+
+🔄 Sửa lỗi ảnh dọc bị xem thành ngang
+Một số ảnh RAW (Canon .CR3) chụp dọc trước đây hiển thị nằm ngang trong app — nay đã đọc đúng chiều xoay như Lightroom.
+
+Cải thiện độ ổn định và sửa một số lỗi nhỏ.
+
+© Lê Minh Thắng — MTHANGLEE STUDIO

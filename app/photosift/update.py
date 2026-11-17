@@ -46,6 +46,51 @@ def _key(v: str):
     return tuple(parts)
 
 
+_FIX_LINE = "Sửa lỗi và chạy ổn định hơn."
+_PER_VER, _MAX_VER = 4, 6
+
+
+def _note_lines(body: str) -> tuple[list[str], bool]:
+    """Làm gọn ghi chú một bản: (dòng nổi bật tối đa 4, có dòng sửa lỗi chung không).
+    Giữ dòng mở đầu bằng biểu tượng; dòng "Sửa lỗi…/Cải thiện…" trơn coi là dòng chung."""
+    import re
+    body = re.sub(r"<!--.*?-->", "", body or "", flags=re.S)
+    keep, fix = [], False
+    for raw in body.splitlines():
+        s = raw.strip()
+        if not s or s.startswith(("•", "Cảm ơn", "©")):
+            continue
+        if s[0].isalnum():
+            if s.startswith(("Sửa lỗi", "Cải thiện")):
+                fix = True
+            continue
+        if len(keep) < _PER_VER:
+            keep.append(s)
+    return keep, fix
+
+
+def _changes(rels: list[dict], cur: str, latest: str) -> list[dict]:
+    """Gom dòng nổi bật của mọi bản mới hơn máy khách (cur < bản ≤ latest), bản mới nhất trước."""
+    lo, hi = _key(cur), _key(latest)
+    vers = sorted((r for r in rels if lo < _key(str(r.get("tag_name", ""))) <= hi),
+                  key=lambda r: _key(str(r.get("tag_name", ""))), reverse=True)
+    out, fix, more = [], False, 0
+    for r in vers:
+        lines, f = _note_lines(str(r.get("body") or ""))
+        fix = fix or f
+        if not lines:
+            continue
+        if len(out) >= _MAX_VER:
+            more += 1
+            continue
+        out.append({"ver": str(r.get("tag_name", "")).lstrip("vV"), "lines": lines})
+    if more:
+        out.append({"ver": "", "lines": [f"…và {more} bản trước nữa"]})
+    if fix:
+        out.append({"ver": "", "lines": [_FIX_LINE]})
+    return out
+
+
 class Updater:
     def __init__(self):
         self.info = build_info()
@@ -61,7 +106,7 @@ class Updater:
 
     def check(self, force=False) -> dict:
         cur, repo = self.info["version"], self.info["repo"]
-        base = dict(current=cur, available=False, latest=cur, notes="", size=0, error="")
+        base = dict(current=cur, available=False, latest=cur, notes="", changes=[], size=0, error="")
         if not repo:
             return dict(base, error="Bản này chưa gắn nơi cập nhật.")
         with self.lock:
@@ -79,7 +124,8 @@ class Updater:
             asset = next((a for a in rel.get("assets", []) if a["name"].lower().endswith(want)
                           and a["browser_download_url"].startswith(prefix)), None)
             tag = str(rel.get("tag_name", "")).lstrip("vV")
-            out = dict(base, latest=tag or cur, notes=str(rel.get("body") or "")[:2000])
+            out = dict(base, latest=tag or cur, notes=str(rel.get("body") or "")[:2000],
+                       changes=_changes(rels, cur, tag or cur))
             if asset and tag and _key(tag) > _key(cur):
                 out.update(available=True, size=asset.get("size", 0), asset=asset["browser_download_url"],
                            name=os.path.basename(asset["name"]), digest=str(asset.get("digest") or ""))
@@ -99,7 +145,7 @@ class Updater:
         return out
 
     def public(self, r: dict) -> dict:
-        return {k: v for k, v in r.items() if k in ("current", "available", "latest", "notes", "size", "error")}
+        return {k: v for k, v in r.items() if k in ("current", "available", "latest", "notes", "changes", "size", "error")}
 
     def start(self) -> dict:
         r = self.check()
