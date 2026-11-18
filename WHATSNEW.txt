@@ -1,1 +1,1 @@
-📱 Điện thoại: chấm Giữ/Loại/sao không còn thông báo đè lên ảnh — hoàn tác bằng nút ↶ trên cùng
+🔄 Tự ghi .xmp cạnh ảnh gốc khi chấm sao/loại/nhãn — máy khác trong mạng LAN mở cùng thư mục thấy ngay kết quả lọc (như Photo Mechanic)
