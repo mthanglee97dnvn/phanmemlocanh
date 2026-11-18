@@ -1,3 +1,3 @@
-✦ Chọn ảnh đẹp: gõ số ảnh cần giao, app đề xuất theo gu của bạn và ngày càng giống gu bạn
-⭐ Đọc sao cũ từ Photo Mechanic/Lightroom (.xmp)
-🖥 Thanh công cụ tự xuống dòng trên màn hình laptop, không còn bị cắt nút Xuất ảnh
+📱 Lọc ảnh trên điện thoại như trên máy tính: lưới ảnh nhanh, vuốt chấm sao, chụm phóng soi nét tới 100%
+✦ Tự động lọc và Chọn ảnh đẹp ngay trên điện thoại, có hoàn tác
+🖼 iPad: lưới và ảnh lớn chia đôi màn hình
