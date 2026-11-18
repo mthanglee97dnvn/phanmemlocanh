@@ -23,6 +23,7 @@ from . import taste
 from .db import DB, HOME
 from .models import path as _model_path
 from .online import Online
+from .xmpsync import _xmp_parse
 
 # thư mục hệ thống/phần mềm: bỏ qua khi dò tìm thư mục ảnh được kéo thả (đỡ tốn thời gian, không bao giờ chứa ảnh khách)
 _LOCATE_SKIP = {"windows", "program files", "program files (x86)", "programdata", "appdata", "application data",
@@ -118,18 +119,6 @@ def _thread_prio(level: int):
 def _low_prio():
     _thread_prio(-1)   # THREAD_PRIORITY_BELOW_NORMAL
 
-
-
-_XMP_ATTR = re.compile(rb"""xmp:Rating\s*=\s*["']\s*(-?\d+(?:\.\d+)?)""")
-_XMP_ELEM = re.compile(rb"<xmp:Rating>\s*(-?\d+(?:\.\d+)?)\s*</xmp:Rating>")
-
-
-def _xmp_parse(data: bytes):
-    m = _XMP_ATTR.search(data) or _XMP_ELEM.search(data)
-    if not m:
-        return None
-    v = float(m.group(1))
-    return -1 if v < 0 else min(5, int(round(v)))
 
 
 def read_xmp_rating(path: str):
