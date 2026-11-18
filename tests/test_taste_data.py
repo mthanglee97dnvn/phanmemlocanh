@@ -97,7 +97,8 @@ def test_scan_imports_xmp_for_fresh_only():
     import inspect
     from photosift.library import Library
     src = inspect.getsource(Library._scan)
-    assert src.count("fresh.append") == 2 and "args=(ids if first else fresh," in src   # sau lượt đầu: chỉ ảnh mới/đổi
+    # sao cũ (XMP nhúng JPEG…) sau lượt đầu chỉ ảnh mới/đổi; .xmp đi kèm thì đọc lại mỗi lần (theo mtime)
+    assert src.count("fresh.append") == 2 and "args=(ids, ids if first else fresh," in src
 
 
 def _clip_setup(lib_with, monkeypatch, tmp_path, n=3, with_prev=(0, 1)):

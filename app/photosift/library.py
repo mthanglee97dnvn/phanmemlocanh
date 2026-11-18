@@ -24,7 +24,7 @@ from .db import DB, HOME
 from .models import path as _model_path
 from .online import Online
 from collections import OrderedDict
-from .xmpsync import _xmp_parse, merge_xmp, sidecar, write_atomic
+from .xmpsync import _xmp_parse, merge_xmp, read_sidecar, sidecar, write_atomic
 
 # thư mục hệ thống/phần mềm: bỏ qua khi dò tìm thư mục ảnh được kéo thả (đỡ tốn thời gian, không bao giờ chứa ảnh khách)
 _LOCATE_SKIP = {"windows", "program files", "program files (x86)", "programdata", "appdata", "application data",
@@ -606,12 +606,12 @@ class Library:
 
         # nền: không làm chậm tiến độ quét. Lần đầu quét thư mục từ bản có đọc .xmp: đọc cho mọi ảnh còn 0 sao
         # (đám cũ đã chấm bằng Photo Mechanic/Lightroom trước bản này); sau đó chỉ ảnh mới/đổi.
+        # Mỗi lần mở: đọc lại .xmp đi kèm ảnh nào mới hơn lần trước (kết quả lọc từ máy khác trong mạng LAN).
         xkey = "xmp_done:" + root
         first = not db.one("SELECT 1 FROM meta WHERE k=?", (xkey,))
-        if first or fresh:
-            self._xmp_thread = threading.Thread(target=self._xmp_pass, args=(ids if first else fresh, xkey if first else None),
-                                                daemon=True)
-            self._xmp_thread.start()
+        self._xmp_thread = threading.Thread(target=self._xmp_pass, args=(ids, ids if first else fresh, xkey if first else None),
+                                            daemon=True)
+        self._xmp_thread.start()
         t0 = time.time()
         perf = dict(t=round(t0), root=root, total=len(ids), todo=len(todo), cached=sum(1 for t in todo if t[2]),
                     cpu=os.cpu_count(), net=None, samples=[])
@@ -731,10 +731,47 @@ class Library:
         if not cancel.is_set():
             self._clip_backfill(cancel)
 
-    def _xmp_pass(self, ids, done_key=None):
-        """Nhập sao .xmp (nền); done_key: ghi vào meta khi xong để lượt đọc cả thư mục chỉ chạy một lần."""
-        if self._import_xmp_ratings(ids) and done_key:
+    def _xmp_pass(self, all_ids, ids, done_key=None):
+        """Nền: (1) .xmp đi kèm mới hơn lần đọc/ghi trước → lấy theo .xmp; (2) sao cũ (XMP nhúng JPEG…) cho ảnh 0 sao —
+        ids: lần đầu là cả thư mục, sau đó chỉ ảnh mới; done_key ghi vào meta để lượt (2) cả thư mục chỉ chạy một lần."""
+        try:
+            self._import_xmp(all_ids)
+        except Exception as e:  # noqa: BLE001
+            print("xmp đọc:", e, file=sys.stderr)
+        if ids and self._import_xmp_ratings(ids) and done_key:
             self.db.x("INSERT OR REPLACE INTO meta(k,v) VALUES(?,'1')", (done_key,))
+        elif not ids and done_key:
+            self.db.x("INSERT OR REPLACE INTO meta(k,v) VALUES(?,'1')", (done_key,))
+
+    def _import_xmp(self, ids):
+        """Đọc .xmp đi kèm; file đổi so với lần đọc/ghi trước (lệch mtime > 1.5 s — chịu được NAS làm tròn giờ) → ghi đè
+        sao (+ nhãn nếu là nhãn màu app hiểu) trong app. Không đánh dấu ghi lại .xmp. Trả số ảnh đã cập nhật."""
+        rows = []
+        for k in range(0, len(ids), 500):
+            part = ids[k:k + 500]
+            rows += self.db.q(f"SELECT id,path,xmt FROM photos WHERE id IN ({','.join('?' * len(part))})", part)
+        if not rows:
+            return 0
+        with ThreadPoolExecutor(max_workers=IO_WORKERS) as ex:
+            got = list(ex.map(lambda r: read_sidecar(r["path"]), rows))
+        upd, seen = [], []
+        for r, (rating, label, mt) in zip(rows, got):
+            if mt is None:
+                continue
+            if r["xmt"] is not None and abs(mt - r["xmt"]) <= 1.5:
+                continue
+            if rating is None:
+                seen.append((mt, r["id"]))   # .xmp không có sao (vd chỉ chú thích): chỉ nhớ mtime
+                continue
+            upd.append((rating, label, mt, r["id"]))
+        if seen:
+            self.db.many("UPDATE photos SET xmt=? WHERE id=?", seen)
+        if upd:
+            self.db.many("UPDATE photos SET rating=?, label=COALESCE(?, label), rsrc=0, xmt=? WHERE id=?", upd)
+            st = getattr(self, "status", None)
+            if st is not None:
+                st["xver"] = st.get("xver", 0) + 1
+        return len(upd)
 
     def _import_xmp_ratings(self, ids):
         """Nhập sao Photo Mechanic/Lightroom từ .xmp cho ảnh còn 0 sao trong app. rsrc giữ 0. Lỗi không làm hỏng lần quét.

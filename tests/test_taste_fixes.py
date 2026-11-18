@@ -284,7 +284,13 @@ def test_scan_after_xmp_done_reads_fresh_only(lib_with, tmp_path, monkeypatch):
     L._analyze_cached = lambda pid, img=None: True
     L._scan(root, True, threading.Event())
     _join_xmp(L)
-    assert [r["rating"] for r in L.db.q("SELECT rating FROM photos ORDER BY id")] == [0, 3, 0]
+    # .xmp đi kèm mới (chưa từng đọc) → nhập cho mọi ảnh, kể cả sau lượt đầu (kết quả lọc từ máy khác)
+    assert [r["rating"] for r in L.db.q("SELECT rating FROM photos ORDER BY id")] == [3, 3, 3]
+    # quét lại khi .xmp không đổi: không ghi đè sao vừa chấm trong app
+    L.db.x("UPDATE photos SET rating=5")
+    L._scan(root, True, threading.Event())
+    _join_xmp(L)
+    assert [r["rating"] for r in L.db.q("SELECT rating FROM photos ORDER BY id")] == [5, 5, 5]
 
 
 # ---------------------------------------------------------------- 5. ghi chú khi chưa phân tích xong
