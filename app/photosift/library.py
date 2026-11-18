@@ -23,7 +23,8 @@ from . import taste
 from .db import DB, HOME
 from .models import path as _model_path
 from .online import Online
-from .xmpsync import _xmp_parse
+from collections import OrderedDict
+from .xmpsync import _xmp_parse, merge_xmp, sidecar, write_atomic
 
 # thư mục hệ thống/phần mềm: bỏ qua khi dò tìm thư mục ảnh được kéo thả (đỡ tốn thời gian, không bao giờ chứa ảnh khách)
 _LOCATE_SKIP = {"windows", "program files", "program files (x86)", "programdata", "appdata", "application data",
@@ -64,6 +65,7 @@ DEFAULT_SETTINGS = dict(
     dup_seconds=20,      # ... và chụp cách nhau <= giây
     face_threshold=0.38, # ngưỡng cosine để coi là cùng một người
     emotion_priority=1,  # trong 1 loạt ảnh trùng, ưu tiên ảnh có cảm xúc (cười) làm ảnh giữ
+    xmp_sync=1,          # tự ghi sao/loại/nhãn ra .xmp cạnh ảnh gốc (máy khác mở cùng thư mục thấy kết quả lọc)
 )
 
 
@@ -196,6 +198,8 @@ class Library:
         self._view_reset()
         for k in range(2):
             threading.Thread(target=self._view_worker, args=(k == 0,), daemon=True).start()
+        self._xmp_init()
+        threading.Thread(target=self._xmp_writer, daemon=True).start()
 
     # ------------------------------------------------------------------ bộ nhớ đệm
     # Thumbnail, ảnh xem trước và kết quả phân tích được giữ giữa các lần mở app để mở lại thư mục là có ngay.
@@ -752,6 +756,114 @@ class Library:
         except Exception as e:  # noqa: BLE001
             print("xmp:", e, file=sys.stderr)
             return False
+
+    # ------------------------------------------------------------------ .xmp cạnh ảnh gốc (máy khác mở cùng thư mục)
+    XMP_ERR = "Không ghi được .xmp vào thư mục này — kiểm tra quyền ghi trên NAS"
+
+    def _xmp_init(self):
+        self._xq: OrderedDict[int, int] = OrderedDict()   # id → số thứ tự lần đánh dấu (để biết bị đánh dấu lại trong lúc ghi)
+        self._xseq = 0
+        self._xlock = threading.Lock()
+        self._xev = threading.Event()
+        self._xfirst = self._xlast = 0.0
+
+    def _xmp_mark(self, ids, force=False):
+        """Đánh dấu ảnh cần ghi .xmp (sao/nhãn vừa đổi). Luồng nền gom lại rồi ghi."""
+        if not force and not int((getattr(self, "settings", None) or {}).get("xmp_sync", 1)):
+            return
+        now = time.time()
+        with self._xlock:
+            for i in ids:
+                i = int(i)
+                self._xseq += 1
+                self._xq.pop(i, None)
+                self._xq[i] = self._xseq
+            if self._xq:
+                self._xlast = now
+                self._xfirst = self._xfirst or now
+        self._xev.set()
+
+    def xmp_flush(self):
+        """Ghi .xmp cho mọi ảnh đang chờ. Cặp RAW+JPEG cùng tên dùng chung một .xmp: thao tác sau cùng thắng.
+        Lỗi (NAS không cho ghi, rớt mạng) → giữ lại để thử lại, báo trong status."""
+        with self._xlock:
+            snap = list(self._xq.items())
+            self._xfirst = 0.0
+        if not snap:
+            return dict(written=0, failed=0)
+        rows = {}
+        ids = [i for i, _ in snap]
+        for k in range(0, len(ids), 500):
+            part = ids[k:k + 500]
+            for r in self.db.q(f"SELECT id,path,rating,label FROM photos WHERE id IN ({','.join('?' * len(part))})", part):
+                rows[r["id"]] = r
+        groups: OrderedDict[str, list] = OrderedDict()   # sidecar → [ids], giá trị lấy theo id cuối
+        for i, _ in snap:
+            r = rows.get(i)
+            if not r:
+                continue
+            sc = os.path.normcase(os.path.splitext(r["path"])[0])
+            g = groups.pop(sc, [])
+            g.append(i)
+            groups[sc] = g
+        written = failed = 0
+        done = []
+        for g in groups.values():
+            r = rows[g[-1]]
+            try:
+                p, exists = sidecar(r["path"])
+                old = open(p, "rb").read() if exists else None
+                new = merge_xmp(old, int(r["rating"] or 0), r["label"] or "")
+                if new is not None and new != old:
+                    write_atomic(p, new)
+                    written += 1
+                if new is not None or exists:
+                    mt = os.stat(p).st_mtime
+                    self.db.many("UPDATE photos SET xmt=? WHERE id=?", [(mt, i) for i in g])
+                done += g
+            except Exception as e:  # noqa: BLE001
+                failed += len(g)
+                print("xmp ghi:", r["path"], e, file=sys.stderr)
+        seq = dict(snap)
+        with self._xlock:
+            for i in done:
+                if self._xq.get(i) == seq.get(i):
+                    self._xq.pop(i, None)
+        if failed:
+            self.status["xmp_err"] = self.XMP_ERR
+        else:
+            self.status.pop("xmp_err", None)
+        return dict(written=written, failed=failed)
+
+    def xmp_rewrite_all(self):
+        """Nút «Ghi lại .xmp cho cả thư mục»: ghi lại mọi ảnh đã chấm/gắn nhãn (hoặc đã từng có .xmp)."""
+        ids = [r["id"] for r in self.db.q(
+            "SELECT p.id FROM photos p JOIN cur ON cur.id=p.id WHERE p.rating<>0 OR IFNULL(p.label,'')<>'' OR p.xmt IS NOT NULL")]
+        self._xmp_mark(ids, force=True)
+        r = self.xmp_flush()
+        return dict(n=len(ids), **r)
+
+    def _xmp_writer(self):
+        """Luồng nền: ghi khi 2 giây không có thay đổi mới hoặc đã chờ 10 giây; lỗi thì 15 giây sau thử lại."""
+        while True:
+            self._xev.wait(15)
+            self._xev.clear()
+            while True:
+                with self._xlock:
+                    pend, last, first = bool(self._xq), self._xlast, self._xfirst
+                if not pend:
+                    break
+                now = time.time()
+                if now - last >= 2 or (first and now - first >= 10) or not first:
+                    try:
+                        r = self.xmp_flush()
+                    except Exception as e:  # noqa: BLE001
+                        print("xmp:", e, file=sys.stderr)
+                        r = dict(failed=1)
+                    if r.get("failed"):
+                        break   # chờ 15 giây (hoặc lần chấm kế) rồi thử lại
+                else:
+                    time.sleep(0.3)
 
     def _smile_backfill(self, cancel):
         """Ảnh đã phân tích từ bản cũ chưa có điểm nụ cười: đo bổ sung từ ảnh cache (không đọc lại file RAW)."""
@@ -1577,9 +1689,11 @@ class Library:
     def set_rating(self, ids, rating: int):
         rating = max(-1, min(5, int(rating)))
         self.db.many("UPDATE photos SET rating=?, rsrc=0 WHERE id=?", [(rating, int(i)) for i in ids])
+        self._xmp_mark(ids)
 
     def set_ratings(self, pairs):
         self.db.many("UPDATE photos SET rating=?, rsrc=0 WHERE id=?", [(int(r), int(i)) for i, r in pairs])
+        self._xmp_mark(i for i, _ in pairs)
 
     # ------------------------------------------------------------------ đám (roll) cho học gu chọn ảnh
     @staticmethod
@@ -1887,6 +2001,7 @@ class Library:
         if not hit:
             return dict(ok=True, n=0, batch=0, ids=[])
         self.db.many("UPDATE photos SET rating=1, rsrc=1 WHERE id=?", [(r["id"],) for r in hit])
+        self._xmp_mark(r["id"] for r in hit)
         root = self._root()
         cur = self.db.x("INSERT INTO rate_log(root,time,ids) VALUES(?,?,?)",
                         (root, time.time(), json.dumps([r["path"] for r in hit])))
@@ -1907,6 +2022,7 @@ class Library:
             left += [r["id"] for r in self.db.q(f"SELECT id FROM photos WHERE rating=1 AND rsrc=1 "
                                                  f"AND path IN ({','.join('?' * len(part))})", part)]
         self.db.many("UPDATE photos SET rating=0, rsrc=0 WHERE id=?", [(i,) for i in left])
+        self._xmp_mark(left)
         self.db.x("DELETE FROM rate_log WHERE id=?", (row["id"],))
         return dict(ok=True, ids=left, n=len(left))
 
@@ -1966,6 +2082,7 @@ class Library:
         if not hit:
             return dict(id=0, n=0)
         self.db.many("UPDATE photos SET rating=-1 WHERE id=?", [(r["id"],) for r in hit])
+        self._xmp_mark(r["id"] for r in hit)
         cur = self.db.x("INSERT INTO cull_log(root,time,ids) VALUES(?,?,?)",
                         (self._root(), time.time(), json.dumps([r["path"] for r in hit])))
         batch = cur.lastrowid
@@ -1988,6 +2105,7 @@ class Library:
             return dict(ids=[], n=0)
         left = [r["id"] for r in self._rated("path", self._log_paths(row["ids"]), -1)]
         self.db.many("UPDATE photos SET rating=0 WHERE id=?", [(i,) for i in left])
+        self._xmp_mark(left)
         self.db.x("DELETE FROM cull_log WHERE id=?", (target,))
         return dict(ids=left, n=len(left))
 
@@ -1998,6 +2116,7 @@ class Library:
         if label not in LABELS:
             raise ValueError("nhãn không hợp lệ")
         self.db.many("UPDATE photos SET label=? WHERE id=?", [(label, int(i)) for i in ids])
+        self._xmp_mark(ids)
 
     # ------------------------------------------------------------------ ảnh nét cho trình xem
     VIEW_VERSION = 2   # 2: khớp méo ống kính trước khi ghép chi tiết RAW (bản 1 bị viền đôi)
