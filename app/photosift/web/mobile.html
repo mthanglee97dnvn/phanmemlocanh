@@ -452,6 +452,7 @@ function applySplit(){
 
 
 /* ---------- chấm sao (lạc quan, có hoàn tác) ---------- */
+// Xem từng tấm: không truyền label → không hiện thông báo đè lên ảnh; hoàn tác bằng nút ↶ trên cùng.
 // ops: [{id, from, to}] — gửi theo từng giá trị đích; lỗi thì trả lại như cũ
 function rateOps(ops,label){
   ops=ops.filter(function(o){return o.from!==o.to;});
@@ -560,17 +561,17 @@ function pickInGroup(id){
   groupOf(p).forEach(function(x){ if(x.id!==id&&(x.rating||0)===0) ops.push({id:x.id,from:0,to:-1}); });
   return ops;
 }
-function vKeep(){ var p=curP(); if(!p) return; var id=p.id; vStep(1); rateIds([id],(p.rating||0)>0?p.rating:1,'Giữ').catch(function(){}); }
-function vReject(){ var p=curP(); if(!p) return; var id=p.id; vStep(1); rateIds([id],-1,'Loại').catch(function(){}); }
+function vKeep(){ var p=curP(); if(!p) return; var id=p.id; vStep(1); rateIds([id],(p.rating||0)>0?p.rating:1).catch(function(){}); }
+function vReject(){ var p=curP(); if(!p) return; var id=p.id; vStep(1); rateIds([id],-1).catch(function(){}); }
 $('vBack').addEventListener('click',closeView);
 $('vPrev').addEventListener('click',function(){ vStep(-1); });
 $('vNext').addEventListener('click',function(){ vStep(1); });
 $('vKeep').addEventListener('click',vKeep);
 $('vRej').addEventListener('click',vReject);
 $('btnFocus').addEventListener('click',function(){ V.showFocus=!V.showFocus; lsSet('m.focus',V.showFocus?'1':'0'); vPaint(); });
-$('vstars').addEventListener('click',function(e){ var b=e.target.closest('button'); var p=curP(); if(!b||!p) return; var v=+b.dataset.v; rateIds([p.id],(p.rating||0)===v?0:v,v+' sao').catch(function(){}); });
+$('vstars').addEventListener('click',function(e){ var b=e.target.closest('button'); var p=curP(); if(!b||!p) return; var v=+b.dataset.v; rateIds([p.id],(p.rating||0)===v?0:v).catch(function(){}); });
 $('strip').addEventListener('click',function(e){ var b=e.target.closest('.sb'); if(b) openView(+b.dataset.id,true); });
-$('pickBtn').addEventListener('click',function(){ var p=curP(); if(!p) return; rateOps(pickInGroup(p.id),'Chọn tấm này').then(function(o){ if(o&&o.length) toast('Đã giữ tấm này, loại '+(o.length-1)+' tấm còn lại',undoLast); }).catch(function(){}); });
+$('pickBtn').addEventListener('click',function(){ var p=curP(); if(!p) return; rateOps(pickInGroup(p.id)).catch(function(){}); });
 function undoLast(){ if(typeof undoPop==='function') undoPop(); }
 $('vUndo').addEventListener('click',undoLast);
 
