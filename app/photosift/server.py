@@ -908,6 +908,8 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                         if r:
                             items.append(dict(path=r["path"], name=os.path.basename(r["path"]), w=r["w"], h=r["h"]))
                     return self._json(dict(items=items))
+                if u.path == "/api/xmp/all":   # nút «Ghi lại .xmp cho cả thư mục»
+                    return self._json(lib.xmp_rewrite_all())
                 if u.path == "/api/xmp":
                     return self._json(dict(written=lib.write_xmp(b["ids"])))
                 return self._send(404, b"not found", "text/plain")

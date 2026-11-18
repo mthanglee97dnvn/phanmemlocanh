@@ -584,7 +584,7 @@ button.lnk:hover{transform:none;color:var(--tx)}
     <div id="gridwrap"><div id="grid"></div></div>
     <aside id="info"><div id="infobody"></div></aside>
   </div>
-  <div id="status"><span id="sCount"></span><span id="sProg" class="hint"></span><button id="sStack" title="Gộp mỗi nhóm ảnh trùng thành một ô (ảnh tốt nhất ở trên). Phím G để mở / thu gọn nhóm đang chọn"></button><button id="sAdv" title="Sau khi chấm sao, loại hoặc gắn nhãn một ảnh, tự chuyển sang ảnh kế tiếp"></button><span id="sSel"></span><span id="sCur"></span><span id="sNet" title="Nhấp để kiểm tra lại kết nối mạng" style="cursor:pointer"></span><label id="sSize" title="Cỡ ảnh trong lưới"><span class="hint">Cỡ ảnh</span><input type="range" id="fSize" min="100" max="320" value="150" aria-label="Cỡ ảnh trong lưới"></label></div>
+  <div id="status"><span id="sCount"></span><span id="sProg" class="hint"></span><button id="sStack" title="Gộp mỗi nhóm ảnh trùng thành một ô (ảnh tốt nhất ở trên). Phím G để mở / thu gọn nhóm đang chọn"></button><button id="sAdv" title="Sau khi chấm sao, loại hoặc gắn nhãn một ảnh, tự chuyển sang ảnh kế tiếp"></button><span id="sSel"></span><span id="sCur"></span><span id="sXmp" role="button" tabindex="0" title="Ghi sao, ảnh loại và nhãn màu ra file .xmp cạnh ảnh gốc — máy khác mở cùng thư mục sẽ thấy kết quả lọc" style="cursor:pointer"></span><span id="sNet" title="Nhấp để kiểm tra lại kết nối mạng" style="cursor:pointer"></span><label id="sSize" title="Cỡ ảnh trong lưới"><span class="hint">Cỡ ảnh</span><input type="range" id="fSize" min="100" max="320" value="150" aria-label="Cỡ ảnh trong lưới"></label></div>
 </div>
 
 <div id="viewer">
@@ -902,6 +902,8 @@ function renderStatus(){
     (st.state==='scanning'?` • thumbnail ${Math.max(st.thumbs,st.quick||0)}/${st.total} • phân tích ${st.done}/${st.total} (chạy nền — bạn có thể chấm ảnh ngay)`:'');
   $('#sSel').textContent = S.sel.size>1 ? `${S.sel.size} đã chọn` : '';
   { let a=0,u=0; for(const q of S.photos){ if(q.rating>0)a++; else if(q.rating===0)u++; } $('#sProg').textContent=S.photos.length?`★ ${fmt(a)} · ✕ ${fmt(nRej)} · chưa chấm ${fmt(u)}`:''; }
+  { const x=$('#sXmp'), on=(S.settings||{}).xmp_sync??1;   // .xmp cạnh ảnh gốc: lỗi ghi → cảnh báo
+    x.textContent = st.xmp_err ? st.xmp_err : (on?'.xmp ✓':'.xmp tắt'); x.className = st.xmp_err ? 'warn' : 'hint'; }
   const net=$('#sNet'); net.innerHTML = st.online ? '<span class="ok">● Trực tuyến</span>' : '<span class="warn">● Ngoại tuyến: tạm khóa lọc tối, cháy sáng, nhắm mắt</span>';
   const p=S.by.get(S.cur);
   $('#sCur').textContent = p ? `${p.name} • ${p.w}×${p.h} • điểm ${p.score} • độ nét ${p.nf?p.fsharp+' (mặt)':p.sharp}` : '';
@@ -1536,6 +1538,19 @@ function pickFolder(start, onPick, title='Chọn thư mục'){
   if(!start&&nav.idx>=0) go(nav.hist[nav.idx],true); else go(start||'');
 }
 $('#bOpen').onclick=()=>pickFolder();
+function xmpBox(){
+  const on=(S.settings||{}).xmp_sync??1;
+  const m=modal(`<h3>File .xmp cạnh ảnh gốc</h3>
+   <p class="hint" style="max-width:440px">Sao, ảnh loại và nhãn màu được ghi ra file .xmp nằm cạnh ảnh gốc (như Photo Mechanic). Máy khác trong mạng LAN mở cùng thư mục sẽ thấy ngay kết quả lọc.</p>
+   ${S.status.xmp_err?`<div class="warn" style="margin:8px 0">${esc(S.status.xmp_err)}</div>`:''}
+   <label class="row" style="gap:8px;cursor:pointer"><input type="checkbox" id="xmpSync" ${on?'checked':''}> <span>Ghi .xmp vào thư mục ảnh gốc</span></label>
+   <div class="btns"><button id="xmpAll">Ghi lại .xmp cho cả thư mục</button><button onclick="this.closest('.back').remove()">Đóng</button></div>`);
+  m.querySelector('#xmpSync').onchange=async e=>{ const r=await api('/api/settings',{xmp_sync:e.target.checked?1:0}); S.settings=r.settings; renderStatus(); };
+  m.querySelector('#xmpAll').onclick=async e=>{ e.target.disabled=true;
+    try{ const r=await api('/api/xmp/all',{}); toast(r.failed?S.status.xmp_err||'Không ghi được .xmp':`Đã ghi .xmp cho ${fmt(r.n)} ảnh`); if(!r.failed){ delete S.status.xmp_err; renderStatus(); } }
+    catch(err){ toast(err.message,4000); } e.target.disabled=false; };
+}
+$('#sXmp').onclick=xmpBox; $('#sXmp').onkeydown=e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); xmpBox(); } };
 $('#sNet').onclick=async()=>{ toast('Đang kiểm tra kết nối mạng…'); try{ const r=await api('/api/online',{}); toast(r.online?'Đã có mạng — mở khóa lọc tối/sáng/nhắm mắt':'Vẫn chưa có mạng'); }catch(e){} poll(true); };
 
 /* ---------- tự động lọc ---------- */
@@ -2151,7 +2166,7 @@ async function poll(force){
     if(st.state==='scanning'){ clearTimeout(S.barT); S.barT=0; bar.style.width=st.total?(100*(st.done+st.thumbs)/(2*st.total))+'%':'0'; }
     else if(st.state==='done'&&was==='scanning'){ bar.style.width='100%'; S.barT=setTimeout(()=>{ S.barT=0; bar.style.width='0'; },1200); } // đầy thanh một lần rồi ẩn
     else if(!S.barT) bar.style.width='0';
-    const key=st.done+':'+st.thumbs+':'+(st.quick||0)+':'+st.state+':'+st.online, now=Date.now();
+    const key=st.done+':'+st.thumbs+':'+(st.quick||0)+':'+st.state+':'+st.online+':'+(st.xver||0), now=Date.now();
     const fin = was==='scanning' && st.state!=='scanning';
     if(force || fin || (key!==S.lastKey && (st.state!=='scanning' || now-(S.lastLoad||0)>1500))){
       S.lastKey=key; S.lastLoad=now; if(st.state!=='idle'){ await loadPhotos(); if(st.state!=='scanning'||!S.people.length||fin) await loadPeople(); }
