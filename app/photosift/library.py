@@ -769,6 +769,8 @@ class Library:
 
     def _xmp_mark(self, ids, force=False):
         """Đánh dấu ảnh cần ghi .xmp (sao/nhãn vừa đổi). Luồng nền gom lại rồi ghi."""
+        if not hasattr(self, "_xq"):   # Library dựng tay trong bài thử (chưa có hàng đợi)
+            return
         if not force and not int((getattr(self, "settings", None) or {}).get("xmp_sync", 1)):
             return
         now = time.time()
