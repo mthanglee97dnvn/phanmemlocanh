@@ -1,3 +1,1 @@
-📱 Lọc ảnh trên điện thoại như trên máy tính: lưới ảnh nhanh, vuốt chấm sao, chụm phóng soi nét tới 100%
-✦ Tự động lọc và Chọn ảnh đẹp ngay trên điện thoại, có hoàn tác
-🖼 iPad: lưới và ảnh lớn chia đôi màn hình
+📱 Điện thoại: chấm Giữ/Loại/sao không còn thông báo đè lên ảnh — hoàn tác bằng nút ↶ trên cùng
