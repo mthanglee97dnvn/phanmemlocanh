@@ -73,6 +73,7 @@ def _web(name: str) -> bytes:
             b = (WEB / name).read_bytes()
         _WEBC[name] = b
     return b
+LIB = [None]   # Library đang chạy (mac_main gọi ghi nốt .xmp trước khi thoát)
 LAST_SEEN = [time.time()]   # lần cuối giao diện hỏi trạng thái (để tự thoát khi đóng trình duyệt)
 IDLE_EXIT_S = 240
 WEB_SAFE = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
@@ -846,11 +847,11 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                     r = upd.install()
                     self._json(r)
                     if r.get("ok"):
-                        threading.Timer(0.4, lambda: os._exit(0)).start()
+                        threading.Timer(0.4, lambda: (lib.xmp_shutdown(5), os._exit(0))).start()
                     return
                 if u.path == "/api/quit":
                     self._json(dict(ok=True))
-                    threading.Timer(0.4, lambda: os._exit(0)).start()
+                    threading.Timer(0.4, lambda: (lib.xmp_shutdown(5), os._exit(0))).start()
                     return
                 if u.path == "/api/settings":
                     lib.set_settings(b)
@@ -942,6 +943,7 @@ def serve(port: int = 8765, open_browser: bool = True, folder: str | None = None
         print("Thiếu model:", ", ".join(missing), "- chạy: python -m photosift.models", file=sys.stderr)
         sys.exit(1)
     lib = Library()
+    LIB[0] = lib
     lic = License()
     token = secrets.token_urlsafe(18)
     httpd = None
@@ -1023,6 +1025,7 @@ def serve(port: int = 8765, open_browser: bool = True, folder: str | None = None
                         run_file.unlink()
                     except OSError:
                         pass
+                    lib.xmp_shutdown(5)
                     os._exit(0)
         threading.Thread(target=_idle, daemon=True).start()
     if folder and lic.ok():

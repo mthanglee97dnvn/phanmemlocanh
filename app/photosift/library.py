@@ -24,7 +24,8 @@ from .db import DB, HOME
 from .models import path as _model_path
 from .online import Online
 from collections import OrderedDict
-from .xmpsync import _xmp_parse, merge_xmp, read_sidecar, sidecar, write_atomic
+from . import xmpsync as _xs
+from .xmpsync import _xmp_parse, dir_names, merge_xmp, sidecar, write_atomic
 
 # thư mục hệ thống/phần mềm: bỏ qua khi dò tìm thư mục ảnh được kéo thả (đỡ tốn thời gian, không bao giờ chứa ảnh khách)
 _LOCATE_SKIP = {"windows", "program files", "program files (x86)", "programdata", "appdata", "application data",
@@ -312,6 +313,7 @@ class Library:
     # ------------------------------------------------------------------ cài đặt
     def set_settings(self, new: dict):
         regroup = any(k in new and new[k] != self.settings.get(k) for k in ("dup_hamming", "dup_seconds", "emotion_priority"))
+        xmp_was = self._xmp_on()
         for k, v in new.items():
             if k in DEFAULT_SETTINGS:
                 self.settings[k] = type(DEFAULT_SETTINGS[k])(v)
@@ -319,6 +321,8 @@ class Library:
             self._sfile.write_text(json.dumps(self.settings))
         except Exception:  # noqa: BLE001
             pass
+        if "xmp_sync" in new and hasattr(self, "_xq"):
+            self._xmp_settings_changed(xmp_was)
         if regroup:
             self.regroup()
 
@@ -735,6 +739,10 @@ class Library:
         """Nền: (1) .xmp đi kèm mới hơn lần đọc/ghi trước → lấy theo .xmp; (2) sao cũ (XMP nhúng JPEG…) cho ảnh 0 sao —
         ids: lần đầu là cả thư mục, sau đó chỉ ảnh mới; done_key ghi vào meta để lượt (2) cả thư mục chỉ chạy một lần."""
         try:
+            self.xmp_requeue()   # lần trước thoát app khi chưa ghi xong .xmp
+        except Exception as e:  # noqa: BLE001
+            print("xmp:", e, file=sys.stderr)
+        try:
             self._import_xmp(all_ids)
         except Exception as e:  # noqa: BLE001
             print("xmp đọc:", e, file=sys.stderr)
@@ -745,33 +753,58 @@ class Library:
 
     def _import_xmp(self, ids):
         """Đọc .xmp đi kèm; file đổi so với lần đọc/ghi trước (lệch mtime > 1.5 s — chịu được NAS làm tròn giờ) → ghi đè
-        sao (+ nhãn nếu là nhãn màu app hiểu) trong app. Không đánh dấu ghi lại .xmp. Trả số ảnh đã cập nhật."""
+        sao (+ nhãn nếu là nhãn màu app hiểu) trong app. Không đánh dấu ghi lại .xmp. Trả số ảnh đã cập nhật.
+        Liệt kê mỗi thư mục một lần, chỉ mở file có mtime đổi; ảnh vừa được chấm trong lúc đọc thì không bị ghi đè."""
         rows = []
         for k in range(0, len(ids), 500):
             part = ids[k:k + 500]
             rows += self.db.q(f"SELECT id,path,xmt FROM photos WHERE id IN ({','.join('?' * len(part))})", part)
         if not rows:
             return 0
+        names = {}
+        for r in rows:
+            d = os.path.dirname(r["path"])
+            if d not in names:
+                names[d] = dir_names(d)
+        rows = [r for r in rows if names[os.path.dirname(r["path"])]]   # thư mục không có .xmp nào: bỏ qua
+
+        def one(r):
+            try:
+                p, ok = sidecar(r["path"], names[os.path.dirname(r["path"])])
+                if not ok:
+                    return None
+                mt = os.stat(p).st_mtime
+                if r["xmt"] is not None and abs(mt - r["xmt"]) <= 1.5:
+                    return None
+                data = _xs._read_file(p)
+                return _xs._xmp_parse(data), _xs._label_parse(data), mt
+            except Exception:  # noqa: BLE001
+                return None
         with ThreadPoolExecutor(max_workers=IO_WORKERS) as ex:
-            got = list(ex.map(lambda r: read_sidecar(r["path"]), rows))
+            got = list(ex.map(one, rows))
+        q = getattr(self, "_xq", {})
         upd, seen = [], []
-        for r, (rating, label, mt) in zip(rows, got):
-            if mt is None:
+        for r, g in zip(rows, got):
+            if not g or r["id"] in q:   # đang chờ ghi = vừa chấm trong app → app thắng
                 continue
-            if r["xmt"] is not None and abs(mt - r["xmt"]) <= 1.5:
-                continue
+            rating, label, mt = g
             if rating is None:
-                seen.append((mt, r["id"]))   # .xmp không có sao (vd chỉ chú thích): chỉ nhớ mtime
-                continue
-            upd.append((rating, label, mt, r["id"]))
+                seen.append((mt, r["id"], r["xmt"]))   # .xmp không có sao (vd chỉ chú thích): chỉ nhớ mtime
+            else:
+                upd.append((rating, label, mt, r["id"], r["xmt"]))
         if seen:
-            self.db.many("UPDATE photos SET xmt=? WHERE id=?", seen)
+            self.db.many("UPDATE photos SET xmt=? WHERE id=? AND xmt IS ?", seen)
+        n = 0
         if upd:
-            self.db.many("UPDATE photos SET rating=?, label=COALESCE(?, label), rsrc=0, xmt=? WHERE id=?", upd)
+            with self.db.lock:
+                before = self.db.con.total_changes
+                self.db.many("UPDATE photos SET rating=?, label=COALESCE(?, label), rsrc=0, xmt=? "
+                             "WHERE id=? AND xmt IS ? AND xdirty=0", upd)
+                n = self.db.con.total_changes - before
             st = getattr(self, "status", None)
-            if st is not None:
+            if n and st is not None:
                 st["xver"] = st.get("xver", 0) + 1
-        return len(upd)
+        return n
 
     def _import_xmp_ratings(self, ids):
         """Nhập sao Photo Mechanic/Lightroom từ .xmp cho ảnh còn 0 sao trong app. rsrc giữ 0. Lỗi không làm hỏng lần quét.
@@ -800,31 +833,50 @@ class Library:
     def _xmp_init(self):
         self._xq: OrderedDict[int, int] = OrderedDict()   # id → số thứ tự lần đánh dấu (để biết bị đánh dấu lại trong lúc ghi)
         self._xseq = 0
-        self._xlock = threading.Lock()
+        self._xlock = threading.Lock()      # hàng đợi
+        self._xflock = threading.Lock()     # chỉ một lượt ghi cùng lúc (luồng nền, nút Ghi lại, lúc thoát)
         self._xev = threading.Event()
         self._xfirst = self._xlast = 0.0
 
+    def _xmp_on(self):
+        return bool(int((getattr(self, "settings", None) or {}).get("xmp_sync", 1)))
+
     def _xmp_mark(self, ids, force=False):
-        """Đánh dấu ảnh cần ghi .xmp (sao/nhãn vừa đổi). Luồng nền gom lại rồi ghi."""
+        """Ảnh vừa đổi sao/nhãn: ghi cờ xdirty vào DB (còn nguyên nếu app thoát trước khi kịp ghi .xmp) và đưa vào
+        hàng đợi cho luồng nền (khi công tắc bật, hoặc force = nút Ghi lại)."""
         if not hasattr(self, "_xq"):   # Library dựng tay trong bài thử (chưa có hàng đợi)
             return
-        if not force and not int((getattr(self, "settings", None) or {}).get("xmp_sync", 1)):
+        ids = [int(i) for i in ids]
+        if not ids:
+            return
+        self.db.many("UPDATE photos SET xdirty=1 WHERE id=?", [(i,) for i in ids])
+        if not force and not self._xmp_on():
             return
         now = time.time()
         with self._xlock:
             for i in ids:
-                i = int(i)
                 self._xseq += 1
                 self._xq.pop(i, None)
                 self._xq[i] = self._xseq
-            if self._xq:
-                self._xlast = now
-                self._xfirst = self._xfirst or now
+            self._xlast = now
+            self._xfirst = self._xfirst or now
         self._xev.set()
+
+    def xmp_requeue(self):
+        """Đưa lại vào hàng đợi các ảnh còn cờ xdirty (lần trước thoát app khi chưa ghi xong, hoặc NAS lỗi)."""
+        if not self._xmp_on():
+            return 0
+        ids = [r["id"] for r in self.db.q("SELECT p.id FROM photos p JOIN cur ON cur.id=p.id WHERE p.xdirty=1")]
+        self._xmp_mark(ids)
+        return len(ids)
 
     def xmp_flush(self):
         """Ghi .xmp cho mọi ảnh đang chờ. Cặp RAW+JPEG cùng tên dùng chung một .xmp: thao tác sau cùng thắng.
         Lỗi (NAS không cho ghi, rớt mạng) → giữ lại để thử lại, báo trong status."""
+        with self._xflock:
+            return self._xmp_flush()
+
+    def _xmp_flush(self):
         with self._xlock:
             snap = list(self._xq.items())
             self._xfirst = 0.0
@@ -834,40 +886,58 @@ class Library:
         ids = [i for i, _ in snap]
         for k in range(0, len(ids), 500):
             part = ids[k:k + 500]
-            for r in self.db.q(f"SELECT id,path,rating,label FROM photos WHERE id IN ({','.join('?' * len(part))})", part):
+            for r in self.db.q(f"SELECT id,path,dir,rating,label FROM photos WHERE id IN ({','.join('?' * len(part))})", part):
                 rows[r["id"]] = r
+        stem = lambda path: os.path.normcase(os.path.splitext(path)[0])   # noqa: E731
         groups: OrderedDict[str, list] = OrderedDict()   # sidecar → [ids], giá trị lấy theo id cuối
         for i, _ in snap:
             r = rows.get(i)
             if not r:
                 continue
-            sc = os.path.normcase(os.path.splitext(r["path"])[0])
-            g = groups.pop(sc, [])
+            g = groups.pop(stem(r["path"]), [])
             g.append(i)
-            groups[sc] = g
+            groups[stem(r["path"])] = g
+        names, sibs = {}, {}
         written = failed = 0
-        done = []
-        for g in groups.values():
+        done, xmts = [], []
+        for key, g in groups.items():
             r = rows[g[-1]]
+            d = os.path.dirname(r["path"])
             try:
-                p, exists = sidecar(r["path"])
-                old = open(p, "rb").read() if exists else None
+                if d not in names:
+                    names[d] = dir_names(d)
+                p, exists = sidecar(r["path"], names[d])
+                old = None
+                if exists:
+                    with open(p, "rb") as f:
+                        old = f.read()
                 new = merge_xmp(old, int(r["rating"] or 0), r["label"] or "")
                 if new is not None and new != old:
                     write_atomic(p, new)
+                    names[d][os.path.basename(p).lower()] = os.path.basename(p)
                     written += 1
                 if new is not None or exists:
                     mt = os.stat(p).st_mtime
-                    self.db.many("UPDATE photos SET xmt=? WHERE id=?", [(mt, i) for i in g])
+                    if d not in sibs:   # cặp RAW+JPEG: ảnh cùng tên trong thư mục cũng đọc chung .xmp này
+                        sibs[d] = {}
+                        for x in self.db.q("SELECT id,path FROM photos WHERE dir=?", (r["dir"] or d,)):
+                            sibs[d].setdefault(stem(x["path"]), []).append(x["id"])
+                    xmts += [(mt, i) for i in set(sibs[d].get(key, []) + g)]
                 done += g
             except Exception as e:  # noqa: BLE001
                 failed += len(g)
                 print("xmp ghi:", r["path"], e, file=sys.stderr)
+        if xmts:
+            self.db.many("UPDATE photos SET xmt=? WHERE id=?", xmts)
         seq = dict(snap)
+        cleared = []
         with self._xlock:
             for i in done:
                 if self._xq.get(i) == seq.get(i):
                     self._xq.pop(i, None)
+                    cleared.append((i,))
+        if cleared:
+            self.db.many("UPDATE photos SET xdirty=0 WHERE id=?", cleared)
         if failed:
             self.status["xmp_err"] = self.XMP_ERR
         else:
@@ -875,12 +945,33 @@ class Library:
         return dict(written=written, failed=failed)
 
     def xmp_rewrite_all(self):
-        """Nút «Ghi lại .xmp cho cả thư mục»: ghi lại mọi ảnh đã chấm/gắn nhãn (hoặc đã từng có .xmp)."""
+        """Nút «Ghi lại .xmp cho cả thư mục»: đưa mọi ảnh đã chấm/gắn nhãn (hoặc đã từng có .xmp) vào hàng đợi và
+        đánh thức luồng nền ghi ngay — trả lời liền, không bắt giao diện chờ hàng nghìn lần ghi qua NAS."""
         ids = [r["id"] for r in self.db.q(
             "SELECT p.id FROM photos p JOIN cur ON cur.id=p.id WHERE p.rating<>0 OR IFNULL(p.label,'')<>'' OR p.xmt IS NOT NULL")]
         self._xmp_mark(ids, force=True)
-        r = self.xmp_flush()
-        return dict(n=len(ids), **r)
+        with self._xlock:
+            self._xfirst = 1.0   # coi như đã chờ quá 10 giây → ghi ngay
+        self._xev.set()
+        return dict(n=len(ids))
+
+    def xmp_shutdown(self, timeout=5.0):
+        """Trước khi thoát app: ghi nốt hàng đợi (tối đa timeout giây) để máy kia không thiếu mấy tấm chấm cuối."""
+        if not hasattr(self, "_xq"):
+            return
+        t = threading.Thread(target=self.xmp_flush, daemon=True)
+        t.start()
+        t.join(timeout)
+
+    def _xmp_settings_changed(self, was_on):
+        on = self._xmp_on()
+        if was_on and not on:   # tắt: bỏ hàng đợi và cảnh báo (cờ xdirty còn đó để bật lại thì ghi bù)
+            with self._xlock:
+                self._xq.clear()
+                self._xfirst = 0.0
+            self.status.pop("xmp_err", None)
+        elif on and not was_on:
+            self.xmp_requeue()
 
     def _xmp_writer(self):
         """Luồng nền: ghi khi 2 giây không có thay đổi mới hoặc đã chờ 10 giây; lỗi thì 15 giây sau thử lại."""

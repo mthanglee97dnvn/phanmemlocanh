@@ -42,7 +42,7 @@ def test_merge_new_and_nothing(tmp_path):
     assert merge_xmp(None, 0, "") is None
     n = merge_xmp(None, 4, "blue"); assert b'xmp:Rating="4"' in n and b'xmp:Label="Blue"' in n
     assert read_back(n, tmp_path) == (4, "blue")
-    assert read_back(merge_xmp(None, -1, ""), tmp_path) == (-1, None)
+    assert read_back(merge_xmp(None, -1, ""), tmp_path) == (-1, "")
 
 
 def test_merge_missing_rating_inserted():

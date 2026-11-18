@@ -150,6 +150,12 @@ def native():
             (HOME / "running.json").unlink()
         except OSError:
             pass
+    try:   # ghi nốt .xmp đang chờ để máy kia không thiếu mấy tấm chấm cuối
+        import photosift.server as _srv
+        if _srv.LIB[0] is not None:
+            _srv.LIB[0].xmp_shutdown(5)
+    except Exception:  # noqa: BLE001
+        pass
     os._exit(0)   # đóng cửa sổ = thoát hẳn (dừng cả máy chủ và các việc nền)
 
 

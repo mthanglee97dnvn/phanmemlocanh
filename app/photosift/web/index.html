@@ -903,7 +903,7 @@ function renderStatus(){
   $('#sSel').textContent = S.sel.size>1 ? `${S.sel.size} đã chọn` : '';
   { let a=0,u=0; for(const q of S.photos){ if(q.rating>0)a++; else if(q.rating===0)u++; } $('#sProg').textContent=S.photos.length?`★ ${fmt(a)} · ✕ ${fmt(nRej)} · chưa chấm ${fmt(u)}`:''; }
   { const x=$('#sXmp'), on=(S.settings||{}).xmp_sync??1;   // .xmp cạnh ảnh gốc: lỗi ghi → cảnh báo
-    x.textContent = st.xmp_err ? st.xmp_err : (on?'.xmp ✓':'.xmp tắt'); x.className = st.xmp_err ? 'warn' : 'hint'; }
+    const err=on&&st.xmp_err; x.textContent = err ? st.xmp_err : (on?'.xmp ✓':'.xmp tắt'); x.className = err ? 'warn' : 'hint'; }
   const net=$('#sNet'); net.innerHTML = st.online ? '<span class="ok">● Trực tuyến</span>' : '<span class="warn">● Ngoại tuyến: tạm khóa lọc tối, cháy sáng, nhắm mắt</span>';
   const p=S.by.get(S.cur);
   $('#sCur').textContent = p ? `${p.name} • ${p.w}×${p.h} • điểm ${p.score} • độ nét ${p.nf?p.fsharp+' (mặt)':p.sharp}` : '';
@@ -1547,7 +1547,7 @@ function xmpBox(){
    <div class="btns"><button id="xmpAll">Ghi lại .xmp cho cả thư mục</button><button onclick="this.closest('.back').remove()">Đóng</button></div>`);
   m.querySelector('#xmpSync').onchange=async e=>{ const r=await api('/api/settings',{xmp_sync:e.target.checked?1:0}); S.settings=r.settings; renderStatus(); };
   m.querySelector('#xmpAll').onclick=async e=>{ e.target.disabled=true;
-    try{ const r=await api('/api/xmp/all',{}); toast(r.failed?S.status.xmp_err||'Không ghi được .xmp':`Đã ghi .xmp cho ${fmt(r.n)} ảnh`); if(!r.failed){ delete S.status.xmp_err; renderStatus(); } }
+    try{ const r=await api('/api/xmp/all',{}); toast(`Đang ghi .xmp cho ${fmt(r.n)} ảnh — chạy nền, lỗi sẽ hiện ở thanh dưới`,3500); }
     catch(err){ toast(err.message,4000); } e.target.disabled=false; };
 }
 $('#sXmp').onclick=xmpBox; $('#sXmp').onkeydown=e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); xmpBox(); } };

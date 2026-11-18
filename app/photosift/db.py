@@ -58,7 +58,8 @@ class DB:
                         "ALTER TABLE photos ADD COLUMN clip BLOB", "ALTER TABLE photos ADD COLUMN clipv TEXT",
                         "ALTER TABLE photos ADD COLUMN sugg INTEGER DEFAULT 0",
                         "ALTER TABLE photos ADD COLUMN rsrc INTEGER DEFAULT 0",
-                        "ALTER TABLE photos ADD COLUMN xmt REAL"):
+                        "ALTER TABLE photos ADD COLUMN xmt REAL",
+                        "ALTER TABLE photos ADD COLUMN xdirty INTEGER DEFAULT 0"):
                 try:
                     self.con.execute(ddl)
                 except sqlite3.OperationalError:

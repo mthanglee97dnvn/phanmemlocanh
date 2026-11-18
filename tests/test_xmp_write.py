@@ -83,6 +83,7 @@ def test_setting_off_writes_nothing(lib_with, tmp_path):
 def test_rewrite_all(lib_with, tmp_path):
     L, ids = lib_with([dict(rating=3), dict(rating=0), dict(rating=-1)]); prep(L)
     assert L.xmp_rewrite_all()["n"] == 2
+    L.xmp_flush()
     assert len(list(tmp_path.glob("*.xmp"))) == 2
 
 
