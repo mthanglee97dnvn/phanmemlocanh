@@ -16,7 +16,7 @@ routes = [
 # rồi dán id in ra vào dòng dưới.
 [[kv_namespaces]]
 binding = "TRIALS"
-id = "DAN_ID_KV_VAO_DAY"
+id = "e88f5a6fb70f407289447cdca59b7285"   # mtcc-trials
 
 # Biến KHÔNG bí mật (có thể để ở đây):
 [vars]

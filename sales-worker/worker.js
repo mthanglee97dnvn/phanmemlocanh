@@ -55,6 +55,30 @@ async function signKey(seedHex, machine8, opt = {}) {
   return "MTCC-" + g.join("-");
 }
 
+// Khoá bí mật ký key: secret SALES_SEED_HEX nếu có; không có → tự tạo một lần và giữ trong KV TRIALS ("sys:seed"),
+// chỉ tài khoản Cloudflare của anh đọc được. GET /pub trả khoá CÔNG KHAI tương ứng (dán vào app: SALES_PUB_HEX).
+async function seedHex(env) {
+  if (env.SALES_SEED_HEX) return env.SALES_SEED_HEX;
+  if (!env.TRIALS) return null;
+  let s = await env.TRIALS.get("sys:seed");
+  if (!s) {
+    s = [...crypto.getRandomValues(new Uint8Array(32))].map(b => b.toString(16).padStart(2, "0")).join("");
+    await env.TRIALS.put("sys:seed", s);
+    s = (await env.TRIALS.get("sys:seed")) || s;
+  }
+  return s;
+}
+
+async function pubHex(seed) {
+  const pkcs8 = new Uint8Array(48);
+  pkcs8.set([0x30,0x2e,0x02,0x01,0x00,0x30,0x05,0x06,0x03,0x2b,0x65,0x70,0x04,0x22,0x04,0x20], 0);
+  pkcs8.set(Uint8Array.from(seed.match(/../g).map(h => parseInt(h, 16))), 16);
+  const k = await crypto.subtle.importKey("pkcs8", pkcs8.buffer, { name: "Ed25519" }, true, ["sign"]);
+  const jwk = await crypto.subtle.exportKey("jwk", k);
+  const b = atob(jwk.x.replace(/-/g, "+").replace(/_/g, "/") + "==".slice(0, (4 - jwk.x.length % 4) % 4));
+  return [...b].map(c => c.charCodeAt(0).toString(16).padStart(2, "0")).join("");
+}
+
 const TRIAL_SERIAL = 0x54;   // 'T' — đánh dấu key dùng thử
 const TRIAL_DAYS = 3;        // dùng hôm nay + 2 ngày nữa; sang ngày thứ 4 hết hạn
 const J = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { "content-type": "application/json" } });
@@ -72,12 +96,13 @@ async function trial(request, env) {
   const machine8 = b32decode(code).slice(0, 8);
   if (machine8.length !== 8 || zero8(machine8)) return J({ ok: false, error: "bad hw" }, 400);
   const id = "hw:" + codeDashed(b32encode(machine8).slice(0, 13));   // dạng chuẩn: đổi bit đệm cuối không ra máy "mới"
-  if (!env.TRIALS || !env.SALES_SEED_HEX) return J({ ok: false, error: "trial not configured" }, 503);
+  const seed = await seedHex(env);
+  if (!env.TRIALS || !seed) return J({ ok: false, error: "trial not configured" }, 503);
   const old = await env.TRIALS.get(id);
   if (old) return J({ ok: true, key: old, again: true, today: todayNum() });
   const utc = todayNum(), d = Number(p.day);
   const day = Number.isInteger(d) && Math.abs(d - utc) <= 1 ? d : utc;   // giờ VN lệch UTC 7 tiếng
-  const key = await signKey(env.SALES_SEED_HEX, machine8, { serial: TRIAL_SERIAL, issued: day, exp: day + TRIAL_DAYS - 1 });
+  const key = await signKey(seed, machine8, { serial: TRIAL_SERIAL, issued: day, exp: day + TRIAL_DAYS - 1 });
   await env.TRIALS.put(id, key);
   return J({ ok: true, key, again: false, today: todayNum() });
 }
@@ -101,6 +126,10 @@ async function ghGrant(env, machineDashed, key) {
 
 export default {
   async fetch(request, env) {
+    if (request.method === "GET" && new URL(request.url).pathname === "/pub") {
+      const seed = await seedHex(env);
+      return J(seed ? { pub: await pubHex(seed) } : { error: "no key" }, seed ? 200 : 503);
+    }
     if (request.method === "GET") return new Response("MThanglee sales worker OK", { status: 200 });
     if (request.method !== "POST") return new Response("method", { status: 405 });
     if (new URL(request.url).pathname === "/trial") return trial(request, env);
@@ -124,7 +153,9 @@ export default {
     const machine8 = b32decode(m[1]).slice(0, 8);
     if (machine8.length !== 8 || zero8(machine8)) return new Response(JSON.stringify({ skip: "bad machine" }), { status: 200 });
     try {
-      const key = await signKey(env.SALES_SEED_HEX, machine8);
+      const seed = await seedHex(env);
+      if (!seed) throw new Error("no signing key");
+      const key = await signKey(seed, machine8);
       const r = await ghGrant(env, machineDashed, key);
       return new Response(JSON.stringify({ ok: true, machine: machineDashed, result: r }), { status: 200, headers: { "content-type": "application/json" } });
     } catch (e) {

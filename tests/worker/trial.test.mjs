@@ -102,3 +102,15 @@ test("đổi mã máy (sửa MachineGuid) nhưng cùng mã phần cứng → đ�
 test("thiếu mã phần cứng → 400 (không cấp thử theo mã máy)", async () => {
   const r = await post(env(), { machine: MACHINE, day: utcDay() }); assert.equal(r.status, 400);
 });
+
+test("không có secret SALES_SEED_HEX: tự tạo khoá trong KV một lần, GET /pub trả khoá công khai khớp", async () => {
+  const e = env(); delete e.SALES_SEED_HEX;
+  const pub1 = await (await worker.fetch(new Request("https://api.cullcollage.com/pub"), e)).json();
+  const pub2 = await (await worker.fetch(new Request("https://api.cullcollage.com/pub"), e)).json();
+  assert.match(pub1.pub, /^[0-9a-f]{64}$/); assert.equal(pub1.pub, pub2.pub);
+  const j = await (await post(e, { hw: MACHINE, day: utcDay() })).json();
+  const { body, sig } = decode(j.key);
+  const k = await crypto.subtle.importKey("raw", Uint8Array.from(pub1.pub.match(/../g).map(h => parseInt(h, 16))), { name: "Ed25519" }, false, ["verify"]);
+  const msg = new Uint8Array(19); msg.set([77, 84, 67, 67, 49]); msg.set(body, 5);
+  assert.ok(await crypto.subtle.verify("Ed25519", k, sig, msg));
+});
