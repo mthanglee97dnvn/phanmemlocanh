@@ -63,3 +63,29 @@ test("mã máy sai → 400", async () => {
 test("webhook SePay cũ vẫn đòi Authorization", async () => {
   const r = await post(env(), { transferAmount: 500000 }, "/"); assert.equal(r.status, 401);
 });
+
+// ---- sửa sau đợt soát cuối
+test("đổi bit đệm cuối của mã máy không được thêm lượt thử (I1)", async () => {
+  const e = env(), day = utcDay();
+  const a = await (await post(e, { machine: MACHINE, day })).json();
+  const last = MACHINE.slice(-1), flip = B32[B32.indexOf(last) ^ 1];
+  const b = await (await post(e, { machine: MACHINE.slice(0, -1) + flip, day })).json();
+  assert.equal(b.again, true); assert.equal(b.key, a.key);
+});
+
+test("mã máy toàn số 0 (key dùng mọi máy) bị từ chối ở /trial và webhook (I2)", async () => {
+  const r = await post(env(), { machine: "AAAA-AAAA-AAAAA", day: utcDay() }); assert.equal(r.status, 400);
+  const w = await worker.fetch(new Request("https://x/", { method: "POST", headers: { "Authorization": "Apikey k", "content-type": "application/json" },
+    body: JSON.stringify({ transferType: "in", transferAmount: 500000, content: "MTCCAAAAAAAAAAAAA" }) }), env());
+  const j = await w.json(); assert.equal(j.skip, "bad machine");
+});
+
+test("trả ngày của máy chủ để app chống vặn lùi đồng hồ (I3)", async () => {
+  const j = await (await post(env(), { machine: MACHINE, day: utcDay() })).json();
+  assert.equal(j.today, utcDay());
+});
+
+test("body null → 400, không CORS (M2, M3)", async () => {
+  const r = await worker.fetch(new Request("https://x/trial", { method: "POST", body: "null" }), env());
+  assert.equal(r.status, 400); assert.equal(r.headers.get("access-control-allow-origin"), null);
+});

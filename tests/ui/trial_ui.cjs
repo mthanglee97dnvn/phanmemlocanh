@@ -34,6 +34,6 @@ await sh.route('**/*',async r=>{const p=new URL(r.request().url()).pathname,J=o=
   if(p==='/filter'||p==='/layout')return r.fulfill({body:'<html></html>',contentType:'text/html'});
   if(p.startsWith('/api/'))return J({});return r.fulfill({status:404,body:''})});
 await sh.goto('http://x.test/');await sh.waitForTimeout(1200);
-assert.equal((await sh.textContent('#tLic .t')).trim(),'Dùng thử · còn 2 ngày');
+assert.equal((await sh.textContent('#tLic .t')).trim(),'Dùng thử · còn 3 ngày'  /* ngày đầu: tính cả hôm nay (M8) */);
 await b.close();console.log('ok');
 })().catch(e=>{console.error(e);process.exit(1);});

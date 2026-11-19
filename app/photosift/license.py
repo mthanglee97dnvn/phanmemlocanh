@@ -203,12 +203,18 @@ def parse(text: str) -> dict:
         return dict(ok=False, reason="Key này dành cho máy khác. Hãy gửi đúng mã máy để nhận key mới.")
     perm = exp == PERMANENT
     trial = body[1] == TRIAL_SERIAL and not perm
+    if trial and today_num() < issued - 1:
+        return dict(ok=False, reason="Đồng hồ máy đang bị lùi. Hãy chỉnh lại ngày giờ rồi mở lại.", trial=True)
     left = None if perm else exp - today_num()
     if not perm and left < 0:
         return dict(ok=False, reason=TRIAL_EXPIRED if trial else f"Key đã hết hạn từ ngày {_date(exp)}.", expired=True,
                     trial=trial)
     return dict(ok=True, reason="", permanent=perm, expires="" if perm else _date(exp), days_left=left,
                 issued=_date(issued), any_machine=mach == b"\0" * 8, trial=trial)
+
+
+import threading as _threading
+_TRIAL_LOCK = _threading.Lock()
 
 
 class License:
@@ -261,14 +267,20 @@ class License:
         return dict(dict(trial=False), **s, has_key=self.has_key(), machine=machine_code(), has_pub=bool(re.fullmatch(r"[0-9a-f]{64}", PUB_HEX or "") or re.fullmatch(r"[0-9a-f]{64}", SALES_PUB_HEX or "")))
 
     def has_key(self) -> bool:
-        """Máy đã từng có key (kể cả đã hết hạn / thu hồi) → không tự xin dùng thử."""
-        return bool(self._read().get("key"))
+        """Máy đã từng có key (kể cả đã hết hạn / thu hồi / đã gỡ) → không tự xin dùng thử."""
+        d = self._read()
+        return bool(d.get("key") or d.get("removed"))
 
     def start_trial(self, timeout: float = 10) -> dict:
         """Máy chưa từng có key: xin key dùng thử 3 ngày từ Worker bán hàng rồi kích hoạt như key dán tay
         (vẫn kiểm chữ ký + đúng máy). Worker nhớ từng mã máy nên cài lại không được thêm ngày."""
+        with _TRIAL_LOCK:   # hai tab / tải lại trang khi đang xin: chỉ một lần gọi máy chủ
+            return self._start_trial(timeout)
+
+    def _start_trial(self, timeout):
         if self.has_key():
             return dict(ok=False, reason="Máy này đã có key.")
+        server_day = None
         try:
             import urllib.request
             req = urllib.request.Request(
@@ -277,26 +289,36 @@ class License:
             with net.urlopen(req, timeout=timeout) as r:
                 data = json.loads(r.read(1 << 16).decode("utf-8", "replace"))
             key = data.get("key") if isinstance(data, dict) and data.get("ok") else None
+            if isinstance(data, dict) and isinstance(data.get("today"), int):
+                server_day = data["today"]
         except Exception:  # noqa: BLE001  mất mạng / Worker chưa bật / trả HTML
             key = None
         if not isinstance(key, str) or not key.strip():
             return dict(ok=False, reason=TRIAL_OFFLINE, offline=True)
-        return self.activate(key)
+        return self.activate(key, server_day)
 
-    def activate(self, key: str) -> dict:
+    def activate(self, key: str, server_day: int | None = None) -> dict:
+        """server_day: ngày theo máy chủ (key dùng thử) — ghi vào seen để vặn lùi đồng hồ lúc nhận key không có tác dụng."""
         st = parse(key)
         if st.get("ok") and key_id(key) in _revoked_ids():
             return dict(ok=False, reason="Key này đã bị thu hồi. Hãy liên hệ MTHANGLEE STUDIO để được cấp key mới.")
         if st.get("ok"):
-            self._write(dict(key=key.strip(), seen=today_num()))
+            seen = today_num()
+            if isinstance(server_day, int) and abs(server_day - seen) < 3650:
+                seen = max(seen, server_day)
+            self._write(dict(key=key.strip(), seen=seen))
             self.reload()
         return st
 
     def remove(self):
+        """Gỡ key: để lại dấu "removed" — máy đã từng có key thì không tự xin dùng thử lại."""
         try:
-            FILE.unlink()
+            self._write(dict(removed=True))
         except OSError:
-            pass
+            try:
+                FILE.unlink()
+            except OSError:
+                pass
         self.reload()
 
 

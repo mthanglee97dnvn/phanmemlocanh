@@ -5,6 +5,8 @@ compatibility_flags = ["nodejs_compat"]
 
 # Tên miền riêng cho Worker — app xin key dùng thử ở https://api.cullcollage.com/trial
 # (cullcollage.com đã nằm trên Cloudflare; lệnh deploy tự tạo bản ghi DNS)
+# GIỮ địa chỉ workers.dev — SePay đang gửi webhook thanh toán về đó (thêm routes mà thiếu dòng này là webhook tắt)
+workers_dev = true
 routes = [
   { pattern = "api.cullcollage.com", custom_domain = true }
 ]

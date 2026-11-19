@@ -57,25 +57,27 @@ async function signKey(seedHex, machine8, opt = {}) {
 
 const TRIAL_SERIAL = 0x54;   // 'T' — đánh dấu key dùng thử
 const TRIAL_DAYS = 3;        // dùng hôm nay + 2 ngày nữa; sang ngày thứ 4 hết hạn
-const J = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { "content-type": "application/json", "access-control-allow-origin": "*" } });
+const J = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { "content-type": "application/json" } });
+const zero8 = m => m.every(b => b === 0);   // 8 byte 0 = key "dùng mọi máy" — không bao giờ ký qua đường tự động
 
 // POST /trial {machine:"XXXX-XXXX-XXXXX", day:<ngày theo giờ máy khách>} → {ok, key, again}
 // Mỗi mã máy chỉ một key thử (nhớ trong KV TRIALS); gọi lại trả đúng key cũ → cài lại/xoá cấu hình không thêm ngày.
 async function trial(request, env) {
   let p; try { p = await request.json(); } catch (e) { return J({ ok: false, error: "bad json" }, 400); }
+  if (!p || typeof p !== "object") return J({ ok: false, error: "bad json" }, 400);
   const code = String(p.machine || "").toUpperCase().replace(/[^A-Z2-7]/g, "");
   if (code.length !== 13) return J({ ok: false, error: "bad machine" }, 400);
   const machine8 = b32decode(code).slice(0, 8);
-  if (machine8.length !== 8) return J({ ok: false, error: "bad machine" }, 400);
-  const id = codeDashed(code);
+  if (machine8.length !== 8 || zero8(machine8)) return J({ ok: false, error: "bad machine" }, 400);
+  const id = codeDashed(b32encode(machine8).slice(0, 13));   // dạng chuẩn: đổi bit đệm cuối không ra máy "mới"
   if (!env.TRIALS || !env.SALES_SEED_HEX) return J({ ok: false, error: "trial not configured" }, 503);
   const old = await env.TRIALS.get(id);
-  if (old) return J({ ok: true, key: old, again: true });
+  if (old) return J({ ok: true, key: old, again: true, today: todayNum() });
   const utc = todayNum(), d = Number(p.day);
   const day = Number.isInteger(d) && Math.abs(d - utc) <= 1 ? d : utc;   // giờ VN lệch UTC 7 tiếng
   const key = await signKey(env.SALES_SEED_HEX, machine8, { serial: TRIAL_SERIAL, issued: day, exp: day + TRIAL_DAYS - 1 });
   await env.TRIALS.put(id, key);
-  return J({ ok: true, key, again: false });
+  return J({ ok: true, key, again: false, today: todayNum() });
 }
 
 function codeDashed(code13) { const t = code13.toUpperCase().replace(/[^A-Z2-7]/g, ""); return t.slice(0,4)+"-"+t.slice(4,8)+"-"+t.slice(8,13); }
@@ -118,7 +120,7 @@ export default {
 
     const machineDashed = codeDashed(m[1]);
     const machine8 = b32decode(m[1]).slice(0, 8);
-    if (machine8.length !== 8) return new Response(JSON.stringify({ skip: "bad machine" }), { status: 200 });
+    if (machine8.length !== 8 || zero8(machine8)) return new Response(JSON.stringify({ skip: "bad machine" }), { status: 200 });
     try {
       const key = await signKey(env.SALES_SEED_HEX, machine8);
       const r = await ghGrant(env, machineDashed, key);
