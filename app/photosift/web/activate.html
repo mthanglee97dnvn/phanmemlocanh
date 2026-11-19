@@ -58,6 +58,7 @@ button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid #4A505C;ba
   <label for="key">Key kích hoạt</label>
   <textarea id="key" placeholder="MTCC-…" spellcheck="false" autofocus></textarea>
   <div id="err" role="status"></div>
+  <button id="trialRetry" type="button" class="buy" hidden>↻ Thử lại dùng thử 3 ngày</button>
   <button id="go">Kích hoạt</button>
   <div class="sep"></div>
   <button id="buyBtn" class="buy" type="button">💎 Mua bản quyền vĩnh viễn</button>
@@ -87,7 +88,14 @@ button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid #4A505C;ba
 <script>
 "use strict";
 const $=i=>document.getElementById(i);
-async function load(){const s=await fetch('/api/license').then(r=>r.json());$('mach').textContent=s.machine;if(s.ok)location.href='/';else{if(s.reason)$('err').textContent=s.reason;if(!s.has_pub){$('go').disabled=true;$('err').textContent='Bản cài này chưa có khóa công khai nên chưa kích hoạt được.'}}}
+async function load(){const s=await fetch('/api/license').then(r=>r.json());$('mach').textContent=s.machine;if(s.ok)location.href='/';else{if(s.reason)$('err').textContent=s.reason;if(!s.has_pub){$('go').disabled=true;$('err').textContent='Bản cài này chưa có khóa công khai nên chưa kích hoạt được.'}else if(!s.has_key)trial()}}
+// Máy chưa từng có key: tự xin key dùng thử 3 ngày (máy chủ nhớ từng mã máy — mỗi máy một lần)
+let trialBusy=false;
+async function trial(){if(trialBusy)return;trialBusy=true;$('trialRetry').hidden=true;$('err').textContent='Đang mở dùng thử 3 ngày…';
+  try{const r=await fetch('/api/license/trial',{method:'POST',headers:{'content-type':'application/json'},body:'{}'}).then(x=>x.json());
+    if(r.ok){location.href='/';return}$('err').textContent=r.reason||'Cần kết nối mạng để bắt đầu dùng thử 3 ngày';$('trialRetry').hidden=!r.offline}
+  catch(e){$('err').textContent='Cần kết nối mạng để bắt đầu dùng thử 3 ngày';$('trialRetry').hidden=false}
+  trialBusy=false}
 load();
 async function poll(){try{const s=await fetch('/api/license/checkgrant').then(r=>r.json());if(s.ok){location.href='/';return}}catch(e){}}
 setInterval(poll,12000);
@@ -96,6 +104,7 @@ async function go(){const k=$('key').value.trim();if(!k){$('err').textContent='H
   try{const r=await fetch('/api/license/activate',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({key:k})}).then(x=>x.json());if(r.ok){location.href='/';return}$('err').textContent=r.reason}catch(e){$('err').textContent='Chưa kiểm tra được key. Hãy thử lại.'}
   $('go').disabled=false;$('go').textContent='Kích hoạt'}
 $('go').onclick=go;
+$('trialRetry').onclick=trial;
 $('buyBtn').onclick=()=>{const b=$('buy');b.classList.toggle('on');$('buyBtn').textContent=b.classList.contains('on')?'✕ Đóng':'💎 Mua bản quyền vĩnh viễn';if(b.classList.contains('on')){$('pending').hidden=false;b.scrollIntoView({behavior:'smooth',block:'start'});}};
 $('copyAcct').onclick=async e=>{try{await navigator.clipboard.writeText($('acct').textContent);e.target.textContent='Đã chép'}catch(err){getSelection().selectAllChildren($('acct'));e.target.textContent='Ctrl+C'}setTimeout(()=>e.target.textContent='Chép',1500)};
 </script>
