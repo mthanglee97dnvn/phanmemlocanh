@@ -6,6 +6,8 @@
  *   → Worker kiểm tra số tiền + lấy mã máy → KÝ key vĩnh viễn bằng KHÓA BÁN HÀNG
  *   → ghi vào license/grants.json trên GitHub → app của khách tự tải về và kích hoạt.
  *
+ * Dùng thử: POST /trial {machine, day} → key thử 3 ngày, mỗi máy một lần (nhớ trong KV TRIALS).
+ *
  * Secrets (đặt trong Cloudflare, KHÔNG viết vào code):
  *   SEPAY_APIKEY   : chuỗi bí mật bạn đặt, khớp với "API Key" cấu hình ở SePay (xác thực webhook)
  *   SALES_SEED_HEX : 64 ký tự hex — khóa bí mật bán hàng (mình cấp riêng; chỉ đặt ở đây)
@@ -32,12 +34,13 @@ function b32encode(u) {
 }
 function todayNum() { const d = new Date(); const u = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()); return Math.floor((u - EPOCH) / 86400000); }
 
-async function signKey(seedHex, machine8) {
-  // body = [1, serial=0, issued(2B BE), exp=FFFF(2B BE), machine(8B)]
+async function signKey(seedHex, machine8, opt = {}) {
+  // body = [1, serial, issued(2B BE), exp(2B BE), machine(8B)] — mặc định: serial 0, cấp hôm nay, vĩnh viễn (FFFF)
+  const serial = opt.serial ?? 0, iss = opt.issued ?? todayNum(), exp = opt.exp ?? PERMANENT;
   const body = new Uint8Array(14);
-  body[0] = 1; body[1] = 0;
-  const iss = todayNum(); body[2] = (iss >>> 8) & 255; body[3] = iss & 255;
-  body[4] = (PERMANENT >>> 8) & 255; body[5] = PERMANENT & 255;
+  body[0] = 1; body[1] = serial & 255;
+  body[2] = (iss >>> 8) & 255; body[3] = iss & 255;
+  body[4] = (exp >>> 8) & 255; body[5] = exp & 255;
   body.set(machine8, 6);
   const msg = new Uint8Array(5 + 14); msg.set([77, 84, 67, 67, 49], 0); msg.set(body, 5); // "MTCC1"
   const seed = Uint8Array.from(seedHex.match(/../g).map(h => parseInt(h, 16)));
@@ -50,6 +53,29 @@ async function signKey(seedHex, machine8) {
   const t = b32encode(raw);
   const g = []; for (let i = 0; i < t.length; i += 5) g.push(t.slice(i, i + 5));
   return "MTCC-" + g.join("-");
+}
+
+const TRIAL_SERIAL = 0x54;   // 'T' — đánh dấu key dùng thử
+const TRIAL_DAYS = 3;        // dùng hôm nay + 2 ngày nữa; sang ngày thứ 4 hết hạn
+const J = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { "content-type": "application/json", "access-control-allow-origin": "*" } });
+
+// POST /trial {machine:"XXXX-XXXX-XXXXX", day:<ngày theo giờ máy khách>} → {ok, key, again}
+// Mỗi mã máy chỉ một key thử (nhớ trong KV TRIALS); gọi lại trả đúng key cũ → cài lại/xoá cấu hình không thêm ngày.
+async function trial(request, env) {
+  let p; try { p = await request.json(); } catch (e) { return J({ ok: false, error: "bad json" }, 400); }
+  const code = String(p.machine || "").toUpperCase().replace(/[^A-Z2-7]/g, "");
+  if (code.length !== 13) return J({ ok: false, error: "bad machine" }, 400);
+  const machine8 = b32decode(code).slice(0, 8);
+  if (machine8.length !== 8) return J({ ok: false, error: "bad machine" }, 400);
+  const id = codeDashed(code);
+  if (!env.TRIALS || !env.SALES_SEED_HEX) return J({ ok: false, error: "trial not configured" }, 503);
+  const old = await env.TRIALS.get(id);
+  if (old) return J({ ok: true, key: old, again: true });
+  const utc = todayNum(), d = Number(p.day);
+  const day = Number.isInteger(d) && Math.abs(d - utc) <= 1 ? d : utc;   // giờ VN lệch UTC 7 tiếng
+  const key = await signKey(env.SALES_SEED_HEX, machine8, { serial: TRIAL_SERIAL, issued: day, exp: day + TRIAL_DAYS - 1 });
+  await env.TRIALS.put(id, key);
+  return J({ ok: true, key, again: false });
 }
 
 function codeDashed(code13) { const t = code13.toUpperCase().replace(/[^A-Z2-7]/g, ""); return t.slice(0,4)+"-"+t.slice(4,8)+"-"+t.slice(8,13); }
@@ -73,6 +99,7 @@ export default {
   async fetch(request, env) {
     if (request.method === "GET") return new Response("MThanglee sales worker OK", { status: 200 });
     if (request.method !== "POST") return new Response("method", { status: 405 });
+    if (new URL(request.url).pathname === "/trial") return trial(request, env);
 
     // Xác thực webhook SePay: header "Authorization: Apikey <SEPAY_APIKEY>"
     const auth = request.headers.get("Authorization") || "";

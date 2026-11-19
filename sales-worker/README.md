@@ -143,3 +143,27 @@ git add license/grants.json && git commit -m "cap tay" && git push
 - GitHub: miễn phí.
 
 **Tổng: 0đ/tháng.**
+
+
+---
+
+## Bật dùng thử tự động 3 ngày (làm một lần)
+
+App bản mới tự xin **key dùng thử 3 ngày** khi máy chưa từng có key. Worker nhớ từng mã máy, nên cài lại hay xoá
+cấu hình cũng không được thêm ngày. Sang ngày thứ 4 không mua thì app khoá.
+
+Mở Terminal, vào thư mục `sales-worker` rồi chạy:
+
+```bash
+# 1) Tạo chỗ lưu danh sách máy đã thử — lệnh in ra một dòng  id = "xxxxxxxx..."
+npx wrangler kv namespace create TRIALS
+
+# 2) Mở wrangler.toml, thay  DAN_ID_KV_VAO_DAY  bằng id vừa in ra, lưu file
+
+# 3) Triển khai lại Worker (tự gắn tên miền api.cullcollage.com)
+npx wrangler deploy
+```
+
+Kiểm tra: mở **https://api.cullcollage.com** trên trình duyệt, thấy dòng `MThanglee sales worker OK` là xong.
+
+> Webhook SePay vẫn dùng địa chỉ cũ (`https://mtcc-sales.<tên-của-bạn>.workers.dev`) — không phải sửa gì bên SePay.

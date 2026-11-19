@@ -3,6 +3,19 @@ main = "worker.js"
 compatibility_date = "2026-01-01"
 compatibility_flags = ["nodejs_compat"]
 
+# Tên miền riêng cho Worker — app xin key dùng thử ở https://api.cullcollage.com/trial
+# (cullcollage.com đã nằm trên Cloudflare; lệnh deploy tự tạo bản ghi DNS)
+routes = [
+  { pattern = "api.cullcollage.com", custom_domain = true }
+]
+
+# Danh sách máy đã dùng thử (mã máy → key thử). Tạo một lần:
+#   npx wrangler kv namespace create TRIALS
+# rồi dán id in ra vào dòng dưới.
+[[kv_namespaces]]
+binding = "TRIALS"
+id = "DAN_ID_KV_VAO_DAY"
+
 # Biến KHÔNG bí mật (có thể để ở đây):
 [vars]
 GH_REPO = "mthanglee97dnvn/phanmemlocanh"
