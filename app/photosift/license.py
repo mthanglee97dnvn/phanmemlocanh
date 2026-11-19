@@ -10,6 +10,7 @@ import sys
 import re
 import secrets
 
+from . import net
 from .db import HOME
 from .license_pub import PUB_HEX
 try:
@@ -22,6 +23,10 @@ PERMANENT = 0xFFFF
 FILE = HOME / "license.json"
 REVOKED_FILE = HOME / "revoked.txt"   # bản lưu gần nhất của danh sách key bị thu hồi (dùng khi mất mạng)
 REVOKE_EVERY = 6 * 3600
+TRIAL_URL = "https://api.cullcollage.com/trial"   # Worker bán hàng: cấp key dùng thử 3 ngày, mỗi máy một lần
+TRIAL_SERIAL = 0x54                               # byte serial 'T' trong key = key dùng thử
+TRIAL_OFFLINE = "Cần kết nối mạng để bắt đầu dùng thử 3 ngày"
+TRIAL_EXPIRED = "Đã hết 3 ngày dùng thử — mua bản quyền vĩnh viễn 500.000đ để dùng tiếp"
 GRANT_EVERY = 15 * 60   # mỗi 15 phút kiểm tra danh sách key vĩnh viễn đã cấp (sau khi khách thanh toán)
 
 
@@ -197,11 +202,13 @@ def parse(text: str) -> dict:
     if mach != b"\0" * 8 and mach != machine_bytes():
         return dict(ok=False, reason="Key này dành cho máy khác. Hãy gửi đúng mã máy để nhận key mới.")
     perm = exp == PERMANENT
+    trial = body[1] == TRIAL_SERIAL and not perm
     left = None if perm else exp - today_num()
     if not perm and left < 0:
-        return dict(ok=False, reason=f"Key đã hết hạn từ ngày {_date(exp)}.", expired=True)
+        return dict(ok=False, reason=TRIAL_EXPIRED if trial else f"Key đã hết hạn từ ngày {_date(exp)}.", expired=True,
+                    trial=trial)
     return dict(ok=True, reason="", permanent=perm, expires="" if perm else _date(exp), days_left=left,
-                issued=_date(issued), any_machine=mach == b"\0" * 8)
+                issued=_date(issued), any_machine=mach == b"\0" * 8, trial=trial)
 
 
 class License:
@@ -251,7 +258,30 @@ class License:
     def info(self) -> dict:
         s = self.reload()
         self._day0 = today_num()
-        return dict(s, machine=machine_code(), has_pub=bool(re.fullmatch(r"[0-9a-f]{64}", PUB_HEX or "") or re.fullmatch(r"[0-9a-f]{64}", SALES_PUB_HEX or "")))
+        return dict(dict(trial=False), **s, has_key=self.has_key(), machine=machine_code(), has_pub=bool(re.fullmatch(r"[0-9a-f]{64}", PUB_HEX or "") or re.fullmatch(r"[0-9a-f]{64}", SALES_PUB_HEX or "")))
+
+    def has_key(self) -> bool:
+        """Máy đã từng có key (kể cả đã hết hạn / thu hồi) → không tự xin dùng thử."""
+        return bool(self._read().get("key"))
+
+    def start_trial(self, timeout: float = 10) -> dict:
+        """Máy chưa từng có key: xin key dùng thử 3 ngày từ Worker bán hàng rồi kích hoạt như key dán tay
+        (vẫn kiểm chữ ký + đúng máy). Worker nhớ từng mã máy nên cài lại không được thêm ngày."""
+        if self.has_key():
+            return dict(ok=False, reason="Máy này đã có key.")
+        try:
+            import urllib.request
+            req = urllib.request.Request(
+                TRIAL_URL, data=json.dumps(dict(machine=machine_code(), day=today_num())).encode(),
+                headers={"Content-Type": "application/json", "User-Agent": "MThanglee-CullCollage"}, method="POST")
+            with net.urlopen(req, timeout=timeout) as r:
+                data = json.loads(r.read(1 << 16).decode("utf-8", "replace"))
+            key = data.get("key") if isinstance(data, dict) and data.get("ok") else None
+        except Exception:  # noqa: BLE001  mất mạng / Worker chưa bật / trả HTML
+            key = None
+        if not isinstance(key, str) or not key.strip():
+            return dict(ok=False, reason=TRIAL_OFFLINE, offline=True)
+        return self.activate(key)
 
     def activate(self, key: str) -> dict:
         st = parse(key)

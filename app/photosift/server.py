@@ -757,6 +757,8 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                 b = self._body()
                 if u.path == "/api/license/activate":
                     return self._json(lic.activate(str(b.get("key", ""))))
+                if u.path == "/api/license/trial":   # máy chưa từng có key: xin key dùng thử 3 ngày
+                    return self._json(lic.start_trial())
                 if u.path == "/api/license/remove":
                     lic.remove()
                     return self._json(dict(ok=True))
