@@ -42,3 +42,13 @@ tự tính — tắt mạng lúc mở lần đầu là lách được. Cả hai 
 
 ## Để người làm tự quyết
 Thời gian chờ gọi Worker (gợi ý 10 giây), cách hiện trạng thái đang xin thử, tên hàm.
+
+## Bổ sung 19/11: key thử gắn mã phần cứng (anh Thắng: "anh muốn chặn luôn")
+Trên Windows, mã máy lấy từ MachineGuid trong Registry — admin sửa được trong 30 giây để ra mã máy mới và xin thử lại.
+Key **dùng thử** (serial 0x54) giờ gắn **mã phần cứng** thay cho mã máy:
+- Windows: SMBIOS UUID (`HKLM\SYSTEM\HardwareConfig\LastConfig`, Windows tự ghi lại theo bo mạch mỗi lần khởi động)
+  + số serial ổ hệ thống; Mac: IOPlatformUUID + IOPlatformSerialNumber; không đọc được → dùng mã máy như cũ.
+- App gửi `hw` (mã 13 ký tự như mã máy) lên `/trial`; Worker bắt buộc có `hw`, nhớ trong KV theo `hw`, ký key với 8 byte
+  `hw`. Gửi `hw` giả bằng tay chỉ ra key gắn phần cứng khác → không chạy trên máy đó.
+- Key trả tiền / key cấp tay vẫn gắn mã máy như cũ (không đổi gì cho khách đang dùng).
+- Còn lại: cài lại Windows + format ổ hệ thống mới ra lượt mới (đổi serial ổ) — tốn công hơn nhiều, chấp nhận.

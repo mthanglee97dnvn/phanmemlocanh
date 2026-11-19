@@ -30,6 +30,7 @@ def env(tmp_path, monkeypatch):
     monkeypatch.setattr(L, "FILE", tmp_path / "license.json")
     monkeypatch.setattr(L, "REVOKED_FILE", tmp_path / "revoked.txt")
     monkeypatch.setattr(L, "machine_bytes", lambda: MACH)
+    monkeypatch.setattr(L, "hw_bytes", lambda: MACH)
     calls = []
 
     def worker(reply):

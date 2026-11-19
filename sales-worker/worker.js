@@ -60,16 +60,18 @@ const TRIAL_DAYS = 3;        // dùng hôm nay + 2 ngày nữa; sang ngày thứ
 const J = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { "content-type": "application/json" } });
 const zero8 = m => m.every(b => b === 0);   // 8 byte 0 = key "dùng mọi máy" — không bao giờ ký qua đường tự động
 
-// POST /trial {machine:"XXXX-XXXX-XXXXX", day:<ngày theo giờ máy khách>} → {ok, key, again}
-// Mỗi mã máy chỉ một key thử (nhớ trong KV TRIALS); gọi lại trả đúng key cũ → cài lại/xoá cấu hình không thêm ngày.
+// POST /trial {hw:"XXXX-XXXX-XXXXX", machine, day:<ngày theo giờ máy khách>} → {ok, key, again, today}
+// Mỗi mã phần cứng chỉ một key thử (nhớ trong KV TRIALS); gọi lại trả đúng key cũ → cài lại/xoá cấu hình không thêm ngày.
 async function trial(request, env) {
   let p; try { p = await request.json(); } catch (e) { return J({ ok: false, error: "bad json" }, 400); }
   if (!p || typeof p !== "object") return J({ ok: false, error: "bad json" }, 400);
-  const code = String(p.machine || "").toUpperCase().replace(/[^A-Z2-7]/g, "");
-  if (code.length !== 13) return J({ ok: false, error: "bad machine" }, 400);
+  // Key thử gắn MÃ PHẦN CỨNG (hw: SMBIOS UUID + ổ hệ thống trên Windows, IOPlatformUUID trên Mac), không gắn mã máy:
+  // sửa MachineGuid trong Registry không ra lượt thử mới. machine chỉ để tham khảo.
+  const code = String(p.hw || "").toUpperCase().replace(/[^A-Z2-7]/g, "");
+  if (code.length !== 13) return J({ ok: false, error: "bad hw" }, 400);
   const machine8 = b32decode(code).slice(0, 8);
-  if (machine8.length !== 8 || zero8(machine8)) return J({ ok: false, error: "bad machine" }, 400);
-  const id = codeDashed(b32encode(machine8).slice(0, 13));   // dạng chuẩn: đổi bit đệm cuối không ra máy "mới"
+  if (machine8.length !== 8 || zero8(machine8)) return J({ ok: false, error: "bad hw" }, 400);
+  const id = "hw:" + codeDashed(b32encode(machine8).slice(0, 13));   // dạng chuẩn: đổi bit đệm cuối không ra máy "mới"
   if (!env.TRIALS || !env.SALES_SEED_HEX) return J({ ok: false, error: "trial not configured" }, 503);
   const old = await env.TRIALS.get(id);
   if (old) return J({ ok: true, key: old, again: true, today: todayNum() });

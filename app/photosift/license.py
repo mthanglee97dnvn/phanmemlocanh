@@ -165,9 +165,73 @@ def machine_bytes() -> bytes:
     return hashlib.sha256(("MTCC|" + _guid().lower()).encode()).digest()[:8]
 
 
-def machine_code() -> str:
-    t = base64.b32encode(machine_bytes()).decode().rstrip("=")
+def _code(b: bytes) -> str:
+    t = base64.b32encode(b).decode().rstrip("=")
     return f"{t[:4]}-{t[4:8]}-{t[8:]}"
+
+
+def machine_code() -> str:
+    return _code(machine_bytes())
+
+
+def _hw_ids() -> list[str]:
+    """Mã phần cứng cho key dùng thử — không sửa được bằng Registry như MachineGuid.
+    Windows: SMBIOS UUID (Windows tự ghi lại mỗi lần khởi động ở HKLM\SYSTEM\HardwareConfig) + số serial ổ hệ thống.
+    Mac: IOPlatformUUID + số serial máy. Không đọc được → []."""
+    ids = []
+    if os.name == "nt":
+        try:
+            import winreg
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\HardwareConfig", 0,
+                                winreg.KEY_READ | winreg.KEY_WOW64_64KEY) as k:
+                v = str(winreg.QueryValueEx(k, "LastConfig")[0]).strip("{} ").lower()
+                if v:
+                    ids.append("uuid:" + v)
+        except OSError:
+            pass
+        try:
+            import ctypes
+            serial = ctypes.c_uint32(0)
+            root = (os.environ.get("SystemDrive") or "C:") + "\\"
+            if ctypes.windll.kernel32.GetVolumeInformationW(ctypes.c_wchar_p(root), None, 0, ctypes.byref(serial),
+                                                             None, None, None, 0):
+                ids.append("vol:%08x" % serial.value)
+        except Exception:  # noqa: BLE001
+            pass
+    elif sys.platform == "darwin":
+        try:
+            import subprocess
+            out = subprocess.run(["/usr/sbin/ioreg", "-rd1", "-c", "IOPlatformExpertDevice"], capture_output=True,
+                                 text=True, timeout=5).stdout
+            for name in ("IOPlatformUUID", "IOPlatformSerialNumber"):
+                m = re.search(r'"%s"\s*=\s*"([^"]+)"' % name, out)
+                if m:
+                    ids.append(name + ":" + m.group(1))
+        except Exception:  # noqa: BLE001
+            pass
+    else:
+        try:
+            v = open("/etc/machine-id", encoding="utf-8").read().strip()
+            if v:
+                ids.append("mid:" + v)
+        except OSError:
+            pass
+    return ids
+
+
+_HW_CACHE: dict = {}
+
+
+def hw_bytes() -> bytes:
+    """8 byte mã phần cứng (key dùng thử gắn vào đây). Không đọc được phần cứng → dùng mã máy."""
+    if "v" not in _HW_CACHE:
+        ids = _hw_ids()
+        _HW_CACHE["v"] = hashlib.sha256(("MTCC-HW|" + "|".join(ids)).encode()).digest()[:8] if ids else machine_bytes()
+    return _HW_CACHE["v"]
+
+
+def hw_code() -> str:
+    return _code(hw_bytes())
 
 
 # ---- key
@@ -199,7 +263,10 @@ def parse(text: str) -> dict:
     issued = int.from_bytes(body[2:4], "big")
     exp = int.from_bytes(body[4:6], "big")
     mach = body[6:14]
-    if mach != b"\0" * 8 and mach != machine_bytes():
+    if body[1] == TRIAL_SERIAL and exp != PERMANENT:   # key dùng thử gắn mã phần cứng
+        if mach != hw_bytes():
+            return dict(ok=False, reason="Key này dành cho máy khác. Hãy gửi đúng mã máy để nhận key mới.")
+    elif mach != b"\0" * 8 and mach != machine_bytes():
         return dict(ok=False, reason="Key này dành cho máy khác. Hãy gửi đúng mã máy để nhận key mới.")
     perm = exp == PERMANENT
     trial = body[1] == TRIAL_SERIAL and not perm
@@ -284,7 +351,7 @@ class License:
         try:
             import urllib.request
             req = urllib.request.Request(
-                TRIAL_URL, data=json.dumps(dict(machine=machine_code(), day=today_num())).encode(),
+                TRIAL_URL, data=json.dumps(dict(machine=machine_code(), hw=hw_code(), day=today_num())).encode(),
                 headers={"Content-Type": "application/json", "User-Agent": "MThanglee-CullCollage"}, method="POST")
             with net.urlopen(req, timeout=timeout) as r:
                 data = json.loads(r.read(1 << 16).decode("utf-8", "replace"))
