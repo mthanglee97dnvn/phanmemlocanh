@@ -333,6 +333,9 @@ class Library:
             self._thread.join(timeout=30)
         self._cancel = threading.Event()
         self.root = root
+        # Bỏ ngay danh sách ảnh của thư mục cũ: liệt kê thư mục mới (nhất là trên NAS) có thể mất vài giây,
+        # trong lúc đó lưới không được hiện lại ảnh thư mục trước.
+        self.db.x("DELETE FROM cur")
         with self._vcv:   # bỏ hàng dựng ảnh nét của thư mục trước
             self._vq, self._vlow = [], []
         self._catalog_seed()
@@ -575,6 +578,8 @@ class Library:
             files = self._list_files(root, recursive)
         except Exception as e:  # noqa: BLE001
             self.status.update(state="error", message=friendly(e))
+            return
+        if cancel.is_set():   # người dùng đã mở thư mục khác trong lúc liệt kê: không ghi đè danh sách ảnh
             return
         db = self.db
         fresh = []   # ảnh mới/đổi trong lần quét này: chỉ những ảnh này được đọc sao .xmp
