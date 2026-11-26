@@ -107,6 +107,17 @@ def ui_yield():
         time.sleep(0.05)
 
 
+# Đang xuất ảnh: khâu đọc ảnh xem trước (đọc từ ổ gốc, thường là NAS) tạm nghỉ. Hai việc cùng đọc một ổ NAS làm đầu đọc
+# nhảy qua lại → tốc độ chép tụt từ ~85 MB/s xuống ~17 MB/s (báo lỗi 26/11: 411 ảnh ARW mất 17 phút).
+_EXPORTING = threading.Event()
+
+
+def io_yield(cancel: threading.Event | None = None):
+    """Chờ khi đang xuất ảnh; thoát ngay khi lượt quét bị huỷ (mở thư mục khác)."""
+    while _EXPORTING.is_set() and not (cancel is not None and cancel.is_set()):
+        time.sleep(0.2)
+
+
 def _thread_prio(level: int):
     """Đổi mức ưu tiên CPU của luồng hiện tại trên Windows (-2 thấp nhất … 0 bình thường)."""
     if sys.platform != "win32":
@@ -641,6 +652,7 @@ class Library:
             self.status.update(message="Đang tạo thumbnail nhanh…")
 
             def qa(item):
+                io_yield(cancel)
                 if cancel.is_set():
                     return
                 pid, path = item
@@ -688,6 +700,9 @@ class Library:
             if cancel.is_set():
                 return
             ui_yield()
+            io_yield(cancel)   # đang xuất ảnh: nhường ổ gốc (NAS) cho việc chép
+            if cancel.is_set():
+                return
             img = None
             if not cached:
                 try:
@@ -2309,6 +2324,7 @@ class Library:
                 if low:
                     _thread_prio(-2)
                     ui_yield()
+                    io_yield()   # dựng ảnh nét nền đọc cả file RAW từ ổ gốc: đợi xuất ảnh xong
                 self._view_build(*job)
             except Exception as e:  # noqa: BLE001
                 print("view:", e, file=sys.stderr)
@@ -2533,7 +2549,7 @@ class Library:
             self.export_job = None
         return dict(ok=True)
 
-    def export(self, ids, dest: str, by_person=False, template="{name}", xmp=False, progress=None, stop=None):
+    def _export_copy(self, ids, dest: str, by_person, template, xmp, progress, stop):
         """Sao chép (không bao giờ di chuyển/xoá file gốc)."""
         dest_p = Path(dest)
         made = getattr(self, "_export_made", None) if progress is not None else None
@@ -2619,5 +2635,12 @@ class Library:
         net = any(_is_network(str(j[1])) for j in jobs[:1]) or _is_network(str(dest_p))
         with ThreadPoolExecutor(max_workers=EXPORT_WORKERS_NET if net else EXPORT_WORKERS) as ex:
             list(ex.map(one, jobs))
-        copied = state["copied"]
-        return dict(copied=copied, errors=errors[:20], n_errors=len(errors))
+        return dict(copied=state["copied"], errors=errors[:20], n_errors=len(errors))
+
+    def export(self, ids, dest: str, by_person=False, template="{name}", xmp=False, progress=None, stop=None):
+        """Sao chép (không bao giờ di chuyển/xoá file gốc). Trong lúc chép, khâu đọc ảnh xem trước tạm nghỉ (io_yield)."""
+        _EXPORTING.set()
+        try:
+            return self._export_copy(ids, dest, by_person, template, xmp, progress, stop)
+        finally:
+            _EXPORTING.clear()
