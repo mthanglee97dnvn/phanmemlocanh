@@ -1088,9 +1088,12 @@ const VPRE=new Map(), VHQ=new Map();
 const RAWX=/\.(arw|cr2|cr3|nef|nrw|dng|raf|orf|rw2|pef|srw|x3f|3fr|iiq|rwl|erf|kdc|mrw|mef|mos|sr2|srf)$/i;
 const vBox=()=>[window.innerWidth-290, window.innerHeight-(stripOn?116:0)];
 function vSide(){ const [mw,mh]=vBox(); return Math.min(4096,Math.ceil(Math.max(mw,mh)*(window.devicePixelRatio||1)/256)*256); }
+const PVSZ=new Map(); let pvLast=0;   // cạnh dài THẬT của ảnh cache từng ảnh (Sony nhúng 1616px, Canon/Nikon có thể 2048+)
+function pvSeen(id,im){ const n=Math.max(im.naturalWidth||0,im.naturalHeight||0); if(n){ PVSZ.set(id,n); pvLast=n; } }
 function needHQ(p){   // ảnh cache có đủ nét cho khung xem không
   if(!p) return false; const raw=RAWX.test(p.name), W=p.w||1600, H=p.h||1067, L=Math.max(W,H);
-  const cl=raw?Math.min(L,2048):Math.min(L,1600), [mw,mh]=vBox(), k=Math.min(mw/(W*cl/L),mh/(H*cl/L)), need=cl*k*(window.devicePixelRatio||1);
+  // chưa tải ảnh cache của ảnh này: đoán theo ảnh vừa xem (cùng máy ảnh), chưa có thì đoán thấp (1600) để không bỏ sót ảnh nhòe
+  const cl=Math.min(L, PVSZ.get(p.id)||(raw?(pvLast||1600):1600)), [mw,mh]=vBox(), k=Math.min(mw/(W*cl/L),mh/(H*cl/L)), need=cl*k*(window.devicePixelRatio||1);
   return need>cl*1.04; }   // chỉ giải mã RAW khi màn hình thật sự cần nhiều điểm ảnh hơn ảnh nhúng (giữ đúng màu máy ảnh)
 const hqUrl=id=>`/api/preview?id=${id}&s=${vSide()}&hq=1&v=2`;   // v=2: ảnh nét dựng lại sau khi sửa viền đôi (bỏ bản cũ trình duyệt còn giữ)
 let hqCtl=null, preCtl=null, aheadT=0, aheadKey='';
@@ -1123,6 +1126,7 @@ async function showViewer(){
       fitView(w,h); };
     const apply=(im,u,clear)=>{ // chỉ đổi ảnh khi ảnh mới đã giải mã xong và khung đã đúng cỡ → không còn khung hình lẫn ảnh cũ
       const go=()=>{ if(tok!==vTok||img.dataset.src!==src) return; fit(im.naturalWidth,im.naturalHeight); img.src=u;
+        if(u===src) pvSeen(p.id,im);
         if(u===src&&!Z.hi&&!S.zoom) upgradeHQ(p,tok,src);
       };
       (im.decode?im.decode().then(go,go):go()); };
@@ -1143,7 +1147,7 @@ async function showViewer(){
   // nạp trước theo hướng đang lật (4 ảnh tới + 1 ảnh lùi) để bấm liên tục vẫn có ảnh nét sẵn
   for(const d of [1,2,3,4,-1]){ const o=S.view[ix+d*vDir]; if(!o) continue; const u=`/api/preview?id=${o.id}&s=2000`;
     if(VPRE.has(u)){ const v=VPRE.get(u); VPRE.delete(u); VPRE.set(u,v); continue; }
-    const pre=new Image(); pre.decoding='async'; VPRE.set(u,pre); pre.src=u; }
+    const pre=new Image(); pre.decoding='async'; pre.onload=()=>pvSeen(o.id,pre); VPRE.set(u,pre); pre.src=u; }
   while(VPRE.size>24) VPRE.delete(VPRE.keys().next().value);
   renderInfo(p, ix); renderBadge(p); renderRate(p); loadBoxes(p, tok); renderFocus(p); updateMask(); renderStrip(true); sendAhead();
 }
