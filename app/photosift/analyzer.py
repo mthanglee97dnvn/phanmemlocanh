@@ -546,16 +546,35 @@ def _align(dec, ref):
 ALIGN_MIN = 0.3   # khớp kém hơn mức này (ảnh lạ, RAW hỏng…) thì chỉ dùng JPEG nhúng, không ghép chi tiết
 
 
+DETAIL_GAIN_MAX = 4.0   # chi tiết RAW được khuếch đại tối đa ngần này lần (tránh làm nổi nhiễu ISO cao)
+VIEW_SHARPEN = 0.5     # làm nét đầu ra cho màn hình (unsharp bán kính 1px)
+
+
+def _detail_gain(det, ye, sig):
+    """Hệ số nhân lớp chi tiết RAW (det) cho đủ nét như JPEG máy ảnh: so độ lớn của chính lớp chi tiết đó với
+    lớp cùng dải tần của JPEG nhúng phóng lên (ye). RAW chưa qua làm nét như ảnh máy → hệ số thường > 1."""
+    ea = float(np.std(det))
+    eb = float(np.std(ye - cv2.GaussianBlur(ye, (0, 0), sig)))
+    if ea < 0.3:   # RAW gần như phẳng (hỏng / mất nét hẳn): không khuếch đại nhiễu
+        return 1.0
+    return float(np.clip(eb / ea, 1.0, DETAIL_GAIN_MAX))
+
+
 def _match_tone(src, ref):
     """Giữ nguyên màu và tông của JPEG nhúng (màu máy ảnh), chỉ lấy thêm chi tiết nét từ ảnh giải mã RAW:
     màu (Cr, Cb) và độ sáng tổng thể lấy từ ảnh máy ảnh phóng lên; phần chi tiết nhỏ lấy từ RAW.
     (Khớp histogram từng kênh như trước không giữ được sắc độ: áo xanh, áo hồng bị đậm lên.)"""
     H, W = src.shape[:2]
+    h, w = ref.shape[:2]
     up = cv2.resize(ref, (W, H), interpolation=cv2.INTER_CUBIC)
     yr = cv2.cvtColor(src, cv2.COLOR_BGR2YCrCb)[..., 0].astype(np.float32)
     ye = cv2.cvtColor(up, cv2.COLOR_BGR2YCrCb)
-    sig = max(1.0, 0.8 * W / ref.shape[1])
-    y = cv2.GaussianBlur(ye[..., 0].astype(np.float32), (0, 0), sig) + (yr - cv2.GaussianBlur(yr, (0, 0), sig))
+    sig = max(1.0, 0.8 * W / w)
+    det = yr - cv2.GaussianBlur(yr, (0, 0), sig)
+    y0 = ye[..., 0].astype(np.float32)
+    y = cv2.GaussianBlur(y0, (0, 0), sig) + det * _detail_gain(det, y0, sig)
+    # chi tiết mịn hơn cả cỡ JPEG nhúng: RAW chưa qua làm nét như ảnh máy ảnh → làm nét nhẹ để ảnh xem trên màn hình rõ như ảnh máy
+    y = y + VIEW_SHARPEN * (y - cv2.GaussianBlur(y, (0, 0), 1.0))
     ye[..., 0] = np.clip(y, 0, 255).astype(np.uint8)
     return cv2.cvtColor(ye, cv2.COLOR_YCrCb2BGR)
 

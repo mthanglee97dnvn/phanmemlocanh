@@ -809,7 +809,10 @@ def make_handler(lib: Library, token: str, port: int, lic: License):
                 if u.path == "/api/suggest/rate/undo":
                     return self._json(lib.suggest_rate_undo(b.get("batch")))
                 if u.path == "/api/view/ahead":   # trình xem báo các ảnh sắp xem để dựng ảnh nét trước
-                    lib.view_focus([int(i) for i in (b.get("ids") or [])[:24]], int(b.get("s") or 0))
+                    if b.get("items"):   # [[id, cạnh dài], …]: mỗi ảnh một cỡ (ảnh dọc / ngang chiếm khung khác nhau)
+                        lib.view_focus_items([(int(i), int(sd)) for i, sd in b["items"][:24]], int(b.get("s") or 0))
+                    else:
+                        lib.view_focus([int(i) for i in (b.get("ids") or [])[:24]], int(b.get("s") or 0))
                     return self._json(dict(ok=True))
                 if u.path == "/api/rate":
                     if "pairs" in b:

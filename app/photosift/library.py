@@ -2269,7 +2269,7 @@ class Library:
         self._xmp_mark(ids)
 
     # ------------------------------------------------------------------ ảnh nét cho trình xem
-    VIEW_VERSION = 2   # 2: khớp méo ống kính trước khi ghép chi tiết RAW (bản 1 bị viền đôi)
+    VIEW_VERSION = 3   # 3: làm nét chi tiết RAW cho bằng ảnh máy ảnh + dựng đúng cỡ hiển thị (bản 2 mềm hơn JPEG nhúng)
 
     def _view_reset(self):
         """Ảnh nét dựng bằng cách cũ thì bỏ đi (dựng lại khi xem). Đổi tên thư mục cũ ngay (tức thì, trình xem không thể
@@ -2298,7 +2298,7 @@ class Library:
             return
         p = self.path_of(pid)
         img = load_view(p, side) if p else None
-        data = _jpg(img, 90) if img is not None else b""
+        data = _jpg(img, 93) if img is not None else b""
         if data:
             tmp = f.with_suffix(".tmp")
             tmp.write_bytes(data)
@@ -2350,6 +2350,14 @@ class Library:
         self._vsides.add(side)
         with self._vcv:
             self._vq = [(int(i), side) for i in ids if not self.view_file(int(i), side).exists()]
+            self._vcv.notify_all()
+
+    def view_focus_items(self, items, side: int):
+        """Như view_focus nhưng mỗi ảnh một cỡ (cạnh dài đúng bằng số điểm ảnh ảnh đó chiếm trên màn hình)."""
+        self.view_focus([], side)
+        with self._vcv:
+            self._vq = [(i, sd) for i, sd in items if sd > 0 and not self.view_file(i, sd).exists()]
+            self._vsides.update(sd for _, sd in items if sd > 0)
             self._vcv.notify_all()
 
     def view_all(self):

@@ -1095,7 +1095,10 @@ function needHQ(p){   // ảnh cache có đủ nét cho khung xem không
   // chưa tải ảnh cache của ảnh này: đoán theo ảnh vừa xem (cùng máy ảnh), chưa có thì đoán thấp (1600) để không bỏ sót ảnh nhòe
   const cl=Math.min(L, PVSZ.get(p.id)||(raw?(pvLast||1600):1600)), [mw,mh]=vBox(), k=Math.min(mw/(W*cl/L),mh/(H*cl/L)), need=cl*k*(window.devicePixelRatio||1);
   return need>cl*1.04; }   // chỉ giải mã RAW khi màn hình thật sự cần nhiều điểm ảnh hơn ảnh nhúng (giữ đúng màu máy ảnh)
-const hqUrl=id=>`/api/preview?id=${id}&s=${vSide()}&hq=1&v=2`;   // v=2: ảnh nét dựng lại sau khi sửa viền đôi (bỏ bản cũ trình duyệt còn giữ)
+function vSideFor(p){   // cạnh dài đúng bằng số điểm ảnh thật ảnh chiếm trên màn hình (±32px): hiện 1:1, trình duyệt không phải co giãn thêm
+  const [mw,mh]=vBox(), W=p.w||1600, H=p.h||1067, k=Math.min(mw/W,mh/H);
+  return Math.max(800,Math.min(4096,Math.ceil(Math.max(W,H)*k*(window.devicePixelRatio||1)/32)*32)); }
+const hqUrl=p=>`/api/preview?id=${p.id}&s=${vSideFor(p)}&hq=1&v=3`;   // v=3: bản nét dựng lại (làm nét chi tiết RAW, đúng cỡ hiển thị)   // v=2: ảnh nét dựng lại sau khi sửa viền đôi (bỏ bản cũ trình duyệt còn giữ)
 let hqCtl=null, preCtl=null, aheadT=0, aheadKey='';
 function hqKeep(u,im){ VHQ.set(u,im); while(VHQ.size>8){ const [k,o]=VHQ.entries().next().value; VHQ.delete(k); try{ URL.revokeObjectURL(o.src); }catch(e){} } }
 async function hqLoad(u,ctl){   // tải + giải mã sẵn; trả về Image hoặc null
@@ -1103,17 +1106,17 @@ async function hqLoad(u,ctl){   // tải + giải mã sẵn; trả về Image ho
   const im=new Image(); im.src=URL.createObjectURL(await r.blob()); try{ await im.decode(); }catch(e){ return null; }
   hqKeep(u,im); return im; }
 function upgradeHQ(p,tok,src){
-  if(!needHQ(p)) return; const u=hqUrl(p.id), img=$('#vimg'); const sw=im=>{ if(im&&tok===vTok&&img.dataset.src===src&&!S.zoom) img.src=im.src; };
+  if(!needHQ(p)) return; const u=hqUrl(p), img=$('#vimg'); const sw=im=>{ if(im&&tok===vTok&&img.dataset.src===src&&!S.zoom) img.src=im.src; };
   const have=VHQ.get(u); if(have){ sw(have); return; }
   if(hqCtl) hqCtl.abort(); const c=hqCtl=new AbortController();
   hqLoad(u,c).then(im=>{ sw(im); if(c===hqCtl) prefetchHQ(); }).catch(()=>{}); }
 function prefetchHQ(){   // xong ảnh đang xem thì tải sẵn ảnh kế tiếp (đã được dựng trước ở nền)
-  const ix=S.view.findIndex(x=>x.id===S.cur), nx=S.view[ix+1]; if(!nx||!needHQ(nx)) return; const u=hqUrl(nx.id); if(VHQ.has(u)) return;
+  const ix=S.view.findIndex(x=>x.id===S.cur), nx=S.view[ix+1]; if(!nx||!needHQ(nx)) return; const u=hqUrl(nx); if(VHQ.has(u)) return;
   if(preCtl) preCtl.abort(); preCtl=new AbortController(); hqLoad(u,preCtl).catch(()=>{}); }
 function sendAhead(){   // báo app dựng trước ảnh đang xem + 6 ảnh kế + 2 ảnh trước
   clearTimeout(aheadT); aheadT=setTimeout(()=>{ const ix=S.view.findIndex(x=>x.id===S.cur); if(ix<0) return;
-    const ids=[0,1,2,3,4,5,6,-1,-2].map(d=>S.view[ix+d]).filter(p=>p&&needHQ(p)).map(p=>p.id), k=ids.join(',')+'@'+vSide();
-    if(!ids.length||k===aheadKey) return; aheadKey=k; fetch('/api/view/ahead',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids,s:vSide()})}).catch(()=>{}); },120); }
+    const items=[0,1,2,3,4,5,6,-1,-2].map(d=>S.view[ix+d]).filter(p=>p&&needHQ(p)).map(p=>[p.id,vSideFor(p)]), k=items.join(';');
+    if(!items.length||k===aheadKey) return; aheadKey=k; fetch('/api/view/ahead',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({items,s:items[0][1]})}).catch(()=>{}); },120); }
 async function showViewer(){
   const p=S.by.get(S.cur); if(!p){ closeViewer(); return; }
   const tok=++vTok; const img=$('#vimg'); $('#vstage').classList.toggle('zoom',S.zoom); if(S.zoom) sizeZoom();
@@ -1130,7 +1133,7 @@ async function showViewer(){
         if(u===src&&!Z.hi&&!S.zoom) upgradeHQ(p,tok,src);
       };
       (im.decode?im.decode().then(go,go):go()); };
-    const done=VPRE.get(src), hq=!Z.hi&&!S.zoom&&needHQ(p)?VHQ.get(hqUrl(p.id)):null;
+    const done=VPRE.get(src), hq=!Z.hi&&!S.zoom&&needHQ(p)?VHQ.get(hqUrl(p)):null;
     if(hq){ const go=()=>{ if(tok!==vTok||img.dataset.src!==src) return; fit(hq.naturalWidth,hq.naturalHeight); img.src=hq.src; }; go(); prefetchHQ(); }   // đã có bản nét: hiện luôn
     else if(done&&done.complete&&done.naturalWidth){ apply(done,src,true); }   // đã nạp trước: hiện ngay, không qua thumbnail
     else{
